@@ -1,0 +1,92 @@
+﻿@page "/users/create"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<RadzenStack Style="max-width: 1200px; margin: 0 auto;">
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="mb-4">
+        Crear Usuario
+    </RadzenText>
+
+    @if (!isLoaded)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" class="mb-4" />
+    }
+    else
+    {
+        <RadzenTemplateForm TItem="CreateUserFormModel" Data=@model Submit=@HandleSubmit>
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                    Información de Cuenta
+                </RadzenText>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="Username" Text="Nombre de Usuario" />
+                        <RadzenTextBox @bind-Value=@model.UserData.Username Name="Username"
+                                       style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="Username" Text="El nombre de usuario es requerido" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Component="Password" Text="Contraseña" />
+                        <RadzenPassword @bind-Value=@model.UserData.Password Name="Password"
+                                        style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="Password" Text="La contraseña es requerida" />
+                        <RadzenLengthValidator Component="Password" Min="6" Text="La contraseña debe tener al menos 6 caracteres" />
+                    </div>
+                </div>
+
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                    Información Personal
+                </RadzenText>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="FirstName" Text="Nombre" />
+                        <RadzenTextBox @bind-Value=@model.UserData.FirstName Name="FirstName"
+                                       style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="FirstName" Text="El nombre es requerido" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Component="LastName" Text="Apellido" />
+                        <RadzenTextBox @bind-Value=@model.UserData.LastName Name="LastName"
+                                       style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="LastName" Text="El apellido es requerido" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="Email" Text="Correo Electrónico" />
+                        <RadzenTextBox @bind-Value=@model.UserData.Email Name="Email"
+                                       style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="Email" Text="El correo electrónico es requerido" />
+                        <RadzenEmailValidator Component="Email" Text="Formato de correo electrónico inválido" />
+                    </div>
+                </div>
+            </RadzenCard>
+
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                    Roles de Usuario
+                </RadzenText>
+
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Gap="1rem"
+                             Style="flex-wrap: wrap" Class="mb-3">
+                    @foreach (var roleSelection in model.RoleSelections)
+                    {
+                        <RadzenCheckBox @bind-Value=@roleSelection.IsSelected Name="@($"role_{roleSelection.RoleId}")"
+                                        TValue="bool" class="me-2" />
+                        <RadzenLabel Text="@roleSelection.RoleName" Component="@($"role_{roleSelection.RoleId}")"
+                                     Style="margin-right: 1rem;" />
+                    }
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar" ButtonStyle="ButtonStyle.Primary" />
+                <RadzenButton Click=@(() => navigationManager.NavigateTo("/users"))
+                              Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+            </RadzenStack>
+        </RadzenTemplateForm>
+    }
+</RadzenStack>

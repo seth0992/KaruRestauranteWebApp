@@ -1,0 +1,103 @@
+﻿@using Blazored.Toast.Configuration
+@using Microsoft.AspNetCore.Components.Authorization
+@inherits LayoutComponentBase
+
+<RadzenLayout>
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+            <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
+    
+              
+                <RadzenLabel Text="Header" />
+                <div class="d-flex align-items-center ms-auto me-3">
+                <RadzenAppearanceToggle class="rz-mx-2" />
+                    @* <CultureSelector /> *@
+                    <AuthorizeView Context="authContext">
+                        <Authorized>
+                        <RadzenProfileMenu>
+                            <Template>
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="5">
+                                <RadzenIcon Icon="account_circle" />
+                                 @authContext.User.Identity?.Name
+                                </RadzenStack>
+                            </Template>
+                            <ChildContent>
+                                <RadzenProfileMenuItem Text="Cerrar Sesión" Path="logout" Icon="logout" Click=@(() => NavigationManager.NavigateTo("/logout"))></RadzenProfileMenuItem>
+                            </ChildContent>
+                        </RadzenProfileMenu>
+
+                        </Authorized>
+                        <NotAuthorized>
+                            <RadzenButton Click=@(() => NavigationManager.NavigateTo("/login"))
+                                          ButtonStyle="ButtonStyle.Secondary"
+                                          Size="ButtonSize.Small"
+                                          Icon="login"
+                                          Text="Iniciar Sesión" />
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </div>
+                
+
+        </RadzenStack>
+    </RadzenHeader>
+    <RadzenSidebar Responsive="false" Style="width: max-content">
+        <RadzenPanelMenu DisplayStyle="@(sidebarExpanded ? MenuItemDisplayStyle.IconAndText : MenuItemDisplayStyle.Icon)" ShowArrow="false">
+            <RadzenPanelMenuItem Text="Inicio" Icon="home" Path="/"/>
+            <RadzenPanelMenuItem Text="Gestión" Icon="dashboard">
+                <RadzenPanelMenuItem Text="Productos" Icon="inventory" Path="/products" />
+                <RadzenPanelMenuItem Text="Categorías" Icon="category" Path="/categories" />
+                <RadzenPanelMenuItem Text="Inventario" Icon="inventory_2" Path="/inventory/ingredients" />
+            </RadzenPanelMenuItem>
+            <AuthorizeView Roles="SuperAdmin,Admin" Context="adminContext">
+                <Authorized>
+                    <RadzenPanelMenuItem Text="Administración" Icon="admin_panel_settings">
+                        <RadzenPanelMenuItem Text="Usuarios" Icon="people" Path="/users" />
+                        <RadzenPanelMenuItem Text="Roles" Icon="security" Path="/roles" />
+                    </RadzenPanelMenuItem>
+                </Authorized>
+            </AuthorizeView>
+         @*    <RadzenPanelMenuItem Text="UI Fundamentals" Icon="auto_awesome">
+                <RadzenPanelMenuItem Text="Themes" Icon="color_lens" />
+                <RadzenPanelMenuItem Text="Colors" Icon="invert_colors" />
+            </RadzenPanelMenuItem> *@
+        </RadzenPanelMenu>
+    </RadzenSidebar>
+    <RadzenBody>
+        <div class="rz-p-4">
+            @Body
+        </div>
+    </RadzenBody>
+    <RadzenFooter>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center"
+                      Style="text-align: center" AlignItems="AlignItems.Center">
+            <RadzenText TextStyle="TextStyle.Caption">
+                SISKARÚ © @DateTime.Now.Year - Todos los derechos reservados
+            </RadzenText>
+        </RadzenStack>
+    </RadzenFooter>
+</RadzenLayout>
+
+<RadzenDialog />
+<RadzenNotification />
+<RadzenTooltip />
+<RadzenContextMenu />
+
+<BlazoredToasts Position="ToastPosition.TopCenter"
+                Timeout="10"
+                IconType="IconType.FontAwesome"
+                SuccessClass="success-toast-override"
+                SuccessIcon="fa fa-thumbs-up"
+                ErrorIcon="fa fa-bug" />
+
+<div id="blazor-error-ui">
+    Ha ocurrido un error en la aplicación.
+    <a href="" class="reload">Recargar</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    [Inject]
+    public NavigationManager NavigationManager { get; set; } = null!;
+
+    private bool sidebarExpanded = true;
+}

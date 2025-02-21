@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\KaruRestauranteWebApp.Common\KaruRestauranteWebApp.Common.csproj" />
+    <ProjectReference Include="..\KaruRestauranteWebApp.Database\KaruRestauranteWebApp.Database.csproj" />
+    <ProjectReference Include="..\KaruRestauranteWebApp.Models\KaruRestauranteWebApp.Models.csproj" />
+  </ItemGroup>
+
+</Project>

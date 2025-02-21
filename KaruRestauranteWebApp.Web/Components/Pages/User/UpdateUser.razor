@@ -1,0 +1,192 @@
+﻿@page "/users/edit/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<RadzenStack Style="max-width: 1200px; margin: 0 auto;">
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="mb-4">
+        Modificar Usuario
+    </RadzenText>
+
+    @if (!isLoaded)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" class="mb-4" />
+    }
+    else
+    {
+        <RadzenTemplateForm TItem="UpdateUserFormModel" Data=@model Submit=@HandleSubmit>
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                    Información de Cuenta
+                </RadzenText>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="Username" Text="Nombre de Usuario" />
+                        <RadzenTextBox @bind-Value=@model.UserData.Username Name="Username"
+                                       style="width: 100%;" class="mb-1" Disabled="true" />
+                        <small class="text-muted">El nombre de usuario no puede ser modificado</small>
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Component="Email" Text="Correo Electrónico" />
+                        <RadzenTextBox @bind-Value=@model.UserData.Email Name="Email"
+                                       style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="Email" Text="El correo electrónico es requerido" />
+                        <RadzenEmailValidator Component="Email" Text="Formato de correo electrónico inválido" />
+                    </div>
+                </div>
+            </RadzenCard>
+
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                    Información Personal
+                </RadzenText>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="FirstName" Text="Nombre" />
+                        <RadzenTextBox @bind-Value=@model.UserData.FirstName Name="FirstName"
+                                       style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="FirstName" Text="El nombre es requerido" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Component="LastName" Text="Apellido" />
+                        <RadzenTextBox @bind-Value=@model.UserData.LastName Name="LastName"
+                                       style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="LastName" Text="El apellido es requerido" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="IsActive" Text="Estado de la Cuenta" class="mb-2" />
+                        <div class="d-flex align-items-center">
+                            <RadzenSwitch @bind-Value=@model.UserData.IsActive Name="IsActive" />
+                            <RadzenLabel Component="IsActive" Text="@(model.UserData.IsActive ? "Cuenta Activa" : "Cuenta Inactiva")"
+                                         class="ms-2" />
+                        </div>
+                    </div>
+                </div>
+            </RadzenCard>
+
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                    Roles Asignados
+                </RadzenText>
+
+                <RadzenAlert Severity="Severity.Info" AllowClose="false" class="mb-3">
+                    <div class="d-flex align-items-center">
+                        <RadzenIcon Icon="info" class="me-2" />
+                        <span>Seleccione al menos un rol para el usuario</span>
+                    </div>
+                </RadzenAlert>
+
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Gap="1rem"
+                             Style="flex-wrap: wrap" Class="mb-3">
+                    @foreach (var roleSelection in model.RoleSelections)
+                    {
+                        <div class="d-flex align-items-center me-4">
+                            <RadzenCheckBox @bind-Value=@roleSelection.IsSelected Name="@($"role_{roleSelection.RoleId}")"
+                                            TValue="bool" class="me-2" />
+                            <RadzenLabel Text="@roleSelection.RoleName" Component="@($"role_{roleSelection.RoleId}")" />
+                        </div>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+                <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Text="Guardar Cambios"
+                              ButtonStyle="ButtonStyle.Primary" />
+                <RadzenButton Click=@(() => NavigationManager.NavigateTo("/users")) Icon="cancel"
+                              Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+            </RadzenStack>
+        </RadzenTemplateForm>
+
+        @if (model.UserData.LastLogin.HasValue)
+        {
+            <RadzenCard class="mt-4">
+                <RadzenText TextStyle="TextStyle.Subtitle2" class="mb-0">
+                    Último acceso: @model.UserData.LastLogin.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                </RadzenText>
+            </RadzenCard>
+        }
+    }
+</RadzenStack>
+
+
+@* <div class="container">
+    <div class="row">
+        <div class="col">
+            <h3>Modificar Usuario</h3>
+        </div>
+    </div>
+
+    @if (!isLoaded)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <EditForm Model="@model" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Nombre de Usuario</label>
+                    <InputText @bind-Value="model.UserData.Username" class="form-control" disabled />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Email</label>
+                    <InputText type="email" @bind-Value="model.UserData.Email" class="form-control" />
+                    <ValidationMessage For="@(() => model.UserData.Email)" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Nombre</label>
+                    <InputText @bind-Value="model.UserData.FirstName" class="form-control" />
+                    <ValidationMessage For="@(() => model.UserData.FirstName)" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Apellido</label>
+                    <InputText @bind-Value="model.UserData.LastName" class="form-control" />
+                    <ValidationMessage For="@(() => model.UserData.LastName)" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Estado</label>
+                    <div class="form-check">
+                        <InputCheckbox @bind-Value="model.UserData.IsActive" class="form-check-input" />
+                        <label class="form-check-label">Usuario Activo</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Roles</label>
+                    @foreach (var roleSelection in model.RoleSelections)
+                    {
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input"
+                                   @bind="roleSelection.IsSelected" />
+                            <label class="form-check-label">
+                                @roleSelection.RoleName
+                            </label>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col">
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <a href="/users" class="btn btn-secondary ms-2">Cancelar</a>
+                </div>
+            </div>
+        </EditForm>
+    }
+</div> *@

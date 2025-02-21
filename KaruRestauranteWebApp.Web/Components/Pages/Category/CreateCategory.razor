@@ -1,0 +1,44 @@
+﻿@page "/categories/create"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<div class="container">
+    <div class="row">
+        <div class="col">
+            <h3>Crear Categoría</h3>
+        </div>
+    </div>
+
+    <EditForm Model="@category" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Nombre</label>
+                <InputText @bind-Value="category.Name" class="form-control" />
+                <ValidationMessage For="@(() => category.Name)" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Descripción</label>
+                <InputTextArea @bind-Value="category.Description" class="form-control" rows="3" />
+                <ValidationMessage For="@(() => category.Description)" />
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="form-check">
+                    <InputCheckbox @bind-Value="category.IsActive" class="form-check-input" id="isActive" />
+                    <label class="form-check-label" for="isActive">Activo</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <a href="/categories" class="btn btn-secondary ms-2">Cancelar</a>
+            </div>
+        </div>
+    </EditForm>
+</div>

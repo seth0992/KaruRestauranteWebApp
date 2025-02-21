@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\KaruRestauranteWebApp.BL\KaruRestauranteWebApp.BL.csproj" />
+    <ProjectReference Include="..\KaruRestauranteWebApp.Common\KaruRestauranteWebApp.Common.csproj" />
+    <ProjectReference Include="..\KaruRestauranteWebApp.Models\KaruRestauranteWebApp.Models.csproj" />
+    <ProjectReference Include="..\KaruRestauranteWebApp.ServiceDefaults\KaruRestauranteWebApp.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
+	  <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.1" />
+	  <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="7.2.0" />
+	  <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="7.2.0" />
+	  <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.1" />
+  </ItemGroup>
+
+</Project>

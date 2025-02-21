@@ -1,0 +1,145 @@
+﻿@page "/inventory/ingredients"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h3>Gestión de Ingredientes</h3>
+        </div>
+
+
+        <AuthorizeView Roles="SuperAdmin,Admin">
+            <Authorized>
+                <div class="col text-end">
+                    <button class="btn btn-primary" @onclick="@(() => NavigationManager.NavigateTo("/inventory/ingredients/create"))">
+                        <i class="bi bi-plus-circle"></i> Nuevo Ingrediente
+                    </button>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+
+    @if (ingredients == null)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (lowStockItems.Any())
+        {
+            <div class="alert alert-warning mb-4">
+                <h5><i class="bi bi-exclamation-triangle"></i> Alertas de Stock Bajo</h5>
+                <ul class="mb-0">
+                    @foreach (var item in lowStockItems)
+                    {
+                        <li>
+                            @item.Name - Stock actual: @item.StockQuantity @item.UnitOfMeasure
+                            (Mínimo: @item.MinimumStock @item.UnitOfMeasure)
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Stock Actual</th>
+                        <th>Unidad</th>
+                        <th>Stock Mínimo</th>
+                        <th>Costo</th>
+                        <th>Última Reposición</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ingredient in ingredients)
+                    {
+                        <tr class="@(ingredient.StockQuantity <= ingredient.MinimumStock ? "table-warning" : "")">
+                            <td>@ingredient.Name</td>
+                            <td>@ingredient.StockQuantity</td>
+                            <td>@ingredient.UnitOfMeasure</td>
+                            <td>@ingredient.MinimumStock</td>
+                            <td>@ingredient.Cost.ToString("C2")</td>
+                            <td>@(ingredient.LastRestockDate?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "N/A")</td>
+                            <td>
+                                <span class="badge @(ingredient.IsActive ? "bg-success" : "bg-danger")">
+                                    @(ingredient.IsActive ? "Activo" : "Inactivo")
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-primary"
+                                        @onclick="() => ShowTransactionModal(ingredient)">
+                                    <i class="bi bi-box-arrow-in-down"></i> Movimiento
+                                </button>
+                                <button class="btn btn-sm btn-secondary"
+                                        @onclick="@(() => NavigationManager.NavigateTo($"/inventory/ingredients/edit/{ingredient.ID}"))">
+                                    <i class="bi bi-pencil"></i> Editar
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <AppModal @ref="transactionModal">
+        <Title>Registrar Movimiento de Inventario</Title>
+        <Body>
+            @if (selectedIngredient != null)
+            {
+                <EditForm Model="@newTransaction" OnValidSubmit="HandleTransactionSubmit">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label class="form-label">Ingrediente</label>
+                        <input type="text" class="form-control" value="@selectedIngredient.Name" disabled />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Movimiento</label>
+                        <InputSelect @bind-Value="newTransaction.TransactionType" class="form-select">
+                            <option value="">Seleccione...</option>
+                            <option value="PURCHASE">Compra</option>
+                            <option value="CONSUMPTION">Consumo</option>
+                            <option value="ADJUSTMENT">Ajuste</option>
+                            <option value="LOSS">Pérdida</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => newTransaction.TransactionType)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Cantidad</label>
+                        <InputNumber @bind-Value="newTransaction.Quantity" class="form-control" />
+                        <ValidationMessage For="@(() => newTransaction.Quantity)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Precio Unitario</label>
+                        <InputNumber @bind-Value="newTransaction.UnitPrice" class="form-control" />
+                        <ValidationMessage For="@(() => newTransaction.UnitPrice)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notas</label>
+                        <InputTextArea @bind-Value="newTransaction.Notes" class="form-control" rows="3" />
+                    </div>
+                </EditForm>
+            }
+        </Body>
+        <Footer>
+            <button type="button" class="btn btn-primary" @onclick="HandleTransactionSubmit">Guardar</button>
+            <button type="button" class="btn btn-secondary" @onclick="@(() => transactionModal.Close())">Cancelar</button>
+        </Footer>
+    </AppModal>
+</div>

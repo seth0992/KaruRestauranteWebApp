@@ -1,0 +1,30 @@
+﻿@page "/roles/create"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<div class="container">
+    <div class="row">
+        <div class="col">
+            <h3>Crear Rol</h3>
+        </div>
+    </div>
+
+    <EditForm Model="@role" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Nombre del Rol</label>
+                <InputText @bind-Value="role.RoleName" class="form-control" />
+                <ValidationMessage For="@(() => role.RoleName)" />
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <a href="/roles" class="btn btn-secondary ms-2">Cancelar</a>
+            </div>
+        </div>
+    </EditForm>
+</div>

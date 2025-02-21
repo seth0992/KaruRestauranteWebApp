@@ -1,0 +1,101 @@
+﻿@page "/users"
+@using Microsoft.AspNetCore.Authorization
+@inject ApiClient ApiClient
+@inject IToastService ToastService
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@using KaruRestauranteWebApp.Models.Entities.Users
+
+<RadzenStack>
+    <RadzenRow class="align-items-center mb-4" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.H3">Gestión de Usuarios</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="6" class="text-end">
+            <RadzenButton Icon="add" Text="Nuevo Usuario" ButtonStyle="ButtonStyle.Primary"
+                          Click=@(() => NavigationManager.NavigateTo("/users/create")) />
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (users == null)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else
+    {
+        <RadzenCard Variant="Variant.Flat">
+            <RadzenDataGrid Data="@users" TItem="UserModel"
+                            AllowFiltering="true"
+                            AllowColumnResize="true"
+                            AllowSorting="true"
+                            AllowPaging="true"
+                            PageSize="10"
+                            FilterMode="FilterMode.Advanced"
+                            FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+                <Columns>
+                    <RadzenDataGridColumn TItem="UserModel" Property="Username" Title="Usuario"
+                                          Width="150px">
+                        <Template Context="user">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                <RadzenIcon Icon="account_circle" />
+                                <RadzenText>@user.Username</RadzenText>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="UserModel" Property="FullName" Title="Nombre"
+                                          Width="200px" />
+
+                    <RadzenDataGridColumn TItem="UserModel" Property="Email" Title="Email"
+                                          Width="200px" />
+
+                    <RadzenDataGridColumn TItem="UserModel" Property="UserRoles" Title="Roles"
+                                          Width="200px">
+                        <Template Context="user">
+                            <RadzenStack Gap="0.5rem" Orientation="Orientation.Horizontal">
+                                @foreach (var role in user.UserRoles)
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@role.Role.RoleName" />
+                                }
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="UserModel" Property="IsActive" Title="Estado"
+                                          Width="100px">
+                        <Template Context="user">
+                            <RadzenBadge BadgeStyle="@(user.IsActive ? BadgeStyle.Success : BadgeStyle.Danger)"
+                                         Text="@(user.IsActive ? "Activo" : "Inactivo")" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="UserModel" Property="LastLogin" Title="Último Acceso"
+                                          Width="150px">
+                        <Template Context="user">
+                            @(user.LastLogin?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "Nunca")
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="UserModel" Width="150px" Title="Acciones">
+                        <Template Context="user">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem">
+                                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Medium"
+                                              Click=@(() => NavigationManager.NavigateTo($"/users/edit/{user.ID}"))
+                                              Class="m-1" />
+
+                                @if (IsCurrentUserSuperAdmin)
+                                {
+                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Medium"
+                                                  Click=@(() => ShowDeleteConfirmation(user))
+                                                  Class="m-1" />
+                                }
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenCard>
+    }
+
+
+</RadzenStack>

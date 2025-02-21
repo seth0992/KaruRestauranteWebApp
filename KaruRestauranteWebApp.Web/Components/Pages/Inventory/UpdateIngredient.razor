@@ -1,0 +1,87 @@
+﻿@page "/inventory/ingredients/edit/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<div class="container">
+    <div class="row">
+        <div class="col">
+            <h3>Editar Ingrediente</h3>
+        </div>
+    </div>
+
+    @if (!isLoaded)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <EditForm Model="@ingredient" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Nombre</label>
+                    <InputText @bind-Value="ingredient.Name" class="form-control" />
+                    <ValidationMessage For="@(() => ingredient.Name)" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Unidad de Medida</label>
+                    <InputSelect @bind-Value="ingredient.UnitOfMeasure" class="form-select">
+                        <option value="">Seleccione...</option>
+                        <option value="g">Gramos (g)</option>
+                        <option value="kg">Kilogramos (kg)</option>
+                        <option value="ml">Mililitros (ml)</option>
+                        <option value="l">Litros (l)</option>
+                        <option value="unidad">Unidades</option>
+                    </InputSelect>
+                    <ValidationMessage For="@(() => ingredient.UnitOfMeasure)" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Stock Actual</label>
+                    <InputNumber @bind-Value="ingredient.StockQuantity" class="form-control" disabled />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Stock Mínimo</label>
+                    <InputNumber @bind-Value="ingredient.MinimumStock" class="form-control" />
+                    <ValidationMessage For="@(() => ingredient.MinimumStock)" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Costo Unitario</label>
+                    <InputNumber @bind-Value="ingredient.Cost" class="form-control" />
+                    <ValidationMessage For="@(() => ingredient.Cost)" />
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check mt-4">
+                        <InputCheckbox @bind-Value="ingredient.IsActive" class="form-check-input" id="isActive" />
+                        <label class="form-check-label" for="isActive">Ingrediente Activo</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label class="form-label">Descripción</label>
+                    <InputTextArea @bind-Value="ingredient.Description" class="form-control" rows="3" />
+                    <ValidationMessage For="@(() => ingredient.Description)" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col">
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <a href="/inventory/ingredients" class="btn btn-secondary ms-2">Cancelar</a>
+                </div>
+            </div>
+        </EditForm>
+    }
+</div>

@@ -1,0 +1,43 @@
+﻿@using System.Globalization
+@inject NavigationManager navigationManager
+
+
+<select class="me-4 form-select form-select-sm w-auto" @bind="selectedCulture" @bind:after="ApplySelectedCulture">
+    @foreach (var culture in supportedCultures)
+    {
+        <option value="@culture">@culture.DisplayName</option>
+    }
+</select>
+
+
+@code {
+
+    private CultureInfo[] supportedCultures = new[]
+       {
+        new CultureInfo("en-US"),
+        new CultureInfo("es-ES"),
+    };
+
+    private CultureInfo selectedCulture;
+
+    protected override void OnInitialized()
+    {
+        selectedCulture = CultureInfo.CurrentCulture;
+    }
+
+    private void ApplySelectedCulture()
+    {
+        if (CultureInfo.CurrentCulture != selectedCulture)
+        {
+            var uri = new Uri(navigationManager.Uri)
+                .GetComponents(UriComponents.PathAndQuery, UriFormat.Unescaped);
+            var cultureEscaped = Uri.EscapeDataString(selectedCulture.Name);
+            var uriEscaped = Uri.EscapeDataString(uri);
+
+            navigationManager.NavigateTo(
+                $"Culture/Set?culture={cultureEscaped}&redirectUri={uriEscaped}",
+                forceLoad: true);
+        }
+    }
+}
+

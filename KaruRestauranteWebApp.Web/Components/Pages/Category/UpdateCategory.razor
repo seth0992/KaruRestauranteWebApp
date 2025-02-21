@@ -1,0 +1,76 @@
+﻿@page "/categories/edit/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<div class="container">
+    <div class="row">
+        <div class="col">
+            <h3>Editar Categoría</h3>
+        </div>
+    </div>
+
+    @if (!isLoaded)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <EditForm Model="@category" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Nombre</label>
+                    <InputText @bind-Value="category.Name" class="form-control" />
+                    <ValidationMessage For="@(() => category.Name)" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Descripción</label>
+                    <InputTextArea @bind-Value="category.Description" class="form-control" rows="3" />
+                    <ValidationMessage For="@(() => category.Description)" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <InputCheckbox @bind-Value="category.IsActive" class="form-check-input" id="isActive" />
+                        <label class="form-check-label" for="isActive">Activo</label>
+                    </div>
+                </div>
+            </div>
+
+            @if (category.Items.Any())
+            {
+                <div class="row mb-3">
+                    <div class="col">
+                        <div class="alert alert-info">
+                            <h5>Productos asociados (@category.Items.Count)</h5>
+                            <ul>
+                                @foreach (var item in category.Items.Take(5))
+                                {
+                                    <li>@item.Name</li>
+                                }
+                                @if (category.Items.Count > 5)
+                                {
+                                    <li>y @(category.Items.Count - 5) más...</li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="row">
+                <div class="col">
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <a href="/categories" class="btn btn-secondary ms-2">Cancelar</a>
+                </div>
+            </div>
+        </EditForm>
+    }
+</div>

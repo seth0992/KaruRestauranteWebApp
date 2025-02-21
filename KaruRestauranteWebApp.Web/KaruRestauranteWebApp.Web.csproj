@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Blazored.Toast" Version="4.2.1" />
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.2" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="Radzen.Blazor" Version="6.0.6" />
+	</ItemGroup>
+	
+	
+  <ItemGroup>
+    <ProjectReference Include="..\KaruRestauranteWebApp.Common\KaruRestauranteWebApp.Common.csproj" />
+    <ProjectReference Include="..\KaruRestauranteWebApp.Models\KaruRestauranteWebApp.Models.csproj" />
+    <ProjectReference Include="..\KaruRestauranteWebApp.ServiceDefaults\KaruRestauranteWebApp.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

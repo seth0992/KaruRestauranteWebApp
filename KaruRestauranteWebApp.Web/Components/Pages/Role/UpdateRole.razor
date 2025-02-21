@@ -1,0 +1,39 @@
+﻿@page "/roles/edit/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<div class="container">
+    <div class="row">
+        <div class="col">
+            <h3>Modificar Rol</h3>
+        </div>
+    </div>
+
+    @if (role == null)
+    {
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    }
+    else
+    {
+        <EditForm Model="@role" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Nombre del Rol</label>
+                    <InputText @bind-Value="role.RoleName" class="form-control" />
+                    <ValidationMessage For="@(() => role.RoleName)" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col">
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <a href="/roles" class="btn btn-secondary ms-2">Cancelar</a>
+                </div>
+            </div>
+        </EditForm>
+    }
+</div>
