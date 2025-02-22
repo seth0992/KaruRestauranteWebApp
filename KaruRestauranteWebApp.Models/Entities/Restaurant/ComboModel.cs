@@ -6,23 +6,19 @@ using System.Threading.Tasks;
 
 namespace KaruRestauranteWebApp.Models.Entities.Restaurant
 {
-    public class FastFoodItemModel
+    public class ComboModel
     {
         public int ID { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
-        public int CategoryID { get; set; }
+        public decimal RegularPrice { get; set; }
         public decimal SellingPrice { get; set; }
-        public decimal EstimatedCost { get; set; }
-        public ProductType ProductType { get; set; }
+        public decimal DiscountPercentage { get; set; }
         public bool IsAvailable { get; set; } = true;
         public string ImageUrl { get; set; } = string.Empty;
-        public int? EstimatedPreparationTime { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
 
-        public virtual CategoryModel Category { get; set; } = null!;
-        public virtual List<ItemIngredientModel> Ingredients { get; set; } = new();
-        public virtual ProductInventoryModel? Inventory { get; set; }
+        public virtual List<ComboItemModel> Items { get; set; } = new();
     }
 }

@@ -11,19 +11,16 @@ namespace KaruRestauranteWebApp.Models.Entities.Restaurant
     public class ProductInventoryModel
     {
         public int ID { get; set; }
-
-        [Required]
         public int FastFoodItemID { get; set; }
-
-        [Required]
         public int CurrentStock { get; set; }
-
-        [Required]
         public int MinimumStock { get; set; }
-
+        public decimal PurchasePrice { get; set; }
+        public decimal SuggestedMarkup { get; set; }
         public DateTime? LastRestockDate { get; set; }
+        public string SKU { get; set; } = string.Empty;
+        public string UnitOfMeasure { get; set; } = string.Empty;
+        public string LocationCode { get; set; } = string.Empty;
 
-        // Propiedad de navegación
         [ForeignKey("FastFoodItemID")]
         public virtual FastFoodItemModel FastFoodItem { get; set; } = null!;
     }

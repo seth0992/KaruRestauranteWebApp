@@ -16,10 +16,8 @@ namespace KaruRestauranteWebApp.Models.Entities.Restaurant
         public decimal Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public string? Notes { get; set; }
-        public DateTime TransactionDate { get; set; }
+        public DateTime TransactionDate { get; set; } = DateTime.Now;
 
-
-        // Propiedades de navegación
         public virtual IngredientModel Ingredient { get; set; } = null!;
         public virtual UserModel User { get; set; } = null!;
     }
