@@ -48,43 +48,6 @@
     public string username { get; set; } = string.Empty;
     public string password { get; set; } = string.Empty;
 
-    // private async Task HandleLogin()
-    // {
-    //     try
-    //     {
-    //         isBusy = true;
-    //         errorMessage = string.Empty;
-
-    //         var res = await apiClient.PostAsync<LoginResponseModel, LoginModel>("api/Auth/login", loginModel);
-
-    //         if (res != null && res.Token != null)
-    //         {
-    //             await ((CustomAuthStateProvider)authStateProvider).MarkUserAsAuthenticated(res);
-    //             NotificationService.Notify(new NotificationMessage
-    //             {
-    //                 Severity = NotificationSeverity.Success,
-    //                 Summary = "¡Bienvenido!",
-    //                 Detail = "Has iniciado sesión correctamente",
-    //                 Duration = 4000
-    //             });
-    //             navigationManager.NavigateTo("/");
-    //         }
-    //         else
-    //         {
-    //             errorMessage = "Credenciales inválidas. Por favor, verifica tu usuario y contraseña.";
-    //         }
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         errorMessage = "Ha ocurrido un error al intentar iniciar sesión. Por favor, intenta nuevamente.";
-    //         NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
-    //     }
-    //     finally
-    //     {
-    //         isBusy = false;
-    //     }
-    // }
-
     private async Task OnLogin(LoginArgs args, string name)
     {
         loginModel.Username = args.Username;

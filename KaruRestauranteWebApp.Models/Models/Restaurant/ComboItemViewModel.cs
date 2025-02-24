@@ -12,6 +12,6 @@ namespace KaruRestauranteWebApp.Models.Models.Restaurant
         public int ItemId { get; set; }
         public int Quantity { get; set; } = 1;
         public FastFoodItemModel? Item { get; set; }
-        public decimal Subtotal => Item?.Price * Quantity ?? 0;
+        public decimal Subtotal => Item?.SellingPrice * Quantity ?? 0;
     }
 }
