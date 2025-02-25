@@ -60,10 +60,16 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 //Add Invetory Services and repository to the containser
 builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
-////Add Combos Services and repository to the containser
+//Add Combos Services and repository to the containser
 //builder.Services.AddScoped<IComboRepository, ComboRepository>();
 //builder.Services.AddScoped<IComboService, ComboService>();
 
+//Add FastFood Services and repository to the containser
+builder.Services.AddScoped<IFastFoodRepository, FastFoodRepository>();
+builder.Services.AddScoped<IFastFoodService, FastFoodService>();
+//Add roductType Services and repository to the containser
+builder.Services.AddScoped<IProductTypeRepository, ProductTypeRepository>();
+builder.Services.AddScoped<IProductTypeService, ProductTypeService>();
 
 //Add User services and Repository
 builder.Services.AddScoped<IUserRepository, UserRepository>();

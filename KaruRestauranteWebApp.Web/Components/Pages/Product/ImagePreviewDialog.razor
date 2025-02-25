@@ -1,0 +1,21 @@
+﻿@inject DialogService DialogService
+
+<div class="image-preview-container">
+    @if (!string.IsNullOrEmpty(ImageUrl))
+    {
+        <RadzenImage Path="@ImageUrl" Style="max-width: 100%; max-height: 400px;" />
+    }
+    else
+    {
+        <RadzenText TextStyle="TextStyle.Body1">No hay imagen disponible</RadzenText>
+    }
+
+    <div class="mt-4 text-end">
+        <RadzenButton Text="Cerrar" Click=@(() => DialogService.Close()) ButtonStyle="ButtonStyle.Secondary" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string ImageUrl { get; set; } = string.Empty;
+}
