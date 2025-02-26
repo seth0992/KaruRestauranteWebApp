@@ -1,5 +1,6 @@
 ﻿using KaruRestauranteWebApp.BL.Repositories;
 using KaruRestauranteWebApp.Models.Entities.Orders;
+using KaruRestauranteWebApp.Models.Models.Orders;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
@@ -20,6 +21,9 @@ namespace KaruRestauranteWebApp.BL.Services
         Task<ElectronicInvoiceModel> GenerateInvoiceAsync(int orderId, int customerId);
         Task<bool> SendInvoiceToHaciendaAsync(int invoiceId);
         Task<bool> UpdateInvoiceStatusAsync(int id, string status, string? confirmationNumber = null);
+
+        Task<ElectronicInvoiceModel> GenerateInvoiceAsync(ElectronicInvoiceDTO invoiceDto);
+
     }
 
     public class ElectronicInvoiceService : IElectronicInvoiceService
@@ -323,6 +327,68 @@ namespace KaruRestauranteWebApp.BL.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al generar XML de factura para la orden: {OrderId}", order.ID);
+                throw;
+            }
+        }
+        public async Task<ElectronicInvoiceModel> GenerateInvoiceAsync(ElectronicInvoiceDTO invoiceDto)
+        {
+            try
+            {
+                // Validar datos
+                if (invoiceDto.CustomerID <= 0)
+                {
+                    throw new ValidationException("Se requiere un cliente para generar la factura");
+                }
+
+                // Verificar que la orden exista
+                var order = await _orderRepository.GetByIdAsync(invoiceDto.OrderID);
+                if (order == null)
+                {
+                    throw new ValidationException($"No se encontró la orden con ID: {invoiceDto.OrderID}");
+                }
+
+                // Verificar que la orden esté pagada
+                if (order.PaymentStatus != "Paid")
+                {
+                    throw new ValidationException("No se puede generar factura para una orden que no está completamente pagada");
+                }
+
+                // Verificar que no exista ya una factura para esta orden
+                var existingInvoice = await _invoiceRepository.GetByOrderIdAsync(invoiceDto.OrderID);
+                if (existingInvoice != null)
+                {
+                    throw new ValidationException("Ya existe una factura para esta orden");
+                }
+
+                // Verificar que el cliente exista
+                var customer = await _customerRepository.GetByIdAsync(invoiceDto.CustomerID);
+                if (customer == null)
+                {
+                    throw new ValidationException($"No se encontró el cliente con ID: {invoiceDto.CustomerID}");
+                }
+
+                // Generar XML para facturación electrónica
+                var invoiceXml = await GenerateInvoiceXmlAsync(order, customer);
+
+                // Crear el modelo de factura
+                var invoice = new ElectronicInvoiceModel
+                {
+                    OrderID = invoiceDto.OrderID,
+                    InvoiceNumber = await _invoiceRepository.GenerateInvoiceNumberAsync(),
+                    CustomerID = invoiceDto.CustomerID,
+                    TotalAmount = order.TotalAmount,
+                    TaxAmount = order.TaxAmount,
+                    InvoiceXML = invoiceXml,
+                    InvoiceStatus = "Generated",
+                    CreationDate = DateTime.UtcNow
+                };
+
+                // Guardar la factura
+                return await _invoiceRepository.CreateAsync(invoice);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar factura para la orden {OrderId}", invoiceDto.OrderID);
                 throw;
             }
         }
