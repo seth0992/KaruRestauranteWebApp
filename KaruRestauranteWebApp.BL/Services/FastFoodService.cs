@@ -230,30 +230,29 @@ namespace KaruRestauranteWebApp.BL.Services
                 throw new ValidationException($"Ya existe un producto con el nombre: {product.Name}");
             }
 
-            // Validar que haya ingredientes
-            if (product.Ingredients == null || !product.Ingredients.Any())
+            // Si el producto es de tipo "Preparado" (asumo que es ID=1), entonces validamos ingredientes
+            // Si es de tipo "Inventario" (asumo que es ID=2), no necesita ingredientes
+            if (product.ProductTypeID == 1 && product.Ingredients != null && product.Ingredients.Any())
             {
-                throw new ValidationException("El producto debe tener al menos un ingrediente");
-            }
-
-            // Validar ingredientes
-            foreach (var ingredient in product.Ingredients)
-            {
-                if (ingredient.IngredientID <= 0)
+                foreach (var ingredient in product.Ingredients)
                 {
-                    throw new ValidationException("Todos los ingredientes deben ser seleccionados");
-                }
+                    if (ingredient.IngredientID <= 0)
+                    {
+                        throw new ValidationException("Todos los ingredientes deben ser seleccionados");
+                    }
 
-                if (ingredient.Quantity <= 0)
-                {
-                    throw new ValidationException("La cantidad de cada ingrediente debe ser mayor a 0");
-                }
+                    if (ingredient.Quantity <= 0)
+                    {
+                        throw new ValidationException("La cantidad de cada ingrediente debe ser mayor a 0");
+                    }
 
-                if (ingredient.CanBeExtra && ingredient.ExtraPrice <= 0)
-                {
-                    throw new ValidationException("Los ingredientes extras deben tener un precio extra");
+                    if (ingredient.CanBeExtra && ingredient.ExtraPrice <= 0)
+                    {
+                        throw new ValidationException("Los ingredientes extras deben tener un precio extra");
+                    }
                 }
             }
+            // Para productos de tipo "Inventario" no se necesitan ingredientes
         }
     }
 }

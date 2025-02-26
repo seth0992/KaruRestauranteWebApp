@@ -23,6 +23,9 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
 
         [Parameter]
         public int Id { get; set; }
+        private List<ItemIngredientDetailModel> originalIngredients;
+
+        private bool showIngredients = true;
 
         private bool isLoaded;
         private ProductFormModel model = new();
@@ -38,6 +41,11 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
                 await LoadIngredients();
                 await LoadProductTypes();
                 await LoadProduct();
+
+                // Configurar la visibilidad de ingredientes según el tipo de producto
+                showIngredients = model.ProductTypeID == 1;
+
+
                 isLoaded = true;
             }
             catch (Exception ex)
@@ -65,7 +73,24 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
                 availableIngredients = JsonConvert.DeserializeObject<List<IngredientModel>>(response.Data.ToString()) ?? new();
             }
         }
+        private void ProductTypeChanged(object value)
+        {
+            if (value != null)
+            {
+                int productTypeId = Convert.ToInt32(value);
 
+                // Si cambia a tipo "Inventario", limpiamos la lista de ingredientes
+                if (productTypeId == 2)
+                {
+                    model.Ingredients.Clear();
+                    showIngredients = false;
+                }
+                else
+                {
+                    showIngredients = true;
+                }
+            }
+        }
         private async Task LoadProductTypes()
         {
             var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/ProductType");
@@ -105,6 +130,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
                             ExtraPrice = i.ExtraPrice
                         }).ToList()
                     };
+
+                    originalIngredients = new List<ItemIngredientDetailModel>(model.Ingredients);
                 }
                 else
                 {
@@ -121,20 +148,94 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
             }
         }
 
-        private void AddIngredient()
+        private async Task AddIngredientAsync()
         {
-            model.Ingredients.Add(new ItemIngredientDetailModel());
+            // Solo agregamos ingredientes si es producto tipo "Preparado"
+            if (model.ProductTypeID == 1)
+            {
+                var newIngredient = new ItemIngredientDetailModel
+                {
+                    IngredientID = 0,
+                    Quantity = 1,
+                    IsOptional = false,
+                    CanBeExtra = false,
+                    ExtraPrice = 0
+                };
+
+                // Creamos una nueva lista con todos los elementos existentes más el nuevo
+                var newList = new List<ItemIngredientDetailModel>(model.Ingredients);
+
+                newList.Add(newIngredient);
+
+                // Reemplazamos la lista completa
+                model.Ingredients = newList;
+
+
+                await InvokeAsync(StateHasChanged); // Forzar actualización de la UI
+                //model.Ingredients.Add(new ItemIngredientDetailModel());
+                //StateHasChanged(); // Forzar actualización de la UI
+            }
         }
 
-        private void RemoveIngredient(ItemIngredientDetailModel ingredient)
+        
+        private async Task RemoveIngredientAsync(ItemIngredientDetailModel ingredient)
         {
             model.Ingredients.Remove(ingredient);
+            await InvokeAsync(StateHasChanged);
         }
 
         private void IngredientChanged(object value, ItemIngredientDetailModel ingredient)
         {
-            // Lógica para cuando cambia el ingrediente seleccionado
+            if (value != null && int.TryParse(value.ToString(), out int ingredientId))
+            {
+                ingredient.IngredientID = ingredientId;
+
+                // Buscar el ingrediente seleccionado
+                var selectedIngredient = availableIngredients.FirstOrDefault(i => i.ID == ingredientId);
+
+                if (selectedIngredient != null)
+                {
+                    // Verificar si este ingrediente ya existía en la receta original
+                    var existingIngredient = originalIngredients?.FirstOrDefault(
+                        i => i.IngredientID == ingredientId);
+
+                    if (existingIngredient != null)
+                    {
+                        // Si ya existía, mantener sus valores originales
+                        ingredient.Quantity = existingIngredient.Quantity;
+                        ingredient.IsOptional = existingIngredient.IsOptional;
+                        ingredient.CanBeExtra = existingIngredient.CanBeExtra;
+                        ingredient.ExtraPrice = existingIngredient.ExtraPrice;
+                    }
+                    else
+                    {
+                        // Si es un ingrediente nuevo para este producto, usar valores predeterminados
+                        if (ingredient.Quantity <= 0)
+                        {
+                            ingredient.Quantity = 1;
+                        }
+
+                        // Establecer valores predeterminados solo si no han sido configurados
+                        if (ingredient.ExtraPrice <= 0 && ingredient.CanBeExtra)
+                        {
+                            ingredient.ExtraPrice = Math.Round(selectedIngredient.PurchasePrice * 0.5m, 2);
+                        }
+                    }
+
+                    // Notificar al usuario
+                    NotificationService.Notify(
+                        NotificationSeverity.Info,
+                        "Ingrediente seleccionado",
+                        $"Has seleccionado {selectedIngredient.Name}",
+                        2000
+                    );
+                }
+
+                StateHasChanged();
+            }
         }
+
+
 
         private async Task ShowImagePreview()
         {
@@ -155,35 +256,31 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
         {
             try
             {
-                if (!model.Ingredients.Any())
+                // Para productos tipo "Preparado", validamos los ingredientes si se han añadido
+                if (model.ProductTypeID == 1 && model.Ingredients.Any())
                 {
-                    NotificationService.Notify(NotificationSeverity.Warning,
-                        "Validación", "Debe agregar al menos un ingrediente", 4000);
-                    return;
-                }
-
-                // Validar ingredientes
-                foreach (var ingredient in model.Ingredients)
-                {
-                    if (ingredient.IngredientID == 0)
+                    foreach (var ingredient in model.Ingredients)
                     {
-                        NotificationService.Notify(NotificationSeverity.Warning,
-                            "Validación", "Todos los ingredientes deben ser seleccionados", 4000);
-                        return;
-                    }
+                        if (ingredient.IngredientID == 0)
+                        {
+                            NotificationService.Notify(NotificationSeverity.Warning,
+                                "Validación", "Todos los ingredientes deben ser seleccionados", 4000);
+                            return;
+                        }
 
-                    if (ingredient.Quantity <= 0)
-                    {
-                        NotificationService.Notify(NotificationSeverity.Warning,
-                            "Validación", "Todos los ingredientes deben tener una cantidad mayor a 0", 4000);
-                        return;
-                    }
+                        if (ingredient.Quantity <= 0)
+                        {
+                            NotificationService.Notify(NotificationSeverity.Warning,
+                                "Validación", "Todos los ingredientes deben tener una cantidad mayor a 0", 4000);
+                            return;
+                        }
 
-                    if (ingredient.CanBeExtra && ingredient.ExtraPrice <= 0)
-                    {
-                        NotificationService.Notify(NotificationSeverity.Warning,
-                            "Validación", "Todos los ingredientes extras deben tener un precio extra", 4000);
-                        return;
+                        if (ingredient.CanBeExtra && ingredient.ExtraPrice <= 0)
+                        {
+                            NotificationService.Notify(NotificationSeverity.Warning,
+                                "Validación", "Todos los ingredientes extras deben tener un precio extra", 4000);
+                            return;
+                        }
                     }
                 }
 
