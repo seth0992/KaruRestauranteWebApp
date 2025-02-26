@@ -1,0 +1,72 @@
+﻿@using KaruRestauranteWebApp.Models.Models.User
+@inject DialogService DialogService
+@using KaruRestauranteWebApp.Models.Models.Restaurant
+
+<RadzenCard>
+    <RadzenStack Gap="1rem">
+        <RadzenText TextStyle="TextStyle.Subtitle1">
+            Registrar movimiento para: <strong>@ProductName</strong>
+        </RadzenText>
+
+        <RadzenText TextStyle="TextStyle.Body1">
+            Stock actual: <strong>@CurrentStock</strong>
+        </RadzenText>
+
+        <RadzenTemplateForm TItem="StockMovementDTO" Data="@StockMovement" Submit=@OnSubmit>
+            <RadzenStack Gap="1rem">
+                <div>
+                    <RadzenLabel Component="MovementType" Text="Tipo de Movimiento" />
+                    <RadzenDropDown @bind-Value=@StockMovement.MovementType Name="MovementType"
+                                    Data=@movementTypes Style="width: 100%;"
+                                    class="w-100" />
+                    <RadzenRequiredValidator Component="MovementType" Text="El tipo de movimiento es requerido" />
+                </div>
+
+                <div>
+                    <RadzenLabel Component="Quantity" Text="Cantidad" />
+                    <RadzenNumeric @bind-Value=@StockMovement.Quantity Name="Quantity"
+                                   Min="1" Style="width: 100%;" class="w-100" />
+                    <RadzenRequiredValidator Component="Quantity" Text="La cantidad es requerida" />
+                    <RadzenNumericRangeValidator Component="Quantity" Min="1" Text="La cantidad debe ser mayor a 0" />
+                </div>
+
+                <div>
+                    <RadzenLabel Component="Notes" Text="Notas" />
+                    <RadzenTextArea @bind-Value=@StockMovement.Notes Name="Notes"
+                                    Style="width: 100%;" Rows="3" class="w-100" />
+                </div>
+
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                    <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar" ButtonStyle="ButtonStyle.Primary" />
+                    <RadzenButton Click=@(() => DialogService.Close(false)) Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenTemplateForm>
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter]
+    public string ProductName { get; set; } = "";
+
+    [Parameter]
+    public int CurrentStock { get; set; }
+
+    [Parameter]
+    public StockMovementDTO StockMovement { get; set; } = new();
+
+    private string[] movementTypes = new[] { "Entrada", "Salida", "Ajuste" };
+
+    protected override void OnInitialized()
+    {
+        if (string.IsNullOrEmpty(StockMovement.MovementType))
+        {
+            StockMovement.MovementType = "Entrada";
+        }
+    }
+
+    private void OnSubmit()
+    {
+        DialogService.Close(true);
+    }
+}

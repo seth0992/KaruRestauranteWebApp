@@ -54,20 +54,20 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 
 
-//Add categories Services and repository to the containser
+//Add categories Services and repository
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
-//Add Invetory Services and repository to the containser
+//Add Invetory Services and repository 
 builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
-//Add Combos Services and repository to the containser
-//builder.Services.AddScoped<IComboRepository, ComboRepository>();
-//builder.Services.AddScoped<IComboService, ComboService>();
+//Add Combos Services and repository
+builder.Services.AddScoped<IComboRepository, ComboRepository>();
+builder.Services.AddScoped<IComboService, ComboService>();
 
-//Add FastFood Services and repository to the containser
+//Add FastFood Services and repository
 builder.Services.AddScoped<IFastFoodRepository, FastFoodRepository>();
 builder.Services.AddScoped<IFastFoodService, FastFoodService>();
-//Add roductType Services and repository to the containser
+//Add roductType Services and repository
 builder.Services.AddScoped<IProductTypeRepository, ProductTypeRepository>();
 builder.Services.AddScoped<IProductTypeService, ProductTypeService>();
 
@@ -78,6 +78,10 @@ builder.Services.AddScoped<IUserService, UserServices>();
 //Add Roles Services and repository
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IRoleService, RoleService>();
+
+// Añadir ProductInventory Services y repository
+builder.Services.AddScoped<IProductInventoryRepository, ProductInventoryRepository>();
+builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
 
 //Add authentication services
 var secret = builder.Configuration.GetValue<string>("Jwt:Secret");

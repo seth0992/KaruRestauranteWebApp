@@ -1,0 +1,160 @@
+﻿@page "/combos/edit/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<RadzenStack Style="max-width: 1200px; margin: 0 auto;">
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="mb-4">
+        Editar Combo
+    </RadzenText>
+
+    @if (!isLoaded)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" class="mb-4" />
+    }
+    else
+    {
+        <RadzenTemplateForm TItem="ComboFormModel" Data=@model Submit=@HandleSubmit>
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                    Información Básica
+                </RadzenText>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="Name" Text="Nombre" />
+                        <RadzenTextBox @bind-Value=@model.Name Name="Name"
+                                       style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="Name" Text="El nombre es requerido" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Component="ImageUrl" Text="URL de Imagen" />
+                        <div class="d-flex gap-2">
+                            <RadzenTextBox @bind-Value=@model.ImageUrl Name="ImageUrl"
+                                           style="width: 100%;" class="mb-1" />
+                            @if (!string.IsNullOrEmpty(model.ImageUrl))
+                            {
+                                <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Medium"
+                                              Click=@(() => ShowImagePreview()) Variant="Variant.Filled" />
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <RadzenLabel Component="Description" Text="Descripción" />
+                        <RadzenTextArea @bind-Value=@model.Description Name="Description"
+                                        style="width: 100%;" class="mb-1" Rows="3" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <RadzenLabel Component="RegularPrice" Text="Precio Regular" />
+                        <RadzenNumeric @bind-Value=@model.RegularPrice Name="RegularPrice"
+                                       Min="0" Format="c2" style="width: 100%;" class="mb-1"
+                                       Change=@CalculateDiscount TValue="decimal" />
+                        <RadzenRequiredValidator Component="RegularPrice" Text="El precio regular es requerido" />
+                        <RadzenNumericRangeValidator Component="RegularPrice" Min="0.01" Text="El precio debe ser mayor a 0" />
+                    </div>
+                    <div class="col-md-4">
+                        <RadzenLabel Component="DiscountPercentage" Text="Descuento (%)" />
+                        <RadzenNumeric @bind-Value=@model.DiscountPercentage Name="DiscountPercentage"
+                                       Min="0" Max="100" style="width: 100%;" class="mb-1"
+                                       Change=@CalculateDiscount TValue="decimal"/>
+                        <RadzenNumericRangeValidator Component="DiscountPercentage" Min="0" Max="100" Text="El descuento debe estar entre 0 y 100%" />
+                    </div>
+                    <div class="col-md-4">
+                        <RadzenLabel Component="SellingPrice" Text="Precio Final" />
+                        <RadzenNumeric @bind-Value=@model.SellingPrice Name="SellingPrice"
+                                       Min="0" Format="c2" style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="SellingPrice" Text="El precio final es requerido" />
+                        <RadzenNumericRangeValidator Component="SellingPrice" Min="0.01" Text="El precio debe ser mayor a 0" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="IsAvailable" Text="Disponible" class="mb-2" />
+                        <div class="d-flex align-items-center">
+                            <RadzenSwitch @bind-Value=@model.IsAvailable Name="IsAvailable" />
+                            <RadzenLabel Component="IsAvailable" Text="Combo Disponible" class="ms-2" />
+                        </div>
+                    </div>
+                </div>
+            </RadzenCard>
+
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                    Productos del Combo
+                </RadzenText>
+
+                <RadzenAlert Severity="Severity.Info" AllowClose="false" class="mb-3">
+                    <div class="d-flex align-items-center">
+                        <RadzenIcon Icon="info" class="me-2" />
+                        <span>Modifique los productos que forman parte del combo</span>
+                    </div>
+                </RadzenAlert>
+
+                <div class="mb-3">
+                    <RadzenButton Icon="add" Text="Agregar Producto" ButtonStyle="ButtonStyle.Secondary"
+                                  Click=@AddComboItem />
+                </div>
+
+                @if (model.Items.Any())
+                {
+                    <RadzenDataGrid Data="@model.Items" TItem="ComboItemDetailModel"
+                                    AllowSorting="true" AllowPaging="false" AllowFiltering="false">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="ComboItemDetailModel" Title="Producto" Width="250px">
+                                <Template Context="item">
+                                    <RadzenDropDown @bind-Value=@item.FastFoodItemID
+                                                    Data=@availableProducts TextProperty="Name" ValueProperty="ID"
+                                                    style="width: 100%;" />
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="ComboItemDetailModel" Title="Cantidad" Width="120px">
+                                <Template Context="item">
+                                    <RadzenNumeric @bind-Value=@item.Quantity Min="1" style="width: 100%;" />
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="ComboItemDetailModel" Title="Personalización" Width="150px">
+                                <Template Context="item">
+                                    <RadzenSwitch @bind-Value=@item.AllowCustomization />
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="ComboItemDetailModel" Title="Instrucciones" Width="200px">
+                                <Template Context="item">
+                                    <RadzenTextBox @bind-Value=@item.SpecialInstructions style="width: 100%;" />
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="ComboItemDetailModel" Title="" Width="60px">
+                                <Template Context="item">
+                                    <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Size="ButtonSize.Small"
+                                                  Click=@(() => RemoveComboItem(item)) Variant="Variant.Flat" />
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+                }
+                else
+                {
+                    <RadzenText TextStyle="TextStyle.Body1" class="my-3">
+                        No hay productos agregados al combo
+                    </RadzenText>
+                }
+            </RadzenCard>
+
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar Cambios" ButtonStyle="ButtonStyle.Primary" />
+                <RadzenButton Click=@(() => NavigationManager.NavigateTo("/combos"))
+                              Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+            </RadzenStack>
+        </RadzenTemplateForm>
+    }
+</RadzenStack>

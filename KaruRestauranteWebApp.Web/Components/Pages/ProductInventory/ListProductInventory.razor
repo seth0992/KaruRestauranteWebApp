@@ -1,0 +1,124 @@
+﻿@page "/product-inventory"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+
+<RadzenStack>
+    <RadzenRow class="align-items-center mb-4" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.H3">Gestión de Inventario de Productos</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="6" class="text-end">
+            <AuthorizeView Roles="SuperAdmin,Admin">
+                <Authorized>
+                    <RadzenButton Icon="add" Text="Nuevo Inventario" ButtonStyle="ButtonStyle.Primary"
+                                Click=@(() => NavigationManager.NavigateTo("/product-inventory/create")) />
+                </Authorized>
+            </AuthorizeView>
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (inventories == null)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else
+    {
+        @if (lowStockItems.Any())
+        {
+            <RadzenAlert Severity="Severity.Warning" AllowClose="false" Class="mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1">Alerta de Stock Bajo</RadzenText>
+                <ul class="mb-0 mt-2">
+                    @foreach (var item in lowStockItems)
+                    {
+                        <li>
+                            <strong>@item.FastFoodItem.Name</strong> - Stock actual: @item.CurrentStock 
+                            (Mínimo: @item.MinimumStock)
+                        </li>
+                    }
+                </ul>
+            </RadzenAlert>
+        }
+
+        <RadzenCard Variant="Variant.Flat">
+            <RadzenDataGrid Data="@inventories" TItem="ProductInventoryModel"
+                          AllowFiltering="true"
+                          AllowColumnResize="true"
+                          AllowSorting="true"
+                          AllowPaging="true"
+                          PageSize="10"
+                          FilterMode="FilterMode.Advanced"
+                          FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+                <Columns>
+                    <RadzenDataGridColumn TItem="ProductInventoryModel" Property="FastFoodItem.Name" Title="Producto"
+                                        Width="200px">
+                        <Template Context="inventory">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                @if (!string.IsNullOrEmpty(inventory.FastFoodItem?.ImageUrl))
+                                {
+                                    <RadzenImage Path="@inventory.FastFoodItem.ImageUrl" Style="width: 32px; height: 32px; border-radius: 50%;" />
+                                }
+                                else
+                                {
+                                    <RadzenIcon Icon="inventory" />
+                                }
+                                <RadzenText>@inventory.FastFoodItem?.Name</RadzenText>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ProductInventoryModel" Property="SKU" Title="SKU"
+                                        Width="120px" />
+
+                    <RadzenDataGridColumn TItem="ProductInventoryModel" Property="CurrentStock" Title="Stock Actual"
+                                        Width="120px">
+                        <Template Context="inventory">
+                            <RadzenBadge BadgeStyle="@(inventory.CurrentStock <= inventory.MinimumStock ? BadgeStyle.Danger : BadgeStyle.Success)"
+                                       Text="@inventory.CurrentStock.ToString()" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ProductInventoryModel" Property="MinimumStock" Title="Stock Mínimo"
+                                        Width="120px" />
+
+                    <RadzenDataGridColumn TItem="ProductInventoryModel" Property="PurchasePrice" Title="Precio Compra"
+                                        Width="150px">
+                        <Template Context="inventory">
+                            @inventory.PurchasePrice.ToString("C2")
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ProductInventoryModel" Property="UnitOfMeasure" 
+                                        Title="Unidad" Width="100px" />
+
+                    <RadzenDataGridColumn TItem="ProductInventoryModel" Property="LastRestockDate" 
+                                        Title="Última Reposición" Width="150px">
+                        <Template Context="inventory">
+                            @(inventory.LastRestockDate?.ToLocalTime().ToString("dd/MM/yyyy") ?? "N/A")
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ProductInventoryModel" Title="Acciones" Width="180px">
+                        <Template Context="inventory">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="0.5rem">
+                                <AuthorizeView Roles="SuperAdmin,Admin">
+                                    <Authorized>
+                                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                                    Click=@(() => NavigationManager.NavigateTo($"/product-inventory/edit/{inventory.ID}"))
+                                                    Variant="Variant.Text"/>
+                                        <RadzenButton Icon="add_shopping_cart" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+                                                    Click=@(() => ShowStockMovementDialog(inventory))
+                                                    Variant="Variant.Text"/>
+                                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small"
+                                                    Click=@(() => ShowDeleteConfirmation(inventory))
+                                                    Variant="Variant.Text"/>
+                                    </Authorized>
+                                </AuthorizeView>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenCard>
+    }
+</RadzenStack>

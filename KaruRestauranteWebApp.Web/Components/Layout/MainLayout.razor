@@ -45,8 +45,10 @@
             <RadzenPanelMenuItem Text="Inicio" Icon="home" Path="/"/>
             <RadzenPanelMenuItem Text="Gestión" Icon="dashboard">
                 <RadzenPanelMenuItem Text="Productos" Icon="inventory" Path="/products" />
+                <RadzenPanelMenuItem Text="Combos" Icon="restaurant_menu" Path="/combos" />
                 <RadzenPanelMenuItem Text="Categorías" Icon="category" Path="/categories" />
                 <RadzenPanelMenuItem Text="Inventario" Icon="inventory_2" Path="/inventory/ingredients" />
+                <RadzenPanelMenuItem Text="Inventario de Productos" Icon="assignment" Path="/product-inventory" />
             </RadzenPanelMenuItem>
             <AuthorizeView Roles="SuperAdmin,Admin" Context="adminContext">
                 <Authorized>
@@ -71,7 +73,7 @@
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center"
                       Style="text-align: center" AlignItems="AlignItems.Center">
             <RadzenText TextStyle="TextStyle.Caption">
-                SISKARÚ © @DateTime.Now.Year - Todos los derechos reservados
+                SISKARÚ © @DateTime.Now.Year - Todos los derechos reservados       
             </RadzenText>
         </RadzenStack>
     </RadzenFooter>
