@@ -81,12 +81,12 @@
                     <RadzenRow class="mb-3">
                         <RadzenColumn Size="6">
                             <RadzenText TextStyle="TextStyle.H6" Class="mb-0">
-                                Precio: @product.SellingPrice.ToString("C2")
+                                <strong>Precio:</strong> @product.SellingPrice.ToString("₡#,##0.00")
                             </RadzenText>
                         </RadzenColumn>
                         <RadzenColumn Size="6" style="text-align: right;">
                             <RadzenText TextStyle="TextStyle.Body2" Class="mb-0">
-                                Costo: @product.EstimatedCost.ToString("C2")
+                                Costo: @product.EstimatedCost.ToString("₡#,##0.00")
                             </RadzenText>
                         </RadzenColumn>
                     </RadzenRow>
@@ -115,7 +115,7 @@
                                     <Template Context="ingredient">
                                         @if (ingredient.CanBeExtra)
                                         {
-                                            <span>Sí (+@ingredient.ExtraPrice.ToString("C2"))</span>
+                                            <span>Sí (+@ingredient.ExtraPrice.ToString("₡#,##0.00"))</span>
                                         }
                                         else
                                         {

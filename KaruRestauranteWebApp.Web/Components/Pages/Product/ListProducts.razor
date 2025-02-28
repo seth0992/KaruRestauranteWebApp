@@ -57,7 +57,7 @@
                     <RadzenDataGridColumn TItem="FastFoodItemModel" Property="SellingPrice" Title="Precio"
                                         Width="120px">
                         <Template Context="product">
-                            @product.SellingPrice.ToString("C2")
+                            @product.SellingPrice.ToString("₡#,##0.00") @* Cambia el formato aquí *@
                         </Template>
                     </RadzenDataGridColumn>
 

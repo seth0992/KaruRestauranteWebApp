@@ -54,14 +54,14 @@
                     <RadzenDataGridColumn TItem="ComboModel" Property="RegularPrice" Title="Precio Regular"
                                         Width="150px">
                         <Template Context="combo">
-                            @combo.RegularPrice.ToString("C2")
+                            @combo.RegularPrice.ToString("₡#,##0.00")
                         </Template>
                     </RadzenDataGridColumn>
 
                     <RadzenDataGridColumn TItem="ComboModel" Property="SellingPrice" Title="Precio Venta"
                                         Width="150px">
                         <Template Context="combo">
-                            @combo.SellingPrice.ToString("C2")
+                            @combo.SellingPrice.ToString("₡#,##0.00")
                         </Template>
                     </RadzenDataGridColumn>
 

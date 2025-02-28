@@ -138,7 +138,34 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
         {
             // Asegurarse de que se haya seleccionado un valor válido
             if (value != null && int.TryParse(value.ToString(), out int ingredientId))
-            {
+            {        
+                
+                // Verificar si el ingrediente ya está en la lista (excepto éste mismo)
+                var duplicate = model.Ingredients
+                    .Where(i => i != ingredient) // Excluir el ingrediente actual
+                    .FirstOrDefault(i => i.IngredientID == ingredientId);
+
+                if (duplicate != null)
+                {
+                    // Mostrar advertencia
+                    NotificationService.Notify(
+                        NotificationSeverity.Warning,
+                        "Ingrediente duplicado",
+                        $"Este ingrediente ya está en la lista. Se incrementará la cantidad del existente.",
+                        4000
+                    );
+
+                    // Opcionalmente, incrementar la cantidad del ingrediente existente
+                    duplicate.Quantity += 1;
+
+                    // Eliminar este ingrediente de la lista
+                    model.Ingredients.Remove(ingredient);
+
+                    StateHasChanged();
+                    return;
+                }
+
+
                 ingredient.IngredientID = ingredientId;
 
                 // Buscar el ingrediente seleccionado en la lista de ingredientes disponibles
@@ -175,9 +202,22 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
                     );
                 }
 
+                // Validar si es un ingrediente con stock bajo
+                if (selectedIngredient != null && selectedIngredient.StockQuantity <= selectedIngredient.MinimumStock)
+                {
+                    NotificationService.Notify(
+                        NotificationSeverity.Warning,
+                        "Stock bajo",
+                        $"¡Atención! El ingrediente {selectedIngredient.Name} tiene stock bajo.",
+                        5000
+                    );
+                }
+
                 // Forzar actualización de la UI
                 StateHasChanged();
             }
+
+
         }
 
         private async Task HandleSubmit()

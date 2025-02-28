@@ -45,8 +45,9 @@
                 <div class="row mb-3">
                     <div class="col-md-4">
                         <RadzenLabel Component="RegularPrice" Text="Precio Regular" />
+                        
                         <RadzenNumeric @bind-Value=@model.RegularPrice Name="RegularPrice"
-                                       Min="0" Format="c2" style="width: 100%;" class="mb-1"
+                                       Min="0" Format="₡#,##0.00" style="width: 100%;" class="mb-1"
                                        Change=@CalculateDiscount TValue="decimal" />
                         <RadzenRequiredValidator Component="RegularPrice" Text="El precio regular es requerido" />
                         <RadzenNumericRangeValidator Component="RegularPrice" Min="0.01" Text="El precio debe ser mayor a 0" />
@@ -61,7 +62,7 @@
                     <div class="col-md-4">
                         <RadzenLabel Component="SellingPrice" Text="Precio Final" />
                         <RadzenNumeric @bind-Value=@model.SellingPrice Name="SellingPrice"
-                                       Min="0" Format="c2" style="width: 100%;" class="mb-1" />
+                                       Min="0" Format="₡#,##0.00" style="width: 100%;" class="mb-1" />
                         <RadzenRequiredValidator Component="SellingPrice" Text="El precio final es requerido" />
                         <RadzenNumericRangeValidator Component="SellingPrice" Min="0.01" Text="El precio debe ser mayor a 0" />
                     </div>

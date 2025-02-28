@@ -377,3 +377,8 @@ BEGIN
     FROM Orders o
     INNER JOIN inserted i ON o.ID = i.ID;
 END
+
+DROP TRIGGER IF EXISTS TR_FastFoodItems_UpdatedAt;
+DROP TRIGGER IF EXISTS TR_Categories_UpdatedAt;
+DROP TRIGGER IF EXISTS TR_Ingredients_UpdatedAt;
+DROP TRIGGER IF EXISTS TR_Combos_UpdatedAt;

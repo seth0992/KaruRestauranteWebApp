@@ -18,7 +18,6 @@ namespace KaruRestauranteWebApp.Database.Data
             Database.EnsureCreated();
         }
 
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -162,7 +161,7 @@ namespace KaruRestauranteWebApp.Database.Data
         public DbSet<PaymentModel> Payments { get; set; }
         public DbSet<TableModel> Tables { get; set; }
 
-
+    
 
 
 

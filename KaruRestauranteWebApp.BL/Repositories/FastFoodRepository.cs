@@ -81,9 +81,27 @@ namespace KaruRestauranteWebApp.BL.Repositories
             await _context.SaveChangesAsync();
         }
 
+        //public async Task UpdateAsync(FastFoodItemModel product)
+        //{
+        //    // Manejar el producto sin ingredientes primero
+        //    var local = _context.FastFoodItems
+        //        .Local
+        //        .FirstOrDefault(f => f.ID == product.ID);
+
+        //    if (local != null)
+        //    {
+        //        _context.Entry(local).State = EntityState.Detached;
+        //    }
+
+        //    product.UpdatedAt = DateTime.UtcNow;
+
+        //    // Actualizar solo el producto principal
+        //    _context.Entry(product).State = EntityState.Modified;
+        //    await _context.SaveChangesAsync();
+        //}
         public async Task UpdateAsync(FastFoodItemModel product)
         {
-            // Manejar el producto sin ingredientes primero
+            // Desconectar entidad local si existe
             var local = _context.FastFoodItems
                 .Local
                 .FirstOrDefault(f => f.ID == product.ID);
@@ -95,9 +113,54 @@ namespace KaruRestauranteWebApp.BL.Repositories
 
             product.UpdatedAt = DateTime.UtcNow;
 
-            // Actualizar solo el producto principal
-            _context.Entry(product).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
+            try
+            {
+                // Obtener la entidad original
+                var originalEntity = await _context.FastFoodItems.FindAsync(product.ID);
+                if (originalEntity == null)
+                {
+                    throw new InvalidOperationException($"No se encontró el producto con ID: {product.ID}");
+                }
+
+                // Actualizar cada propiedad individualmente
+                _context.Entry(originalEntity).CurrentValues.SetValues(product);
+
+                // No modificar relaciones
+                _context.Entry(originalEntity).Property(x => x.CreatedAt).IsModified = false;
+
+                // Guardar cambios
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception)
+            {
+                // Si hay error, intentamos un enfoque más básico
+                var originalEntity = await _context.FastFoodItems
+                    .Include(p => p.Category)
+                    .Include(p => p.Ingredients)
+                    .FirstOrDefaultAsync(p => p.ID == product.ID);
+
+                if (originalEntity != null)
+                {
+                    // Actualizar propiedades manualmente
+                    originalEntity.Name = product.Name;
+                    originalEntity.Description = product.Description;
+                    originalEntity.CategoryID = product.CategoryID;
+                    originalEntity.SellingPrice = product.SellingPrice;
+                    originalEntity.EstimatedCost = product.EstimatedCost;
+                    originalEntity.ProductTypeID = product.ProductTypeID;
+                    originalEntity.IsAvailable = product.IsAvailable;
+                    originalEntity.ImageUrl = product.ImageUrl;
+                    originalEntity.EstimatedPreparationTime = product.EstimatedPreparationTime;
+                    originalEntity.UpdatedAt = DateTime.UtcNow;
+
+                    // Guardar cambioe
+                    await _context.SaveChangesAsync();
+                }
+                else
+                {
+                    throw; // No encontramos la entidad, relanzar la excepción
+                }
+            }
         }
 
         public async Task UpdateIngredientsAsync(int productId, List<ItemIngredientModel> ingredients)

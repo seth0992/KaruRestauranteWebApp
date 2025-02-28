@@ -147,6 +147,32 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
                 NavigationManager.NavigateTo("/products");
             }
         }
+        private bool HasIngredientChanges()
+        {
+            if (originalIngredients == null || model.Ingredients == null)
+                return false;
+
+            // Verificar si el número de ingredientes cambió
+            if (originalIngredients.Count != model.Ingredients.Count)
+                return true;
+
+            // Verificar cambios en los ingredientes existentes
+            foreach (var original in originalIngredients)
+            {
+                var current = model.Ingredients.FirstOrDefault(i => i.ID == original.ID);
+                if (current == null)
+                    return true; // Ingrediente eliminado
+
+                if (current.IngredientID != original.IngredientID ||
+                    current.Quantity != original.Quantity ||
+                    current.IsOptional != original.IsOptional ||
+                    current.CanBeExtra != original.CanBeExtra ||
+                    current.ExtraPrice != original.ExtraPrice)
+                    return true; // Ingrediente modificado
+            }
+
+            return false;
+        }
 
         private async Task AddIngredientAsync()
         {
@@ -256,6 +282,19 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
         {
             try
             {
+                // Antes de enviar, podemos mostrar un resumen de cambios
+                if (HasIngredientChanges())
+                {
+                    var confirmResult = await DialogService.Confirm(
+                        "Has realizado cambios en los ingredientes. ¿Deseas guardar estos cambios?",
+                        "Confirmar cambios",
+                        new ConfirmOptions { OkButtonText = "Guardar", CancelButtonText = "Revisar" }
+                    );
+
+                    if (confirmResult != true)
+                        return; // El usuario quiere revisar los cambios antes de guardar
+                }
+
                 // Para productos tipo "Preparado", validamos los ingredientes si se han añadido
                 if (model.ProductTypeID == 1 && model.Ingredients.Any())
                 {

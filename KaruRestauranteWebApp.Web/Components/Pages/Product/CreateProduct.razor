@@ -48,14 +48,14 @@
                     <div class="col-md-6">
                         <RadzenLabel Component="SellingPrice" Text="Precio de Venta" />
                         <RadzenNumeric @bind-Value=@model.SellingPrice Name="SellingPrice"
-                                       Min="0" Format="c2" style="width: 100%;" class="mb-1" />
+                                       Min="0" Format="₡#,##0.00" style="width: 100%;" class="mb-1" />
                         <RadzenRequiredValidator Component="SellingPrice" Text="El precio es requerido" />
                         <RadzenNumericRangeValidator Component="SellingPrice" Min="0.01" Text="El precio debe ser mayor a 0" />
                     </div>
                     <div class="col-md-6">
                         <RadzenLabel Component="EstimatedCost" Text="Costo Estimado" />
                         <RadzenNumeric @bind-Value=@model.EstimatedCost Name="EstimatedCost"
-                                       Min="0" Format="c2" style="width: 100%;" class="mb-1" />
+                                       Min="0" Format="₡#,##0.00" style="width: 100%;" class="mb-1" />
                         <RadzenRequiredValidator Component="EstimatedCost" Text="El costo es requerido" />
                         <RadzenNumericRangeValidator Component="EstimatedCost" Min="0.01" Text="El costo debe ser mayor a 0" />
                     </div>
@@ -232,7 +232,8 @@
 
                                 <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="Precio Extra" Width="150px">
                                     <Template Context="ingredient">
-                                        <RadzenNumeric @bind-Value=@ingredient.ExtraPrice Min="0" Format="c2" Disabled=@(!ingredient.CanBeExtra) style="width: 100%;" />
+                                        <RadzenNumeric @bind-Value=@ingredient.ExtraPrice Min="0" Format="₡#,##0.00" Disabled=@(!ingredient.CanBeExtra) style="width: 100%;" />
+
                                     </Template>
                                 </RadzenDataGridColumn>
 

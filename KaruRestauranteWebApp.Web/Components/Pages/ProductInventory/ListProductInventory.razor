@@ -84,7 +84,7 @@
                     <RadzenDataGridColumn TItem="ProductInventoryModel" Property="PurchasePrice" Title="Precio Compra"
                                         Width="150px">
                         <Template Context="inventory">
-                            @inventory.PurchasePrice.ToString("C2")
+                            @inventory.PurchasePrice.ToString("₡#,##0.00")
                         </Template>
                     </RadzenDataGridColumn>
 

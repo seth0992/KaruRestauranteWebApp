@@ -55,7 +55,7 @@
                         <RadzenText TextStyle="TextStyle.H5" class="mt-2">Precios</RadzenText>
                         
                         <RadzenText TextStyle="TextStyle.Body1">
-                            <strong>Precio Regular:</strong> @combo.RegularPrice.ToString("C2")
+                            <strong>Precio Regular:</strong> @combo.RegularPrice.ToString("₡#,##0.00")
                         </RadzenText>
                         
                         <RadzenText TextStyle="TextStyle.Body1">
@@ -63,7 +63,7 @@
                         </RadzenText>
                         
                         <RadzenText TextStyle="TextStyle.Body1">
-                            <strong>Precio Final:</strong> @combo.SellingPrice.ToString("C2")
+                            <strong>Precio Final:</strong> @combo.SellingPrice.ToString("₡#,##0.00")
                         </RadzenText>
                     </RadzenStack>
                 </RadzenCard>

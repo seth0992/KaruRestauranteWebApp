@@ -47,11 +47,29 @@ builder.Services.AddSwaggerGen(c => {
 });
 
 // Add DbContext to the container.
+//builder.Services.AddDbContext<AppDbContext>(options =>
+//{
+//    options.UseSqlServer(
+//        builder.Configuration.GetConnectionString("DefaultConnection")
+
+//        );
+//});
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
-});
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlServerOptions =>
+        {
+            // Esta opción ayuda a manejar tablas con triggers
+            sqlServerOptions.UseRelationalNulls();
 
+            // Puedes agregar otras opciones útiles
+            sqlServerOptions.EnableRetryOnFailure();
+            sqlServerOptions.CommandTimeout(30); // Opcional: aumentar timeout
+        }
+    );
+});
 
 
 //Add categories Services and repository
@@ -124,9 +142,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 #region Configuración para soporte multiidioma
-var supportedCultures = new[] { "en-US", "es-ES" };
+var supportedCultures = new[] { "en-US", "es-ES", "es-CR" }; // Añade es-CR
 var localizeoptions = new RequestLocalizationOptions()
-    .SetDefaultCulture("en-US")
+    .SetDefaultCulture("es-CR") // Cambia el valor predeterminado a es-CR
     .AddSupportedCultures(supportedCultures)
     .AddSupportedUICultures(supportedCultures);
 app.UseRequestLocalization(localizeoptions);
