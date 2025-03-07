@@ -1,6 +1,5 @@
 ﻿using KaruRestauranteWebApp.BL.Services;
 using KaruRestauranteWebApp.Models.Models;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace KaruRestauranteWebApp.ApiService.Controllers

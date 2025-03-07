@@ -3,12 +3,8 @@ using KaruRestauranteWebApp.Models.Entities.Orders;
 using KaruRestauranteWebApp.Models.Models.Orders;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Xml;
 
 namespace KaruRestauranteWebApp.BL.Services

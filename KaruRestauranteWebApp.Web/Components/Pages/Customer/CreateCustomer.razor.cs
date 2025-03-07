@@ -1,5 +1,5 @@
-﻿using KaruRestauranteWebApp.Models.Models.Orders;
-using KaruRestauranteWebApp.Models.Models;
+﻿using KaruRestauranteWebApp.Models.Models;
+using KaruRestauranteWebApp.Models.Models.Orders;
 using Microsoft.AspNetCore.Components;
 using Radzen;
 

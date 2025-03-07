@@ -1,6 +1,6 @@
 ﻿using KaruRestauranteWebApp.Models.Entities.Restaurant;
-using KaruRestauranteWebApp.Models.Models.Restaurant;
 using KaruRestauranteWebApp.Models.Models;
+using KaruRestauranteWebApp.Models.Models.Restaurant;
 using Microsoft.AspNetCore.Components;
 using Newtonsoft.Json;
 using Radzen;

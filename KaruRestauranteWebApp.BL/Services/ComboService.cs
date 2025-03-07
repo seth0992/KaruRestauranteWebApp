@@ -2,12 +2,7 @@
 using KaruRestauranteWebApp.Models.Entities.Restaurant;
 using KaruRestauranteWebApp.Models.Models.Restaurant;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace KaruRestauranteWebApp.BL.Services
 {
