@@ -1,20 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace KaruRestauranteWebApp.Models.Entities.Restaurant
 {
     public class FastFoodItemModel
     {
         public int ID { get; set; }
+
+        [Required]
+        [StringLength(100)]
         public string Name { get; set; } = string.Empty;
+
+        [StringLength(200)]
         public string Description { get; set; } = string.Empty;
+
         public int CategoryID { get; set; }
         public decimal SellingPrice { get; set; }
         public decimal EstimatedCost { get; set; }
-        public ProductType ProductType { get; set; }
+        public int ProductTypeID { get; set; } // Usamos solo el ID, sin navegación
         public bool IsAvailable { get; set; } = true;
         public string ImageUrl { get; set; } = string.Empty;
         public int? EstimatedPreparationTime { get; set; }

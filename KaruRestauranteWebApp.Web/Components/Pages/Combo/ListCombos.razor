@@ -1,0 +1,111 @@
+﻿@page "/combos"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+
+<RadzenStack>
+    <RadzenRow class="align-items-center mb-4" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.H3">Gestión de Combos</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="6" class="text-end">
+            <AuthorizeView Roles="SuperAdmin,Admin">
+                <Authorized>
+                    <RadzenButton Icon="add" Text="Nuevo Combo" ButtonStyle="ButtonStyle.Primary"
+                                Click=@(() => NavigationManager.NavigateTo("/combos/create")) />
+                </Authorized>
+            </AuthorizeView>
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (combos == null)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else
+    {
+        <RadzenCard Variant="Variant.Flat">
+            <RadzenDataGrid Data="@combos" TItem="ComboModel"
+                          AllowFiltering="true"
+                          AllowColumnResize="true"
+                          AllowSorting="true"
+                          AllowPaging="true"
+                          PageSize="10"
+                          FilterMode="FilterMode.Advanced"
+                          FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+                <Columns>
+                    <RadzenDataGridColumn TItem="ComboModel" Property="Name" Title="Nombre"
+                                        Width="200px">
+                        <Template Context="combo">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                @if (!string.IsNullOrEmpty(combo.ImageUrl))
+                                {
+                                    <RadzenImage Path="@combo.ImageUrl" Style="width: 32px; height: 32px; border-radius: 50%;" />
+                                }
+                                else
+                                {
+                                    <RadzenIcon Icon="fastfood" />
+                                }
+                                <RadzenText>@combo.Name</RadzenText>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ComboModel" Property="RegularPrice" Title="Precio Regular"
+                                        Width="150px">
+                        <Template Context="combo">
+                            @combo.RegularPrice.ToString("₡#,##0.00")
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ComboModel" Property="SellingPrice" Title="Precio Venta"
+                                        Width="150px">
+                        <Template Context="combo">
+                            @combo.SellingPrice.ToString("₡#,##0.00")
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ComboModel" Property="DiscountPercentage" Title="Descuento"
+                                        Width="120px">
+                        <Template Context="combo">
+                            @combo.DiscountPercentage.ToString("0.##")%
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ComboModel" Property="IsAvailable" Title="Estado"
+                                        Width="100px">
+                        <Template Context="combo">
+                            <RadzenBadge BadgeStyle="@(combo.IsAvailable ? BadgeStyle.Success : BadgeStyle.Danger)"
+                                       Text="@(combo.IsAvailable ? "Disponible" : "No Disponible")" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ComboModel" Property="Items.Count" Title="Productos"
+                                        Width="100px">
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ComboModel" Title="Acciones" Width="200px">
+                        <Template Context="combo">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem">
+                                <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
+                                            Click=@(() => NavigationManager.NavigateTo($"/combos/details/{combo.ID}"))
+                                            Variant="Variant.Text"/>
+                                
+                                <AuthorizeView Roles="SuperAdmin,Admin">
+                                    <Authorized>
+                                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                                    Click=@(() => NavigationManager.NavigateTo($"/combos/edit/{combo.ID}"))
+                                                    Variant="Variant.Text"/>
+                                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small"
+                                                    Click=@(() => ShowDeleteConfirmation(combo))
+                                                    Variant="Variant.Text"/>
+                                    </Authorized>
+                                </AuthorizeView>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenCard>
+    }
+</RadzenStack>

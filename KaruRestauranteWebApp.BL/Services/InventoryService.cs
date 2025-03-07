@@ -1,11 +1,6 @@
 ﻿using KaruRestauranteWebApp.BL.Repositories;
 using KaruRestauranteWebApp.Models.Entities.Restaurant;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace KaruRestauranteWebApp.BL.Services
 {
@@ -143,7 +138,7 @@ namespace KaruRestauranteWebApp.BL.Services
                 existingIngredient.Description = ingredient.Description;
                 existingIngredient.UnitOfMeasure = ingredient.UnitOfMeasure;
                 existingIngredient.MinimumStock = ingredient.MinimumStock;
-                existingIngredient.Cost = ingredient.Cost;
+                existingIngredient.PurchasePrice = ingredient.PurchasePrice;
                 existingIngredient.IsActive = ingredient.IsActive;
                 existingIngredient.UpdatedAt = DateTime.UtcNow;
 
@@ -203,7 +198,7 @@ namespace KaruRestauranteWebApp.BL.Services
             if (ingredient.MinimumStock < 0)
                 throw new InvalidOperationException("El stock mínimo no puede ser negativo");
 
-            if (ingredient.Cost < 0)
+            if (ingredient.PurchasePrice < 0)
                 throw new InvalidOperationException("El costo no puede ser negativo");
         }
 

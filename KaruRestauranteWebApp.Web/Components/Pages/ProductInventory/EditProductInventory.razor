@@ -1,0 +1,95 @@
+﻿@page "/product-inventory/edit/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Models.Restaurant
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<RadzenStack Style="max-width: 1200px; margin: 0 auto;">
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="mb-4">
+        Editar Inventario de Producto
+    </RadzenText>
+
+    @if (!isLoaded)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" class="mb-4" />
+    }
+    else
+    {
+        <RadzenTemplateForm TItem="ProductInventoryDTO" Data=@model Submit=@HandleSubmit>
+            <RadzenCard class="mb-4">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="ProductName" Text="Producto" />
+                        <RadzenTextBox @bind-Value=@model.ProductName Name="ProductName"
+                                       style="width: 100%;" class="mb-1" Disabled="true" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Component="SKU" Text="SKU" />
+                        <RadzenTextBox @bind-Value=@model.SKU Name="SKU"
+                                       style="width: 100%;" class="mb-1" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <RadzenLabel Component="CurrentStock" Text="Stock Actual" />
+                        <RadzenNumeric @bind-Value=@model.CurrentStock Name="CurrentStock"
+                                       Min="0" style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="CurrentStock" Text="El stock actual es requerido" />
+                    </div>
+                    <div class="col-md-4">
+                        <RadzenLabel Component="MinimumStock" Text="Stock Mínimo" />
+                        <RadzenNumeric @bind-Value=@model.MinimumStock Name="MinimumStock"
+                                       Min="0" style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="MinimumStock" Text="El stock mínimo es requerido" />
+                    </div>
+                    <div class="col-md-4">
+                        <RadzenLabel Component="UnitOfMeasure" Text="Unidad de Medida" />
+                        <RadzenTextBox @bind-Value=@model.UnitOfMeasure Name="UnitOfMeasure"
+                                       style="width: 100%;" class="mb-1" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="PurchasePrice" Text="Precio de Compra" />
+                       
+                        <RadzenNumeric @bind-Value=@model.PurchasePrice Name="PurchasePrice"
+                                       Min="0" Format="₡#,##0.00" style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="PurchasePrice" Text="El precio de compra es requerido" />
+                        <RadzenNumericRangeValidator Component="PurchasePrice" Min="0.01" Text="El precio debe ser mayor a 0" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Component="SuggestedMarkup" Text="Margen Sugerido (%)" />
+                        <RadzenNumeric @bind-Value=@model.SuggestedMarkup Name="SuggestedMarkup"
+                                       Min="0" Max="100" style="width: 100%;" class="mb-1" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <RadzenLabel Component="LocationCode" Text="Código de Ubicación" />
+                        <RadzenTextBox @bind-Value=@model.LocationCode Name="LocationCode"
+                                       style="width: 100%;" class="mb-1" />
+                    </div>
+                </div>
+
+                @if (model.LastRestockDate.HasValue)
+                {
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <RadzenText TextStyle="TextStyle.Caption">
+                                Última reposición: @model.LastRestockDate.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                            </RadzenText>
+                        </div>
+                    </div>
+                }
+            </RadzenCard>
+
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar Cambios" ButtonStyle="ButtonStyle.Primary" />
+                <RadzenButton Click=@(() => NavigationManager.NavigateTo("/product-inventory"))
+                              Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+            </RadzenStack>
+        </RadzenTemplateForm>
+    }
+</RadzenStack>

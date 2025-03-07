@@ -72,9 +72,9 @@ app.UseAuthorization();
 
 
 #region Configuración para soporte multiidioma
-var supportedCultures = new[] { "en-US", "es-ES" };
+var supportedCultures = new[] { "en-US", "es-ES", "es-CR" }; // Añade es-CR
 var localizeoptions = new RequestLocalizationOptions()
-    .SetDefaultCulture("es-ES")
+    .SetDefaultCulture("es-CR") // Cambia el valor predeterminado a es-CR
     .AddSupportedCultures(supportedCultures)
     .AddSupportedUICultures(supportedCultures);
 app.UseRequestLocalization(localizeoptions);

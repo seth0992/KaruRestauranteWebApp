@@ -1,0 +1,76 @@
+﻿@page "/customers"
+@using Microsoft.AspNetCore.Authorization
+@using  KaruRestauranteWebApp.Models.Entities.Orders;
+
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+
+<RadzenStack>
+    <RadzenRow class="align-items-center mb-4" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.H3">Gestión de Clientes</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="6" class="text-end">
+            <AuthorizeView Roles="SuperAdmin,Admin,User">
+                <Authorized>
+                    <RadzenButton Icon="add" Text="Nuevo Cliente" ButtonStyle="ButtonStyle.Primary"
+                                Click=@(() => NavigationManager.NavigateTo("/customers/create")) />
+                </Authorized>
+            </AuthorizeView>
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (customers == null)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else
+    {
+        <RadzenCard Variant="Variant.Flat">
+            <RadzenDataGrid Data="@customers" TItem="CustomerModel"
+                          AllowFiltering="true"
+                          AllowColumnResize="true"
+                          AllowSorting="true"
+                          AllowPaging="true"
+                          PageSize="10"
+                          FilterMode="FilterMode.Advanced"
+                          FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+                <Columns>
+                    <RadzenDataGridColumn TItem="CustomerModel" Property="Name" Title="Nombre" Width="200px" />
+                    <RadzenDataGridColumn TItem="CustomerModel" Property="Email" Title="Email" Width="200px" />
+                    <RadzenDataGridColumn TItem="CustomerModel" Property="PhoneNumber" Title="Teléfono" Width="120px" />
+                    <RadzenDataGridColumn TItem="CustomerModel" Property="IdentificationType" Title="Tipo Identificación" Width="150px" />
+                    <RadzenDataGridColumn TItem="CustomerModel" Property="IdentificationNumber" Title="Núm. Identificación" Width="150px" />
+                    <RadzenDataGridColumn TItem="CustomerModel" Property="IsActive" Title="Estado" Width="80px">
+                        <Template Context="customer">
+                            <RadzenBadge BadgeStyle="@(customer.IsActive ? BadgeStyle.Success : BadgeStyle.Danger)"
+                                       Text="@(customer.IsActive ? "Activo" : "Inactivo")" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="CustomerModel" Title="Acciones" Width="200px">
+                        <Template Context="customer">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem">
+                                <AuthorizeView Roles="SuperAdmin,Admin,User">
+                                    <Authorized>
+                                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                                    Click=@(() => NavigationManager.NavigateTo($"/customers/edit/{customer.ID}"))
+                                                    Variant="Variant.Text"/>
+                                        <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
+                                                    Click=@(() => NavigationManager.NavigateTo($"/customers/details/{customer.ID}"))
+                                                    Variant="Variant.Text"/>
+                                        <AuthorizeView Roles="SuperAdmin,Admin">
+                                            <Authorized>
+                                                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small"
+                                                          Click=@(() => ShowDeleteConfirmation(customer))
+                                                          Variant="Variant.Text"/>
+                                            </Authorized>
+                                        </AuthorizeView>
+                                    </Authorized>
+                                </AuthorizeView>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenCard>
+    }
+</RadzenStack>

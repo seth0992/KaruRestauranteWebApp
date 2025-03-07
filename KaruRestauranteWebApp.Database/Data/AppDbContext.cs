@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
+using KaruRestauranteWebApp.Models.Entities.Orders;
 using KaruRestauranteWebApp.Models.Entities.Restaurant;
 using KaruRestauranteWebApp.Models.Entities.Users;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,6 @@ namespace KaruRestauranteWebApp.Database.Data
         {
             Database.EnsureCreated();
         }
-
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -127,6 +127,12 @@ namespace KaruRestauranteWebApp.Database.Data
             modelBuilder.Entity<ComboModel>()
                        .Property(c => c.DiscountPercentage)
                        .HasPrecision(5, 2);
+
+            modelBuilder.Entity<FastFoodItemModel>()
+    .HasOne(f => f.Category)
+    .WithMany(c => c.Items)
+    .HasForeignKey(f => f.CategoryID)
+    .OnDelete(DeleteBehavior.Restrict);
         }
 
 
@@ -144,6 +150,21 @@ namespace KaruRestauranteWebApp.Database.Data
         public DbSet<ProductInventoryModel> ProductInventory { get; set; }   
         public DbSet<ComboModel> Combos { get; set; }
         public DbSet<ComboItemModel> ComboItems { get; set; }
+        public DbSet<ProductTypeModel> ProductTypes { get; set; }
+
+        //Ordenes
+        public DbSet<CustomerModel> Customers { get; set; }
+        public DbSet<ElectronicInvoiceModel> ElectronicInvoices { get; set; }
+        public DbSet<OrderDetailModel> OrderDetails { get; set; }
+        public DbSet<OrderItemCustomizationModel> OrderItemCustomizations { get; set; }
+        public DbSet<OrderModel> Orders { get; set; }
+        public DbSet<PaymentModel> Payments { get; set; }
+        public DbSet<TableModel> Tables { get; set; }
+
+    
+
+
+
 
     }
 }

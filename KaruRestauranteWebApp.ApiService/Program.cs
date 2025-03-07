@@ -47,23 +47,63 @@ builder.Services.AddSwaggerGen(c => {
 });
 
 // Add DbContext to the container.
+//builder.Services.AddDbContext<AppDbContext>(options =>
+//{
+//    options.UseSqlServer(
+//        builder.Configuration.GetConnectionString("DefaultConnection")
+
+//        );
+//});
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlServerOptions =>
+        {
+            // Esta opción ayuda a manejar tablas con triggers
+            sqlServerOptions.UseRelationalNulls();
+
+            // Puedes agregar otras opciones útiles
+            sqlServerOptions.EnableRetryOnFailure();
+            sqlServerOptions.CommandTimeout(30); // Opcional: aumentar timeout
+        }
+    );
 });
 
 
-
-//Add categories Services and repository to the containser
+//Add categories Services and repository
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
-//Add Invetory Services and repository to the containser
+//Add Invetory Services and repository 
 builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
-////Add Combos Services and repository to the containser
-//builder.Services.AddScoped<IComboRepository, ComboRepository>();
-//builder.Services.AddScoped<IComboService, ComboService>();
+//Add Combos Services and repository
+builder.Services.AddScoped<IComboRepository, ComboRepository>();
+builder.Services.AddScoped<IComboService, ComboService>();
 
+//Add FastFood Services and repository
+builder.Services.AddScoped<IFastFoodRepository, FastFoodRepository>();
+builder.Services.AddScoped<IFastFoodService, FastFoodService>();
+//Add roductType Services and repository
+builder.Services.AddScoped<IProductTypeRepository, ProductTypeRepository>();
+builder.Services.AddScoped<IProductTypeService, ProductTypeService>();
+// Añadir Customer Services y repository
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+// Añadir Ordens Services y repository
+builder.Services.AddScoped<IOrderDetailRepository, OrderDetailRepository>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+// Añadir Table Services y repository
+builder.Services.AddScoped<ITableRepository, TableRepository>();
+builder.Services.AddScoped<ITableService, TableService>();
+// Añadir ElectroniInvoice Services y repository
+builder.Services.AddScoped<IElectronicInvoiceRepository, ElectronicInvoiceRepository>();
+builder.Services.AddScoped<IElectronicInvoiceService, ElectronicInvoiceService>();
+// Añadir ElectroniInvoice Services y repository
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 //Add User services and Repository
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -72,6 +112,10 @@ builder.Services.AddScoped<IUserService, UserServices>();
 //Add Roles Services and repository
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IRoleService, RoleService>();
+
+// Añadir ProductInventory Services y repository
+builder.Services.AddScoped<IProductInventoryRepository, ProductInventoryRepository>();
+builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
 
 //Add authentication services
 var secret = builder.Configuration.GetValue<string>("Jwt:Secret");
@@ -114,9 +158,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 #region Configuración para soporte multiidioma
-var supportedCultures = new[] { "en-US", "es-ES" };
+var supportedCultures = new[] { "en-US", "es-ES", "es-CR" }; // Añade es-CR
 var localizeoptions = new RequestLocalizationOptions()
-    .SetDefaultCulture("en-US")
+    .SetDefaultCulture("es-CR") // Cambia el valor predeterminado a es-CR
     .AddSupportedCultures(supportedCultures)
     .AddSupportedUICultures(supportedCultures);
 app.UseRequestLocalization(localizeoptions);

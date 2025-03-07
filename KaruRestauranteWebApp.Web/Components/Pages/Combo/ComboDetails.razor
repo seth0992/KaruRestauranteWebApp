@@ -1,0 +1,114 @@
+﻿@page "/combos/details/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+@attribute [Authorize]
+
+<RadzenStack Style="max-width: 1200px; margin: 0 auto;">
+    <RadzenRow class="align-items-center mb-4" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.H3">Detalles del Combo</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="6" class="text-end">
+            <AuthorizeView Roles="SuperAdmin,Admin">
+                <Authorized>
+                    <RadzenButton Icon="edit" Text="Editar" ButtonStyle="ButtonStyle.Primary"
+                                Click=@(() => NavigationManager.NavigateTo($"/combos/edit/{Id}")) />
+                </Authorized>
+            </AuthorizeView>
+            <RadzenButton Icon="arrow_back" Text="Volver" ButtonStyle="ButtonStyle.Light" Class="ms-2"
+                        Click=@(() => NavigationManager.NavigateTo("/combos")) />
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (!isLoaded)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else if (combo == null)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true" AllowClose="false">
+            Combo no encontrado
+        </RadzenAlert>
+    }
+    else
+    {
+        <RadzenRow>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenCard class="mb-4">
+                    @if (!string.IsNullOrEmpty(combo.ImageUrl))
+                    {
+                        <RadzenImage Path="@combo.ImageUrl" Style="width: 100%; object-fit: cover;"
+                                   Click=@(() => ShowImagePreview()) Class="mb-3 cursor-pointer" />
+                    }
+                    else
+                    {
+                        <div class="text-center p-4 bg-light rounded mb-3">
+                            <RadzenIcon Icon="image_not_supported" Style="font-size: 4rem; opacity: 0.5;" />
+                            <RadzenText TextStyle="TextStyle.Caption">Sin imagen</RadzenText>
+                        </div>
+                    }
+
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenBadge BadgeStyle="@(combo.IsAvailable ? BadgeStyle.Success : BadgeStyle.Danger)"
+                                   Text="@(combo.IsAvailable ? "Disponible" : "No Disponible")" />
+                        
+                        <RadzenText TextStyle="TextStyle.H5" class="mt-2">Precios</RadzenText>
+                        
+                        <RadzenText TextStyle="TextStyle.Body1">
+                            <strong>Precio Regular:</strong> @combo.RegularPrice.ToString("₡#,##0.00")
+                        </RadzenText>
+                        
+                        <RadzenText TextStyle="TextStyle.Body1">
+                            <strong>Descuento:</strong> @combo.DiscountPercentage.ToString("0.##")%
+                        </RadzenText>
+                        
+                        <RadzenText TextStyle="TextStyle.Body1">
+                            <strong>Precio Final:</strong> @combo.SellingPrice.ToString("₡#,##0.00")
+                        </RadzenText>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+            
+            <RadzenColumn Size="12" SizeMD="8">
+                <RadzenCard class="mb-4">
+                    <RadzenText TextStyle="TextStyle.H5">@combo.Name</RadzenText>
+                    
+                    <RadzenText TextStyle="TextStyle.Body1" class="mb-3">
+                        @(string.IsNullOrEmpty(combo.Description) ? "Sin descripción" : combo.Description)
+                    </RadzenText>
+                    
+                    <RadzenDivider />
+                    
+                    <RadzenText TextStyle="TextStyle.H6" class="mt-3">Productos incluidos en el combo</RadzenText>
+                    
+                    @if (combo.Items.Any())
+                    {
+                        <RadzenDataGrid Data="@combo.Items" TItem="ComboItemModel"
+                                     AllowSorting="true" AllowPaging="false" AllowFiltering="false">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="ComboItemModel" Property="FastFoodItem.Name" Title="Producto" />
+                                <RadzenDataGridColumn TItem="ComboItemModel" Property="Quantity" Title="Cantidad" />
+                                <RadzenDataGridColumn TItem="ComboItemModel" Property="AllowCustomization" Title="Personalizable">
+                                    <Template Context="item">
+                                        @(item.AllowCustomization ? "Sí" : "No")
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="ComboItemModel" Property="SpecialInstructions" Title="Instrucciones">
+                                    <Template Context="item">
+                                        @(!string.IsNullOrEmpty(item.SpecialInstructions) ? item.SpecialInstructions : "-")
+                                    </Template>
+                                </RadzenDataGridColumn>
+                            </Columns>
+                        </RadzenDataGrid>
+                    }
+                    else
+                    {
+                        <RadzenText TextStyle="TextStyle.Body1">
+                            No hay productos en este combo.
+                        </RadzenText>
+                    }
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+    }
+</RadzenStack>

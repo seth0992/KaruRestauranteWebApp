@@ -1,0 +1,118 @@
+﻿@page "/products"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+
+<RadzenStack>
+    <RadzenRow class="align-items-center mb-4" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.H3">Gestión de Productos</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="6" class="text-end">
+            <AuthorizeView Roles="SuperAdmin,Admin">
+                <Authorized>
+                    <RadzenButton Icon="add" Text="Nuevo Producto" ButtonStyle="ButtonStyle.Primary"
+                                Click=@(() => NavigationManager.NavigateTo("/products/create")) />
+                </Authorized>
+            </AuthorizeView>
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (products == null)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else
+    {
+        <RadzenCard Variant="Variant.Flat">
+            <RadzenDataGrid Data="@products" TItem="FastFoodItemModel"
+                          AllowFiltering="true"
+                          AllowColumnResize="true"
+                          AllowSorting="true"
+                          AllowPaging="true"
+                          PageSize="10"
+                          FilterMode="FilterMode.Advanced"
+                          FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+                <Columns>
+                    <RadzenDataGridColumn TItem="FastFoodItemModel" Property="Name" Title="Nombre"
+                                        Width="200px">
+                        <Template Context="product">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                @if (!string.IsNullOrEmpty(product.ImageUrl))
+                                {
+                                    <RadzenImage Path="@product.ImageUrl" Style="width: 32px; height: 32px; border-radius: 50%;" />
+                                }
+                                else
+                                {
+                                    <RadzenIcon Icon="restaurant" />
+                                }
+                                <RadzenText>@product.Name</RadzenText>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="FastFoodItemModel" Property="Category.Name" Title="Categoría"
+                                        Width="150px" />
+
+                    <RadzenDataGridColumn TItem="FastFoodItemModel" Property="SellingPrice" Title="Precio"
+                                        Width="120px">
+                        <Template Context="product">
+                            @product.SellingPrice.ToString("₡#,##0.00") @* Cambia el formato aquí *@
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="FastFoodItemModel" Property="ProductTypeID" Title="Tipo"
+                                        Width="120px">
+                        <Template Context="product">
+                            <RadzenBadge BadgeStyle="@(GetProductTypeBadgeStyle(product.ProductTypeID))"
+                                       Text="@GetProductTypeName(product.ProductTypeID)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="FastFoodItemModel" Property="IsAvailable" Title="Estado"
+                                        Width="100px">
+                        <Template Context="product">
+                            <RadzenBadge BadgeStyle="@(product.IsAvailable ? BadgeStyle.Success : BadgeStyle.Danger)"
+                                       Text="@(product.IsAvailable ? "Disponible" : "No Disponible")" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="FastFoodItemModel" Property="EstimatedPreparationTime" 
+                                        Title="Tiempo Prep." Width="120px">
+                        <Template Context="product">
+                            @if (product.EstimatedPreparationTime.HasValue)
+                            {
+                                <span>@product.EstimatedPreparationTime min</span>
+                            }
+                            else
+                            {
+                                <span>N/A</span>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="FastFoodItemModel" Title="Acciones" Width="200px">
+                        <Template Context="product">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem">
+                                <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
+                                            Click=@(() => NavigationManager.NavigateTo($"/products/details/{product.ID}"))
+                                            Variant="Variant.Text"/>
+                                
+                                <AuthorizeView Roles="SuperAdmin,Admin">
+                                    <Authorized>
+                                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                                    Click=@(() => NavigationManager.NavigateTo($"/products/edit/{product.ID}"))
+                                                    Variant="Variant.Text"/>
+                                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small"
+                                                    Click=@(() => ShowDeleteConfirmation(product))
+                                                    Variant="Variant.Text"/>
+                                    </Authorized>
+                                </AuthorizeView>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenCard>
+    }
+</RadzenStack>

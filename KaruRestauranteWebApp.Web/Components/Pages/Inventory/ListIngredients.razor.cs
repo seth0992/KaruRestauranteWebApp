@@ -62,7 +62,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Inventory
             newTransaction = new InventoryTransactionModel
             {
                 IngredientID = ingredient.ID,
-                UnitPrice = ingredient.Cost
+                UnitPrice = ingredient.PurchasePrice
             };
             transactionModal.Open();
         }

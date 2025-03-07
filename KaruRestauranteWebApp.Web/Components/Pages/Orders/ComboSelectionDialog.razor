@@ -1,0 +1,80 @@
+﻿@inject DialogService DialogService
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+
+<RadzenCard>
+    <RadzenStack Gap="1rem">
+        <RadzenText TextStyle="TextStyle.Subtitle1">
+            Seleccionar Combo
+        </RadzenText>
+
+        <RadzenTextBox Placeholder="Buscar combos..." @oninput=@SearchCombos class="w-100 mb-2" />
+
+        <RadzenDataGrid @ref="combosGrid" Data="@filteredCombos" TItem="ComboModel"
+                        AllowPaging="true" PageSize="5" AllowSorting="true"
+                        RowSelect="@ComboSelected">
+            <Columns>
+                <RadzenDataGridColumn TItem="ComboModel" Property="Name" Title="Nombre" Width="200px">
+                    <Template Context="combo">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                            @if (!string.IsNullOrEmpty(combo.ImageUrl))
+                            {
+                                <RadzenImage Path="@combo.ImageUrl" Style="width: 32px; height: 32px; border-radius: 50%;" />
+                            }
+                            else
+                            {
+                                <RadzenIcon Icon="restaurant_menu" />
+                            }
+                            <RadzenText>@combo.Name</RadzenText>
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="ComboModel" Property="SellingPrice" Title="Precio" Width="100px">
+                    <Template Context="combo">
+                        @combo.SellingPrice.ToString("₡#,##0.00")
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="ComboModel" Property="DiscountPercentage" Title="Descuento" Width="100px">
+                    <Template Context="combo">
+                        @combo.DiscountPercentage.ToString("0.##")%
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="ComboModel" Property="Items.Count" Title="Productos" Width="100px" />
+            </Columns>
+        </RadzenDataGrid>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton Click=@(() => DialogService.Close()) Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter]
+    public List<ComboModel> Combos { get; set; } = new();
+
+    private List<ComboModel> filteredCombos = new();
+    private RadzenDataGrid<ComboModel> combosGrid;
+    private string searchTerm = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        filteredCombos = Combos;
+    }
+
+    private void SearchCombos(ChangeEventArgs args)
+    {
+        searchTerm = args.Value?.ToString().ToLower() ?? string.Empty;
+        filteredCombos = Combos
+            .Where(c => c.Name.ToLower().Contains(searchTerm) ||
+                         c.Description?.ToLower().Contains(searchTerm) == true)
+            .ToList();
+    }
+
+    private void ComboSelected(ComboModel combo)
+    {
+        DialogService.Close(combo);
+    }
+}

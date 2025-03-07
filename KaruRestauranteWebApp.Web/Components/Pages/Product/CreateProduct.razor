@@ -1,0 +1,264 @@
+﻿@page "/products/create"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<RadzenStack Style="max-width: 1200px; margin: 0 auto;">
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="mb-4">
+        Crear Producto
+    </RadzenText>
+
+    @if (!isLoaded)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" class="mb-4" />
+    }
+    else
+    {
+        <RadzenTemplateForm TItem="ProductFormModel" Data=@model Submit=@HandleSubmit>
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                    Información Básica
+                </RadzenText>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="Name" Text="Nombre" />
+                        <RadzenTextBox @bind-Value=@model.Name Name="Name"
+                                       style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="Name" Text="El nombre es requerido" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Component="CategoryID" Text="Categoría" />
+                        <RadzenDropDown @bind-Value=@model.CategoryID Name="CategoryID"
+                                        Data=@categories TextProperty="Name" ValueProperty="ID"
+                                        style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="CategoryID" Text="La categoría es requerida" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <RadzenLabel Component="Description" Text="Descripción" />
+                        <RadzenTextArea @bind-Value=@model.Description Name="Description"
+                                        style="width: 100%;" class="mb-1" Rows="3" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="SellingPrice" Text="Precio de Venta" />
+                        <RadzenNumeric @bind-Value=@model.SellingPrice Name="SellingPrice"
+                                       Min="0" Format="₡#,##0.00" style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="SellingPrice" Text="El precio es requerido" />
+                        <RadzenNumericRangeValidator Component="SellingPrice" Min="0.01" Text="El precio debe ser mayor a 0" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Component="EstimatedCost" Text="Costo Estimado" />
+                        <RadzenNumeric @bind-Value=@model.EstimatedCost Name="EstimatedCost"
+                                       Min="0" Format="₡#,##0.00" style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="EstimatedCost" Text="El costo es requerido" />
+                        <RadzenNumericRangeValidator Component="EstimatedCost" Min="0.01" Text="El costo debe ser mayor a 0" />
+                    </div>
+                </div>
+
+ @*                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="ProductTypeID" Text="Tipo de Producto" />
+                        <RadzenDropDown @bind-Value=@model.ProductTypeID Name="ProductTypeID"
+                                        Data=@productTypes TextProperty="Name" ValueProperty="ID"
+                                        style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="ProductTypeID" Text="El tipo de producto es requerido" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Component="EstimatedPreparationTime" Text="Tiempo de Preparación (min)" />
+                        <RadzenNumeric @bind-Value=@model.EstimatedPreparationTime Name="EstimatedPreparationTime"
+                                       Min="0" Max="180" style="width: 100%;" class="mb-1" />
+                    </div>
+                </div> *@
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="ProductTypeID" Text="Tipo de Producto" />
+                        <RadzenDropDown @bind-Value=@model.ProductTypeID Name="ProductTypeID"
+                                        Data=@productTypes TextProperty="Name" ValueProperty="ID"
+                                        Change=@ProductTypeChanged
+                                        style="width: 100%;" class="mb-1" />
+                        <RadzenRequiredValidator Component="ProductTypeID" Text="El tipo de producto es requerido" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Component="EstimatedPreparationTime" Text="Tiempo de Preparación (min)" />
+                        <RadzenNumeric @bind-Value=@model.EstimatedPreparationTime Name="EstimatedPreparationTime"
+                                       Min="0" Max="180" style="width: 100%;" class="mb-1" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Component="IsAvailable" Text="Disponible" class="mb-2" />
+                        <div class="d-flex align-items-center">
+                            <RadzenSwitch @bind-Value=@model.IsAvailable Name="IsAvailable" />
+                            <RadzenLabel Component="IsAvailable" Text="Producto Disponible" class="ms-2" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Component="ImageUrl" Text="URL de Imagen" />
+                        <RadzenTextBox @bind-Value=@model.ImageUrl Name="ImageUrl"
+                                       style="width: 100%;" class="mb-1" />
+                    </div>
+                </div>
+            </RadzenCard>
+
+           @*  <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                    Ingredientes
+                </RadzenText>
+
+                <RadzenAlert Severity="Severity.Info" AllowClose="false" class="mb-3">
+                    <div class="d-flex align-items-center">
+                        <RadzenIcon Icon="info" class="me-2" />
+                        <span>Seleccione los ingredientes y especifique las cantidades requeridas</span>
+                    </div>
+                </RadzenAlert>
+
+                <div class="mb-3">
+                    <RadzenButton Icon="add" Text="Agregar Ingrediente" ButtonStyle="ButtonStyle.Secondary"
+                                  Click=@AddIngredient />
+                </div>
+
+                @if (model.Ingredients.Any())
+                {
+                    <RadzenDataGrid Data="@model.Ingredients" TItem="ItemIngredientDetailModel"
+                                    AllowSorting="true" AllowPaging="false" AllowFiltering="false">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="Ingrediente" Width="200px">
+                                <Template Context="ingredient">
+                                    <RadzenDropDown @bind-Value=@ingredient.IngredientID
+                                                    Data=@availableIngredients TextProperty="Name" ValueProperty="ID"
+                                                    Change=@(args => IngredientChanged(args, ingredient))
+                                                    style="width: 100%;" />
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="Cantidad" Width="120px">
+                                <Template Context="ingredient">
+                                    <RadzenNumeric @bind-Value=@ingredient.Quantity Min="1" style="width: 100%;" />
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="Opcional" Width="100px">
+                                <Template Context="ingredient">
+                                    <RadzenSwitch @bind-Value=@ingredient.IsOptional />
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="Extra" Width="100px">
+                                <Template Context="ingredient">
+                                    <RadzenSwitch @bind-Value=@ingredient.CanBeExtra />
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="Precio Extra" Width="150px">
+                                <Template Context="ingredient">
+                                    <RadzenNumeric @bind-Value=@ingredient.ExtraPrice Min="0" Format="c2" Disabled=@(!ingredient.CanBeExtra) style="width: 100%;" />
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="" Width="60px">
+                                <Template Context="ingredient">
+                                    <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Size="ButtonSize.Small"
+                                                  Click=@(() => RemoveIngredient(ingredient)) Variant="Variant.Flat" />
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+                }
+                else
+                {
+                    <RadzenText TextStyle="TextStyle.Body1" class="my-3">
+                        No hay ingredientes agregados
+                    </RadzenText>
+                }
+            </RadzenCard> *@
+
+            @if (showIngredients)
+            {
+                <RadzenCard class="mb-4">
+                    <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                        Ingredientes
+                    </RadzenText>
+
+                    <RadzenAlert Severity="Severity.Info" AllowClose="false" class="mb-3">
+                        <div class="d-flex align-items-center">
+                            <RadzenIcon Icon="info" class="me-2" />
+                            <span>Seleccione los ingredientes y especifique las cantidades requeridas (opcional)</span>
+                        </div>
+                    </RadzenAlert>
+
+                    <div class="mb-3">
+                        <RadzenButton Icon="add" Text="Agregar Ingrediente" ButtonStyle="ButtonStyle.Secondary"
+                                      Click=@AddIngredientAsync />
+                    </div>
+
+                    @if (model.Ingredients.Any())
+                    {
+                        <RadzenDataGrid Data="@model.Ingredients" TItem="ItemIngredientDetailModel"
+                                        AllowSorting="true" AllowPaging="false" AllowFiltering="false" @ref="gridIngredients">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="Ingrediente" Width="200px">
+                                    <Template Context="ingredient">
+                                        <RadzenDropDown @bind-Value=@ingredient.IngredientID
+                                                        Data=@availableIngredients TextProperty="Name" ValueProperty="ID"
+                                                        Change=@(args => IngredientChanged(args, ingredient))
+                                                        style="width: 100%;" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+
+                                <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="Cantidad" Width="120px">
+                                    <Template Context="ingredient">
+                                        <RadzenNumeric @bind-Value=@ingredient.Quantity Min="1" style="width: 100%;" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+
+                                <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="Opcional" Width="100px">
+                                    <Template Context="ingredient">
+                                        <RadzenSwitch @bind-Value=@ingredient.IsOptional />
+                                    </Template>
+                                </RadzenDataGridColumn>
+
+                                <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="Extra" Width="100px">
+                                    <Template Context="ingredient">
+                                        <RadzenSwitch @bind-Value=@ingredient.CanBeExtra />
+                                    </Template>
+                                </RadzenDataGridColumn>
+
+                                <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="Precio Extra" Width="150px">
+                                    <Template Context="ingredient">
+                                        <RadzenNumeric @bind-Value=@ingredient.ExtraPrice Min="0" Format="₡#,##0.00" Disabled=@(!ingredient.CanBeExtra) style="width: 100%;" />
+
+                                    </Template>
+                                </RadzenDataGridColumn>
+
+                                <RadzenDataGridColumn TItem="ItemIngredientDetailModel" Title="" Width="60px">
+                                    <Template Context="ingredient">
+                                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Size="ButtonSize.Small"
+                                                      Click=@(() => RemoveIngredientAsync(ingredient)) Variant="Variant.Flat" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                            </Columns>
+                        </RadzenDataGrid>
+                    }
+                    else
+                    {
+                        <RadzenText TextStyle="TextStyle.Body1" class="my-3">
+                            No hay ingredientes agregados (opcional para productos preparados)
+                        </RadzenText>
+                    }
+                </RadzenCard>
+            }
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar" ButtonStyle="ButtonStyle.Primary" />
+                <RadzenButton Click=@(() => NavigationManager.NavigateTo("/products"))
+                              Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+            </RadzenStack>
+        </RadzenTemplateForm>
+    }
+</RadzenStack>

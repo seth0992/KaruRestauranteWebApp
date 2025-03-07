@@ -69,7 +69,7 @@
                             <td>@ingredient.StockQuantity</td>
                             <td>@ingredient.UnitOfMeasure</td>
                             <td>@ingredient.MinimumStock</td>
-                            <td>@ingredient.Cost.ToString("C2")</td>
+                            <td>@ingredient.PurchasePrice.ToString("₡#,##0.00") </td>
                             <td>@(ingredient.LastRestockDate?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "N/A")</td>
                             <td>
                                 <span class="badge @(ingredient.IsActive ? "bg-success" : "bg-danger")">

@@ -1,0 +1,75 @@
+﻿@page "/customers/create"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Models.Orders;
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<RadzenStack Style="max-width: 1200px; margin: 0 auto;">
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="mb-4">
+        Crear Cliente
+    </RadzenText>
+
+    <RadzenTemplateForm TItem="CustomerDTO" Data=@model Submit=@HandleSubmit>
+        <RadzenCard class="mb-4">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <RadzenLabel Component="Name" Text="Nombre Completo" />
+                    <RadzenTextBox @bind-Value=@model.Name Name="Name"
+                                   style="width: 100%;" class="mb-1" />
+                    <RadzenRequiredValidator Component="Name" Text="El nombre es requerido" />
+                </div>
+                <div class="col-md-6">
+                    <RadzenLabel Component="Email" Text="Correo Electrónico" />
+                    <RadzenTextBox @bind-Value=@model.Email Name="Email"
+                                   style="width: 100%;" class="mb-1" />
+                    <RadzenEmailValidator Component="Email" Text="Correo electrónico inválido" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <RadzenLabel Component="PhoneNumber" Text="Teléfono" />
+                    <RadzenTextBox @bind-Value=@model.PhoneNumber Name="PhoneNumber"
+                                   style="width: 100%;" class="mb-1" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <RadzenLabel Component="IdentificationType" Text="Tipo de Identificación" />
+                    <RadzenDropDown @bind-Value=@model.IdentificationType Name="IdentificationType"
+                                    Data=@identificationTypes
+                                    style="width: 100%;" class="mb-1" />
+                </div>
+                <div class="col-md-6">
+                    <RadzenLabel Component="IdentificationNumber" Text="Número de Identificación" />
+                    <RadzenTextBox @bind-Value=@model.IdentificationNumber Name="IdentificationNumber"
+                                   style="width: 100%;" class="mb-1" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <RadzenLabel Component="Address" Text="Dirección" />
+                    <RadzenTextArea @bind-Value=@model.Address Name="Address"
+                                    style="width: 100%;" class="mb-1" Rows="3" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <RadzenLabel Component="IsActive" Text="Estado" class="mb-2" />
+                    <div class="d-flex align-items-center">
+                        <RadzenSwitch @bind-Value=@model.IsActive Name="IsActive" />
+                        <RadzenLabel Component="IsActive" Text="Cliente Activo" class="ms-2" />
+                    </div>
+                </div>
+            </div>
+        </RadzenCard>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar" ButtonStyle="ButtonStyle.Primary" />
+            <RadzenButton Click=@(() => NavigationManager.NavigateTo("/customers"))
+                          Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+        </RadzenStack>
+    </RadzenTemplateForm>
+</RadzenStack>

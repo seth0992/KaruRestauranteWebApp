@@ -50,8 +50,9 @@
         <div class="row mb-3">
             <div class="col-md-6">
                 <label class="form-label">Costo Unitario</label>
-                <InputNumber @bind-Value="ingredient.Cost" class="form-control" />
-                <ValidationMessage For="@(() => ingredient.Cost)" />
+                <RadzenNumeric @bind-Value=@ingredient.PurchasePrice Name="PurchasePrice"
+                               Min="0" Format="₡#,##0.00" style="width: 100%;" class="mb-1" />
+                <ValidationMessage For="@(() => ingredient.PurchasePrice)" />
             </div>
             <div class="col-md-12">
                 <label class="form-label">Descripción</label>
