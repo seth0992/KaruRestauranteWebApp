@@ -1,0 +1,80 @@
+﻿@inject DialogService DialogService
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+
+<RadzenCard>
+    <RadzenStack Gap="1rem">
+        <RadzenText TextStyle="TextStyle.Subtitle1">
+            Seleccionar Producto
+        </RadzenText>
+
+        <RadzenTextBox Placeholder="Buscar productos..." @oninput=@SearchProducts class="w-100 mb-2" />
+
+        <RadzenDataGrid @ref="productsGrid" Data="@filteredProducts" TItem="FastFoodItemModel"
+                        AllowPaging="true" PageSize="5" AllowSorting="true"
+                        RowSelect="@ProductSelected">
+            <Columns>
+                <RadzenDataGridColumn TItem="FastFoodItemModel" Property="Name" Title="Nombre" Width="200px">
+                    <Template Context="product">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                            @if (!string.IsNullOrEmpty(product.ImageUrl))
+                            {
+                                <RadzenImage Path="@product.ImageUrl" Style="width: 32px; height: 32px; border-radius: 50%;" />
+                            }
+                            else
+                            {
+                                <RadzenIcon Icon="restaurant" />
+                            }
+                            <RadzenText>@product.Name</RadzenText>
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="FastFoodItemModel" Property="Category.Name" Title="Categoría" Width="120px" />
+
+                <RadzenDataGridColumn TItem="FastFoodItemModel" Property="SellingPrice" Title="Precio" Width="100px">
+                    <Template Context="product">
+                        @product.SellingPrice.ToString("₡#,##0.00")
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="FastFoodItemModel" Property="EstimatedPreparationTime" Title="Tiempo" Width="90px">
+                    <Template Context="product">
+                        @(product.EstimatedPreparationTime.HasValue ? $"{product.EstimatedPreparationTime} min" : "N/A")
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton Click=@(() => DialogService.Close()) Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter]
+    public List<FastFoodItemModel> Products { get; set; } = new();
+
+    private List<FastFoodItemModel> filteredProducts = new();
+    private RadzenDataGrid<FastFoodItemModel> productsGrid;
+    private string searchTerm = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        filteredProducts = Products;
+    }
+
+    private void SearchProducts(ChangeEventArgs args)
+    {
+        searchTerm = args.Value?.ToString().ToLower() ?? string.Empty;
+        filteredProducts = Products
+            .Where(p => p.Name.ToLower().Contains(searchTerm) ||
+                        p.Category?.Name?.ToLower().Contains(searchTerm) == true)
+            .ToList();
+    }
+
+    private void ProductSelected(FastFoodItemModel product)
+    {
+        DialogService.Close(product);
+    }
+}
