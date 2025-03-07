@@ -88,6 +88,22 @@ builder.Services.AddScoped<IFastFoodService, FastFoodService>();
 //Add roductType Services and repository
 builder.Services.AddScoped<IProductTypeRepository, ProductTypeRepository>();
 builder.Services.AddScoped<IProductTypeService, ProductTypeService>();
+// Añadir Customer Services y repository
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+// Añadir Ordens Services y repository
+builder.Services.AddScoped<IOrderDetailRepository, OrderDetailRepository>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+// Añadir Table Services y repository
+builder.Services.AddScoped<ITableRepository, TableRepository>();
+builder.Services.AddScoped<ITableService, TableService>();
+// Añadir ElectroniInvoice Services y repository
+builder.Services.AddScoped<IElectronicInvoiceRepository, ElectronicInvoiceRepository>();
+builder.Services.AddScoped<IElectronicInvoiceService, ElectronicInvoiceService>();
+// Añadir ElectroniInvoice Services y repository
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 //Add User services and Repository
 builder.Services.AddScoped<IUserRepository, UserRepository>();
