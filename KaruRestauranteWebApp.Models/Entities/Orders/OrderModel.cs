@@ -1,10 +1,5 @@
 ﻿using KaruRestauranteWebApp.Models.Entities.Users;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace KaruRestauranteWebApp.Models.Entities.Orders
 {

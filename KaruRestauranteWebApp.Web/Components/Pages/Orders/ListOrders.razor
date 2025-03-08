@@ -1,0 +1,108 @@
+﻿@page "/orders"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Entities.Orders
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+
+<RadzenStack>
+    <RadzenRow class="align-items-center mb-4" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.H3">Gestión de Pedidos</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="6" class="text-end">
+            <RadzenButton Icon="add" Text="Nuevo Pedido" ButtonStyle="ButtonStyle.Primary"
+                        Click=@(() => NavigationManager.NavigateTo("/orders/create")) />
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenCard class="mb-4">
+        <RadzenText TextStyle="TextStyle.Subtitle1" class="mb-3">Filtros</RadzenText>
+        <RadzenRow>
+            <RadzenColumn Size="12" SizeMD="3">
+                <RadzenLabel Text="Desde" />
+                <RadzenDatePicker @bind-Value=@fromDate Style="width: 100%;" DateFormat="dd/MM/yyyy" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="3">
+                <RadzenLabel Text="Hasta" />
+                <RadzenDatePicker @bind-Value=@toDate Style="width: 100%;" DateFormat="dd/MM/yyyy" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="3">
+                <RadzenLabel Text="Estado" />
+                <RadzenDropDown @bind-Value=@selectedStatus Data=@orderStatuses 
+                                Placeholder="Todos" Style="width: 100%;" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="3" class="d-flex align-items-end">
+                <RadzenButton Text="Buscar" Icon="search" ButtonStyle="ButtonStyle.Primary" 
+                              Click=@(async () => await LoadOrders()) Style="width: 100%; margin-bottom: 1px;" />
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenCard>
+
+    @if (orders == null)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else
+    {
+        <RadzenCard Variant="Variant.Flat">
+            <RadzenDataGrid Data="@orders" TItem="OrderModel"
+                          AllowFiltering="true"
+                          AllowColumnResize="true"
+                          AllowSorting="true"
+                          AllowPaging="true"
+                          PageSize="10"
+                          FilterMode="FilterMode.Advanced"
+                          FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+                <Columns>
+                    <RadzenDataGridColumn TItem="OrderModel" Property="OrderNumber" Title="Número" Width="120px" />
+                    <RadzenDataGridColumn TItem="OrderModel" Property="CreatedAt" Title="Fecha" Width="150px">
+                        <Template Context="order">
+                            @order.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OrderModel" Property="Customer.Name" Title="Cliente" Width="200px">
+                        <Template Context="order">
+                            @(order.Customer?.Name ?? "Cliente no registrado")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OrderModel" Property="OrderType" Title="Tipo" Width="100px" />
+                    <RadzenDataGridColumn TItem="OrderModel" Property="TotalAmount" Title="Total" Width="120px">
+                        <Template Context="order">
+                            @order.TotalAmount.ToString("₡#,##0.00")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OrderModel" Property="OrderStatus" Title="Estado" Width="120px">
+                        <Template Context="order">
+                            <RadzenBadge BadgeStyle="@GetOrderStatusBadgeStyle(order.OrderStatus)"
+                                       Text="@order.OrderStatus" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OrderModel" Property="PaymentStatus" Title="Estado Pago" Width="120px">
+                        <Template Context="order">
+                            <RadzenBadge BadgeStyle="@GetPaymentStatusBadgeStyle(order.PaymentStatus)"
+                                       Text="@order.PaymentStatus" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OrderModel" Title="Acciones" Width="180px">
+                        <Template Context="order">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="0.5rem">
+                                <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
+                                          Click=@(() => NavigationManager.NavigateTo($"/orders/details/{order.ID}"))
+                                          Variant="Variant.Text"/>
+                                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                          Click=@(() => NavigationManager.NavigateTo($"/orders/edit/{order.ID}"))
+                                          Variant="Variant.Text"/>
+                                <AuthorizeView Roles="SuperAdmin,Admin">
+                                    <Authorized>
+                                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small"
+                                                  Click=@(() => ShowDeleteConfirmation(order))
+                                                  Variant="Variant.Text"/>
+                                    </Authorized>
+                                </AuthorizeView>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenCard>
+    }
+</RadzenStack>

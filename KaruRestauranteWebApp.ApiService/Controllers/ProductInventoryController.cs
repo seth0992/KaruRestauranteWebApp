@@ -1,10 +1,9 @@
 ﻿using KaruRestauranteWebApp.BL.Services;
 using KaruRestauranteWebApp.Models.Models;
+using KaruRestauranteWebApp.Models.Models.Restaurant;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
-using KaruRestauranteWebApp.Models.Models.Restaurant;
 
 namespace KaruRestauranteWebApp.ApiService.Controllers
 {
