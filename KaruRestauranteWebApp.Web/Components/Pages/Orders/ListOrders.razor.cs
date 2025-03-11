@@ -65,7 +65,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 else
                 {
                     NotificationService.Notify(NotificationSeverity.Error,
-                        "Error", "Error al cargar pedidos", 4000);
+                        "Error", response?.ErrorMessage ?? "Error al cargar pedidos", 4000);
                 }
             }
             catch (Exception ex)
@@ -97,6 +97,42 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 "Paid" => BadgeStyle.Success,
                 "Cancelled" => BadgeStyle.Danger,
                 _ => BadgeStyle.Light
+            };
+        }
+
+        private string GetOrderTypeName(string type)
+        {
+            return type switch
+            {
+                "DineIn" => "En Sitio",
+                "TakeOut" => "Para Llevar",
+                "Delivery" => "Entrega",
+                _ => type
+            };
+        }
+
+        private string GetOrderStatusName(string status)
+        {
+            return status switch
+            {
+                "Pending" => "Pendiente",
+                "InProgress" => "En Proceso",
+                "Ready" => "Listo",
+                "Delivered" => "Entregado",
+                "Cancelled" => "Cancelado",
+                _ => status
+            };
+        }
+
+        private string GetPaymentStatusName(string status)
+        {
+            return status switch
+            {
+                "Pending" => "Pendiente",
+                "Partially Paid" => "Pago Parcial",
+                "Paid" => "Pagado",
+                "Cancelled" => "Cancelado",
+                _ => status
             };
         }
 
@@ -139,6 +175,11 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 NotificationService.Notify(NotificationSeverity.Error,
                     "Error", $"Error al cancelar pedido: {ex.Message}", 4000);
             }
+        }
+
+        private void ViewOrderDetails(DataGridRowMouseEventArgs<OrderModel> args)
+        {
+            NavigationManager.NavigateTo($"/orders/details/{args.Data.ID}");
         }
     }
 }

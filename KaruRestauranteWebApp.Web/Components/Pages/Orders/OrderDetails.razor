@@ -1,0 +1,261 @@
+﻿@page "/orders/details/{OrderId:int}"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Entities.Orders
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+
+<RadzenStack Style="max-width: 1200px; margin: 0 auto;">
+    <RadzenRow class="align-items-center mb-4">
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.H3">Detalle de Pedido</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="6" class="text-end">
+            <RadzenButton Icon="arrow_back" Text="Volver a lista" ButtonStyle="ButtonStyle.Light"
+                          Click=@(() => NavigationManager.NavigateTo("/orders")) />
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (order == null)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else
+    {
+        <RadzenCard class="mb-4">
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenText TextStyle="TextStyle.Subtitle1">Número:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">@order.OrderNumber</RadzenText>
+                        </RadzenStack>
+
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenText TextStyle="TextStyle.Subtitle1">Fecha:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">@order.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</RadzenText>
+                        </RadzenStack>
+
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenText TextStyle="TextStyle.Subtitle1">Cliente:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">@(order.Customer?.Name ?? "Cliente no registrado")</RadzenText>
+                        </RadzenStack>
+
+                        @if (order.Customer != null)
+                        {
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenText TextStyle="TextStyle.Subtitle1">Contacto:</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1">@order.Customer.PhoneNumber</RadzenText>
+                            </RadzenStack>
+                        }
+
+                        @if (order.OrderType == "DineIn" && order.Table != null)
+                        {
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenText TextStyle="TextStyle.Subtitle1">Mesa:</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1">@order.Table.TableNumber</RadzenText>
+                            </RadzenStack>
+                        }
+                    </RadzenStack>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenText TextStyle="TextStyle.Subtitle1">Tipo:</RadzenText>
+                            <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@GetOrderTypeName(order.OrderType)" />
+                        </RadzenStack>
+
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenText TextStyle="TextStyle.Subtitle1">Estado:</RadzenText>
+                            <RadzenBadge BadgeStyle="@GetOrderStatusBadgeStyle(order.OrderStatus)" Text="@GetOrderStatusName(order.OrderStatus)" />
+                        </RadzenStack>
+
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenText TextStyle="TextStyle.Subtitle1">Estado Pago:</RadzenText>
+                            <RadzenBadge BadgeStyle="@GetPaymentStatusBadgeStyle(order.PaymentStatus)" Text="@GetPaymentStatusName(order.PaymentStatus)" />
+                        </RadzenStack>
+
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenText TextStyle="TextStyle.Subtitle1">Atendido por:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">@order.User.FullName</RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            @if (!string.IsNullOrWhiteSpace(order.Notes))
+            {
+                <RadzenRow class="mt-3">
+                    <RadzenColumn Size="12">
+                        <RadzenText TextStyle="TextStyle.Subtitle1">Notas:</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">@order.Notes</RadzenText>
+                    </RadzenColumn>
+                </RadzenRow>
+            }
+        </RadzenCard>
+
+        <RadzenCard class="mb-4">
+            <RadzenText TextStyle="TextStyle.H5" TagName="TagName.H2" class="mb-3">Productos</RadzenText>
+
+            <RadzenDataGrid Data="@order.OrderDetails" TItem="OrderDetailModel"
+                            AllowSorting="true" AllowPaging="false" AllowFiltering="false">
+                <Columns>
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Title="Tipo" Width="100px">
+                        <Template Context="detail">
+                            <RadzenBadge BadgeStyle="@(detail.ItemType == "Product" ? BadgeStyle.Info : BadgeStyle.Success)"
+                                         Text="@(detail.ItemType == "Product" ? "Producto" : "Combo")" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Title="Producto" Width="200px">
+                        <Template Context="detail">
+                            @GetItemName(detail)
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Property="Quantity" Title="Cantidad" Width="100px" />
+
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Property="UnitPrice" Title="Precio Unit." Width="120px">
+                        <Template Context="detail">
+                            @detail.UnitPrice.ToString("₡#,##0.00")
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Property="SubTotal" Title="Subtotal" Width="120px">
+                        <Template Context="detail">
+                            @detail.SubTotal.ToString("₡#,##0.00")
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Title="Estado" Width="120px">
+                        <Template Context="detail">
+                            <RadzenBadge BadgeStyle="@GetDetailStatusBadgeStyle(detail.Status)" Text="@GetDetailStatusName(detail.Status)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Property="Notes" Title="Notas" Width="180px" />
+
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Title="Personalizaciones" Width="200px">
+                        <Template Context="detail">
+                            @if (detail.Customizations.Any())
+                            {
+                                <RadzenButton Icon="tune" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                              Click=@(() => ShowCustomizations(detail.Customizations)) Text="Ver" />
+                            }
+                            else
+                            {
+                                <span>Sin personalizaciones</span>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+
+            <div class="d-flex justify-content-end mt-4">
+                <RadzenCard Style="width: 300px;">
+                    <div class="d-flex justify-content-between mb-2">
+                        <RadzenText TextStyle="TextStyle.Body1">Subtotal:</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">@((order.TotalAmount - order.TaxAmount + order.DiscountAmount).ToString("₡#,##0.00"))</RadzenText>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <RadzenText TextStyle="TextStyle.Body1">IVA (13%):</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">@(order.TaxAmount.ToString("₡#,##0.00"))</RadzenText>
+                    </div>
+                    @if (order.DiscountAmount > 0)
+                    {
+                        <div class="d-flex justify-content-between mb-2">
+                            <RadzenText TextStyle="TextStyle.Body1">Descuento:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">-@(order.DiscountAmount.ToString("₡#,##0.00"))</RadzenText>
+                        </div>
+                    }
+                    <hr />
+                    <div class="d-flex justify-content-between">
+                        <RadzenText TextStyle="TextStyle.H6">Total:</RadzenText>
+                        <RadzenText TextStyle="TextStyle.H6">@(order.TotalAmount.ToString("₡#,##0.00"))</RadzenText>
+                    </div>
+                </RadzenCard>
+            </div>
+        </RadzenCard>
+
+        @if (order.Payments.Any())
+        {
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.H5" TagName="TagName.H2" class="mb-3">Pagos</RadzenText>
+
+                <RadzenDataGrid Data="@order.Payments" TItem="PaymentModel"
+                                AllowSorting="true" AllowPaging="false" AllowFiltering="false">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="PaymentModel" Property="PaymentDate" Title="Fecha" Width="180px">
+                            <Template Context="payment">
+                                @payment.PaymentDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="PaymentModel" Property="PaymentMethod" Title="Método" Width="150px" />
+
+                        <RadzenDataGridColumn TItem="PaymentModel" Property="Amount" Title="Monto" Width="150px">
+                            <Template Context="payment">
+                                @payment.Amount.ToString("₡#,##0.00")
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="PaymentModel" Property="ReferenceNumber" Title="Referencia" Width="150px" />
+
+                        <RadzenDataGridColumn TItem="PaymentModel" Property="ProcessedByUser.FullName" Title="Procesado por" Width="200px" />
+
+                        <RadzenDataGridColumn TItem="PaymentModel" Property="Notes" Title="Notas" Width="200px" />
+                    </Columns>
+                </RadzenDataGrid>
+            </RadzenCard>
+        }
+
+        @if (order.ElectronicInvoice != null)
+        {
+            <RadzenCard>
+                <RadzenText TextStyle="TextStyle.H5" TagName="TagName.H2" class="mb-3">Factura Electrónica</RadzenText>
+
+                <RadzenRow>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenText TextStyle="TextStyle.Subtitle1">Número:</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1">@order.ElectronicInvoice.InvoiceNumber</RadzenText>
+                            </RadzenStack>
+
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenText TextStyle="TextStyle.Subtitle1">Fecha:</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1">@order.ElectronicInvoice.CreationDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</RadzenText>
+                            </RadzenStack>
+
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenText TextStyle="TextStyle.Subtitle1">Estado:</RadzenText>
+                                <RadzenBadge BadgeStyle="@GetInvoiceStatusBadgeStyle(order.ElectronicInvoice.InvoiceStatus)" Text="@order.ElectronicInvoice.InvoiceStatus" />
+                            </RadzenStack>
+                        </RadzenStack>
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            @if (!string.IsNullOrEmpty(order.ElectronicInvoice.HaciendaConfirmationNumber))
+                            {
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenText TextStyle="TextStyle.Subtitle1">Confirmación:</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1">@order.ElectronicInvoice.HaciendaConfirmationNumber</RadzenText>
+                                </RadzenStack>
+                            }
+
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenText TextStyle="TextStyle.Subtitle1">Total:</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1">@order.ElectronicInvoice.TotalAmount.ToString("₡#,##0.00")</RadzenText>
+                            </RadzenStack>
+
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenText TextStyle="TextStyle.Subtitle1">Impuestos:</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1">@order.ElectronicInvoice.TaxAmount.ToString("₡#,##0.00")</RadzenText>
+                            </RadzenStack>
+                        </RadzenStack>
+                    </RadzenColumn>
+                </RadzenRow>
+            </RadzenCard>
+        }
+    }
+</RadzenStack>

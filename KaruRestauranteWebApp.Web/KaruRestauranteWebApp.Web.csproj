@@ -19,5 +19,10 @@
     <ProjectReference Include="..\KaruRestauranteWebApp.Models\KaruRestauranteWebApp.Models.csproj" />
     <ProjectReference Include="..\KaruRestauranteWebApp.ServiceDefaults\KaruRestauranteWebApp.ServiceDefaults.csproj" />
   </ItemGroup>
+	
+	
+  <ItemGroup>
+    <Folder Include="wwwroot\sounds\" />
+  </ItemGroup>
 
 </Project>

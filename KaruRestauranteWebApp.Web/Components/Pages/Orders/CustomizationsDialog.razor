@@ -1,0 +1,103 @@
+﻿@inject DialogService DialogService
+@using KaruRestauranteWebApp.Models.Entities.Orders
+
+<RadzenCard>
+    <RadzenStack Gap="1rem">
+        <RadzenText TextStyle="TextStyle.H6">Personalizaciones del Producto</RadzenText>
+
+        @if (!Customizations.Any())
+        {
+            <RadzenText TextStyle="TextStyle.Body1">Este producto no tiene personalizaciones.</RadzenText>
+        }
+        else
+        {
+            <div class="customization-list">
+                @foreach (var customization in Customizations)
+                {
+                    <div class="customization-item @GetCustomizationClass(customization.CustomizationType)">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenBadge BadgeStyle="@GetCustomizationBadgeStyle(customization.CustomizationType)"
+                                         Text="@GetCustomizationTypeName(customization.CustomizationType)" />
+
+                            <RadzenText TextStyle="TextStyle.Body1">
+                                @customization.Ingredient.Name x @customization.Quantity
+                            </RadzenText>
+
+                            @if (customization.ExtraCharge > 0)
+                            {
+                                <RadzenText TextStyle="TextStyle.Body2" class="ms-auto">
+                                    +@(customization.ExtraCharge.ToString("₡#,##0.00"))
+                                </RadzenText>
+                            }
+                        </RadzenStack>
+                    </div>
+                }
+            </div>
+        }
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="mt-3">
+            <RadzenButton Click=@(() => DialogService.Close()) Text="Cerrar" ButtonStyle="ButtonStyle.Light" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenCard>
+
+<style>
+    .customization-list {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .customization-item {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 8px;
+    }
+
+        .customization-item.add {
+            border-color: var(--rz-success);
+            background-color: rgba(40, 167, 69, 0.05);
+        }
+
+        .customization-item.remove {
+            border-color: var(--rz-danger);
+            background-color: rgba(220, 53, 69, 0.05);
+        }
+
+        .customization-item.extra {
+            border-color: var(--rz-warning);
+            background-color: rgba(255, 193, 7, 0.05);
+        }
+</style>
+
+@code {
+    [Parameter]
+    public IEnumerable<OrderItemCustomizationModel> Customizations { get; set; } = new List<OrderItemCustomizationModel>();
+
+    private BadgeStyle GetCustomizationBadgeStyle(string type)
+    {
+        return type switch
+        {
+            "Add" => BadgeStyle.Success,
+            "Remove" => BadgeStyle.Danger,
+            "Extra" => BadgeStyle.Warning,
+            _ => BadgeStyle.Light
+        };
+    }
+
+    private string GetCustomizationClass(string type)
+    {
+        return type.ToLower();
+    }
+
+    private string GetCustomizationTypeName(string type)
+    {
+        return type switch
+        {
+            "Add" => "Agregar",
+            "Remove" => "Quitar",
+            "Extra" => "Extra",
+            _ => type
+        };
+    }
+}
