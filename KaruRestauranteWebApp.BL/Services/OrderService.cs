@@ -668,5 +668,321 @@ namespace KaruRestauranteWebApp.BL.Services
                 throw;
             }
         }
+
+        #region Métodos privados para manejar la lógica que estaba en los triggers
+
+        private async Task UpdateInventoryForOrderDetail(OrderDetailModel detail)
+        {
+            try
+            {
+                if (detail.ItemType == "Product")
+                {
+                    // Buscar el producto y su inventario
+                    var product = await _productRepository.GetByIdAsync(detail.ItemID);
+                    if (product?.Inventory != null)
+                    {
+                        // Verificar si hay suficiente stock
+                        if (product.Inventory.CurrentStock < detail.Quantity)
+                        {
+                            _logger.LogWarning("Stock insuficiente para el producto {ProductId}. Stock actual: {CurrentStock}, Solicitado: {Quantity}",
+                                detail.ItemID, product.Inventory.CurrentStock, detail.Quantity);
+
+                            // Opcional: lanzar excepción o simplemente registrar la advertencia
+                            // throw new ValidationException($"Stock insuficiente para el producto {product.Name}");
+                        }
+
+                        // Reducir stock
+                        product.Inventory.CurrentStock -= detail.Quantity;
+                        await _productInventoryRepository.UpdateAsync(product.Inventory);
+
+                        _logger.LogInformation("Stock actualizado para producto {ProductId}. Nuevo stock: {NewStock}",
+                            detail.ItemID, product.Inventory.CurrentStock);
+                    }
+
+                    // Si hay ingredientes personalizados, ajustar el inventario de ingredientes
+                    foreach (var customization in detail.Customizations)
+                    {
+                        if (customization.CustomizationType == "Extra")
+                        {
+                            // Reducir stock del ingrediente extra
+                            await UpdateIngredientStock(customization.IngredientID, -customization.Quantity);
+                        }
+                    }
+                }
+                else if (detail.ItemType == "Combo")
+                {
+                    // Para combos, obtener sus elementos y actualizar inventario de cada uno
+                    var combo = await _comboRepository.GetByIdAsync(detail.ItemID);
+                    if (combo?.Items != null)
+                    {
+                        foreach (var item in combo.Items)
+                        {
+                            // Obtener el producto y su inventario
+                            var product = await _productRepository.GetByIdAsync(item.FastFoodItemID);
+                            if (product?.Inventory != null)
+                            {
+                                // Reducir stock considerando la cantidad del combo y la cantidad del ítem en el combo
+                                int totalQuantity = detail.Quantity * item.Quantity;
+
+                                // Verificar stock
+                                if (product.Inventory.CurrentStock < totalQuantity)
+                                {
+                                    _logger.LogWarning("Stock insuficiente para el producto {ProductId} en combo. Stock actual: {CurrentStock}, Solicitado: {Quantity}",
+                                        item.FastFoodItemID, product.Inventory.CurrentStock, totalQuantity);
+                                }
+
+                                // Reducir stock
+                                product.Inventory.CurrentStock -= totalQuantity;
+                                await _productInventoryRepository.UpdateAsync(product.Inventory);
+
+                                _logger.LogInformation("Stock actualizado para producto {ProductId} en combo. Nuevo stock: {NewStock}",
+                                    item.FastFoodItemID, product.Inventory.CurrentStock);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al actualizar inventario para detalle de orden {DetailId}", detail.ID);
+                throw;
+            }
+        }
+
+        private async Task ReverseInventoryAdjustmentForDetail(OrderDetailModel detail)
+        {
+            try
+            {
+                if (detail.ItemType == "Product")
+                {
+                    // Buscar el producto y su inventario
+                    var product = await _productRepository.GetByIdAsync(detail.ItemID);
+                    if (product?.Inventory != null)
+                    {
+                        // Devolver al stock
+                        product.Inventory.CurrentStock += detail.Quantity;
+                        await _productInventoryRepository.UpdateAsync(product.Inventory);
+
+                        _logger.LogInformation("Stock revertido para producto {ProductId}. Nuevo stock: {NewStock}",
+                            detail.ItemID, product.Inventory.CurrentStock);
+                    }
+
+                    // Si hay ingredientes personalizados, revertir ajustes
+                    foreach (var customization in detail.Customizations)
+                    {
+                        if (customization.CustomizationType == "Extra")
+                        {
+                            // Devolver stock del ingrediente extra
+                            await UpdateIngredientStock(customization.IngredientID, customization.Quantity);
+                        }
+                    }
+                }
+                else if (detail.ItemType == "Combo")
+                {
+                    // Para combos, revertir ajustes de cada elemento
+                    var combo = await _comboRepository.GetByIdAsync(detail.ItemID);
+                    if (combo?.Items != null)
+                    {
+                        foreach (var item in combo.Items)
+                        {
+                            // Obtener el producto y su inventario
+                            var product = await _productRepository.GetByIdAsync(item.FastFoodItemID);
+                            if (product?.Inventory != null)
+                            {
+                                // Devolver al stock considerando la cantidad del combo y la cantidad del ítem en el combo
+                                int totalQuantity = detail.Quantity * item.Quantity;
+
+                                // Devolver stock
+                                product.Inventory.CurrentStock += totalQuantity;
+                                await _productInventoryRepository.UpdateAsync(product.Inventory);
+
+                                _logger.LogInformation("Stock revertido para producto {ProductId} en combo. Nuevo stock: {NewStock}",
+                                    item.FastFoodItemID, product.Inventory.CurrentStock);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al revertir ajustes de inventario para detalle {DetailId}", detail.ID);
+                throw;
+            }
+        }
+
+        private async Task ReverseInventoryAdjustments(int orderId)
+        {
+            try
+            {
+                // Obtener todos los detalles de la orden
+                var details = await _orderDetailRepository.GetByOrderIdAsync(orderId);
+
+                // Revertir ajustes para cada detalle
+                foreach (var detail in details)
+                {
+                    if (detail.Status != "Cancelled") // Solo si no estaba ya cancelado
+                    {
+                        await ReverseInventoryAdjustmentForDetail(detail);
+
+                        // Actualizar estado del detalle a cancelado
+                        await _orderDetailRepository.UpdateStatusAsync(detail.ID, "Cancelled");
+                    }
+                }
+
+                _logger.LogInformation("Ajustes de inventario revertidos para todos los detalles de la orden {OrderId}", orderId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al revertir ajustes de inventario para la orden {OrderId}", orderId);
+                throw;
+            }
+        }
+
+        private async Task UpdateIngredientStock(int ingredientId, decimal quantityChange)
+        {
+            try
+            {
+                var ingredient = await _inventoryRepository.GetIngredientByIdAsync(ingredientId);
+                if (ingredient == null)
+                {
+                    _logger.LogWarning("No se encontró el ingrediente {IngredientId} para actualizar stock", ingredientId);
+                    return;
+                }
+
+                // Calcular nuevo stock
+                ingredient.StockQuantity += quantityChange;
+
+                // Si el stock queda negativo, ajustar a 0 y registrar
+                if (ingredient.StockQuantity < 0)
+                {
+                    _logger.LogWarning("Stock negativo para ingrediente {IngredientId}. Ajustando a 0", ingredientId);
+                    ingredient.StockQuantity = 0;
+                }
+
+                // Actualizar
+                await _inventoryRepository.UpdateIngredientAsync(ingredient);
+
+                _logger.LogInformation("Stock de ingrediente {IngredientId} actualizado. Nuevo stock: {NewStock}",
+                    ingredientId, ingredient.StockQuantity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al actualizar stock del ingrediente {IngredientId}", ingredientId);
+                throw;
+            }
+        }
+
+        private async Task HandleOrderStatusChange(OrderModel order, string previousStatus)
+        {
+            try
+            {
+                // Si cambia a Delivered o Cancelled y hay mesa asignada, liberarla
+                if ((order.OrderStatus == "Delivered" || order.OrderStatus == "Cancelled") && order.TableID.HasValue)
+                {
+                    await _tableRepository.UpdateStatusAsync(order.TableID.Value, "Available");
+                    _logger.LogInformation("Mesa {TableId} liberada por cambio de estado de orden {OrderId} a {Status}",
+                        order.TableID.Value, order.ID, order.OrderStatus);
+                }
+
+                // Si cambia a Cancelled, revertir ajustes de inventario
+                if (order.OrderStatus == "Cancelled" && previousStatus != "Cancelled")
+                {
+                    await ReverseInventoryAdjustments(order.ID);
+                }
+
+                // Registrar cambio de estado
+                await LogOrderStatusChangeAsync(order.ID, previousStatus, order.OrderStatus);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al manejar cambio de estado de orden {OrderId}", order.ID);
+                throw;
+            }
+        }
+
+        private async Task HandleTableChange(int? oldTableId, int? newTableId)
+        {
+            try
+            {
+                // Liberar mesa anterior si existía
+                if (oldTableId.HasValue)
+                {
+                    await _tableRepository.UpdateStatusAsync(oldTableId.Value, "Available");
+                    _logger.LogInformation("Mesa {TableId} liberada por cambio de mesa", oldTableId.Value);
+                }
+
+                // Ocupar nueva mesa si existe
+                if (newTableId.HasValue)
+                {
+                    await _tableRepository.UpdateStatusAsync(newTableId.Value, "Occupied");
+                    _logger.LogInformation("Mesa {TableId} ocupada por cambio de mesa", newTableId.Value);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al manejar cambio de mesa. Mesa anterior: {OldTableId}, Mesa nueva: {NewTableId}",
+                    oldTableId, newTableId);
+                throw;
+            }
+        }
+
+        private async Task LogOrderActivityAsync(int orderId, string action, int userId)
+        {
+            try
+            {
+                // Como es solo para logging, simplemente registramos en el log
+                _logger.LogInformation("Actividad de orden {OrderId}: {Action} por usuario {UserId}",
+                    orderId, action, userId);
+
+                // Si tuvieras una tabla de logs en la base de datos, aquí es donde insertarías el registro
+
+                // Ejemplo si hubiera un LogRepository:
+                // await _logRepository.CreateAsync(new LogModel {
+                //     EntityType = "Order",
+                //     EntityId = orderId,
+                //     Action = action,
+                //     UserId = userId,
+                //     Timestamp = DateTime.UtcNow
+                // });
+            }
+            catch (Exception ex)
+            {
+                // No propagamos excepciones de logging para no interrumpir el flujo principal
+                _logger.LogError(ex, "Error al registrar actividad para orden {OrderId}", orderId);
+            }
+        }
+
+        private async Task LogOrderStatusChangeAsync(int orderId, string oldStatus, string newStatus)
+        {
+            try
+            {
+                _logger.LogInformation("Cambio de estado de orden {OrderId}: {OldStatus} → {NewStatus}",
+                    orderId, oldStatus, newStatus);
+
+                // Si tuvieras una tabla de historial de estados, aquí es donde insertarías el registro
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al registrar cambio de estado para orden {OrderId}", orderId);
+            }
+        }
+
+        private async Task LogPaymentStatusChangeAsync(int orderId, string newStatus)
+        {
+            try
+            {
+                _logger.LogInformation("Cambio de estado de pago de orden {OrderId}: {NewStatus}",
+                    orderId, newStatus);
+
+                // Si tuvieras una tabla de historial de pagos, aquí es donde insertarías el registro
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al registrar cambio de estado de pago para orden {OrderId}", orderId);
+            }
+        }
+
+        #endregion
+    
     }
 }
