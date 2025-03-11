@@ -34,6 +34,8 @@ namespace KaruRestauranteWebApp.BL.Services
         private readonly ITableRepository _tableRepository;
         private readonly IFastFoodRepository _productRepository;
         private readonly IComboRepository _comboRepository;
+        private readonly IProductInventoryRepository _productInventoryRepository;
+        private readonly IInventoryRepository _inventoryRepository;
         private readonly ILogger<OrderService> _logger;
 
         public OrderService(
@@ -44,6 +46,8 @@ namespace KaruRestauranteWebApp.BL.Services
             ITableRepository tableRepository,
             IFastFoodRepository productRepository,
             IComboRepository comboRepository,
+            IProductInventoryRepository productInventoryRepository,
+            IInventoryRepository inventoryRepository,
             ILogger<OrderService> logger)
         {
             _orderRepository = orderRepository;
@@ -53,6 +57,8 @@ namespace KaruRestauranteWebApp.BL.Services
             _tableRepository = tableRepository;
             _productRepository = productRepository;
             _comboRepository = comboRepository;
+            _productInventoryRepository = productInventoryRepository;
+            _inventoryRepository = inventoryRepository;
             _logger = logger;
         }
 
@@ -142,6 +148,8 @@ namespace KaruRestauranteWebApp.BL.Services
 
         public async Task<OrderModel> CreateOrderAsync(OrderDTO orderDto, int userId)
         {
+            // Iniciar transacción para realizar todas las operaciones como una unidad
+            using var transaction = await _orderRepository.BeginTransactionAsync();
             try
             {
                 // Validar tipo de orden
@@ -212,10 +220,11 @@ namespace KaruRestauranteWebApp.BL.Services
                 // Guardar la orden
                 await _orderRepository.CreateAsync(order);
 
-                // Si es orden en sitio, actualizar el estado de la mesa a ocupada
+                // Funcionalidad de trigger: Si es orden en sitio, actualizar el estado de la mesa a ocupada
                 if (table != null)
                 {
                     await _tableRepository.UpdateStatusAsync(table.ID, "Occupied");
+                    _logger.LogInformation("Mesa {TableId} marcada como ocupada para la orden {OrderId}", table.ID, order.ID);
                 }
 
                 // Agregar detalles a la orden si se proporcionaron
@@ -223,18 +232,30 @@ namespace KaruRestauranteWebApp.BL.Services
                 {
                     foreach (var detailDto in orderDto.OrderDetails)
                     {
-                        await AddOrderDetailAsync(order.ID, detailDto);
+                        // Agregar detalle a la orden
+                        var orderDetail = await AddOrderDetailWithoutTotal(order.ID, detailDto);
+
+                        // Funcionalidad de trigger: Actualizar inventario según tipo de ítem
+                        await UpdateInventoryForOrderDetail(orderDetail);
                     }
 
-                    // Calcular total de la orden
+                    // Calcular total de la orden después de agregar todos los detalles
                     await CalculateOrderTotalAsync(order.ID);
                 }
 
-                // Obtener orden completa
+                // Funcionalidad de trigger: Registrar actividad de creación de orden
+                await LogOrderActivityAsync(order.ID, "Created", userId);
+
+                // Confirmar todas las operaciones
+                await transaction.CommitAsync();
+
+                // Obtener orden completa con todas sus relaciones
                 return await _orderRepository.GetByIdAsync(order.ID) ?? order;
             }
             catch (Exception ex)
             {
+                // Deshacer todas las operaciones en caso de error
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al crear la orden");
                 throw;
             }
@@ -242,6 +263,7 @@ namespace KaruRestauranteWebApp.BL.Services
 
         public async Task UpdateOrderAsync(OrderDTO orderDto)
         {
+            using var transaction = await _orderRepository.BeginTransactionAsync();
             try
             {
                 // Verificar que la orden exista
@@ -257,18 +279,37 @@ namespace KaruRestauranteWebApp.BL.Services
                     throw new ValidationException($"No se puede modificar una orden {existingOrder.OrderStatus}");
                 }
 
-                // Actualizar solo algunos campos permitidos
+                // Guardar estado y mesa anteriores para comparar
+                var previousStatus = existingOrder.OrderStatus;
+                var previousTableId = existingOrder.TableID;
+
+                // Actualizar solo campos permitidos
                 existingOrder.Notes = orderDto.Notes;
                 existingOrder.DiscountAmount = orderDto.DiscountAmount;
                 existingOrder.UpdatedAt = DateTime.UtcNow;
 
                 await _orderRepository.UpdateAsync(existingOrder);
 
+                // Funcionalidad de trigger: Si cambió el estado, registrar el cambio
+                if (previousStatus != existingOrder.OrderStatus)
+                {
+                    await HandleOrderStatusChange(existingOrder, previousStatus);
+                }
+
+                // Funcionalidad de trigger: Si cambió la mesa, actualizar estados
+                if (previousTableId != existingOrder.TableID)
+                {
+                    await HandleTableChange(previousTableId, existingOrder.TableID);
+                }
+
                 // Recalcular el total si se modificó el descuento
                 await CalculateOrderTotalAsync(existingOrder.ID);
+
+                await transaction.CommitAsync();
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al actualizar la orden {OrderId}", orderDto.ID);
                 throw;
             }
@@ -276,6 +317,7 @@ namespace KaruRestauranteWebApp.BL.Services
 
         public async Task<bool> UpdateOrderStatusAsync(int id, string status)
         {
+            using var transaction = await _orderRepository.BeginTransactionAsync();
             try
             {
                 if (string.IsNullOrWhiteSpace(status))
@@ -296,22 +338,34 @@ namespace KaruRestauranteWebApp.BL.Services
                     throw new ValidationException($"No se encontró la orden con ID: {id}");
                 }
 
-                // Si cambia a Delivered o Cancelled, liberar la mesa si hay una asignada
+                // Guardar estado anterior para comparar
+                var previousStatus = order.OrderStatus;
+
+                // Actualizar estado
+                var result = await _orderRepository.UpdateStatusAsync(id, status);
+
+                // Funcionalidad de trigger: Si cambió a entregado o cancelado, liberar la mesa
                 if ((status == "Delivered" || status == "Cancelled") && order.TableID.HasValue)
                 {
                     await _tableRepository.UpdateStatusAsync(order.TableID.Value, "Available");
+                    _logger.LogInformation("Mesa {TableId} liberada por cambio de estado de orden a {Status}", order.TableID.Value, status);
                 }
 
-                // Si cambia a Cancelled y ya está pagada o parcialmente pagada, se necesita lógica adicional para devoluciones
-                if (status == "Cancelled" && (order.PaymentStatus == "Paid" || order.PaymentStatus == "Partially Paid"))
+                // Funcionalidad de trigger: Si cambió a cancelado, reversar ajustes de inventario
+                if (status == "Cancelled" && previousStatus != "Cancelled")
                 {
-                    _logger.LogWarning("La orden {OrderId} ha sido cancelada pero ya tiene pagos registrados", id);
+                    await ReverseInventoryAdjustments(id);
                 }
 
-                return await _orderRepository.UpdateStatusAsync(id, status);
+                // Funcionalidad de trigger: Registrar cambio de estado
+                await LogOrderStatusChangeAsync(id, previousStatus, status);
+
+                await transaction.CommitAsync();
+                return result;
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al actualizar el estado de la orden {OrderId}", id);
                 throw;
             }
@@ -319,6 +373,7 @@ namespace KaruRestauranteWebApp.BL.Services
 
         public async Task<bool> UpdatePaymentStatusAsync(int id, string paymentStatus)
         {
+            using var transaction = await _orderRepository.BeginTransactionAsync();
             try
             {
                 if (string.IsNullOrWhiteSpace(paymentStatus))
@@ -333,10 +388,17 @@ namespace KaruRestauranteWebApp.BL.Services
                     throw new ValidationException($"Estado de pago no válido. Valores posibles: {string.Join(", ", validStatuses)}");
                 }
 
-                return await _orderRepository.UpdatePaymentStatusAsync(id, paymentStatus);
+                var result = await _orderRepository.UpdatePaymentStatusAsync(id, paymentStatus);
+
+                // Funcionalidad de trigger: Registrar cambio de estado de pago
+                await LogPaymentStatusChangeAsync(id, paymentStatus);
+
+                await transaction.CommitAsync();
+                return result;
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al actualizar el estado de pago de la orden {OrderId}", id);
                 throw;
             }
@@ -349,120 +411,134 @@ namespace KaruRestauranteWebApp.BL.Services
 
         public async Task<OrderDetailModel> AddOrderDetailAsync(int orderId, OrderDetailDTO detailDto)
         {
+            using var transaction = await _orderRepository.BeginTransactionAsync();
             try
             {
-                // Validar tipo de ítem
-                if (string.IsNullOrWhiteSpace(detailDto.ItemType))
-                {
-                    throw new ValidationException("El tipo de ítem es requerido");
-                }
+                var orderDetail = await AddOrderDetailWithoutTotal(orderId, detailDto);
 
-                // Validar que el tipo sea válido
-                var validTypes = new[] { "Product", "Combo" };
-                if (!validTypes.Contains(detailDto.ItemType))
-                {
-                    throw new ValidationException($"Tipo de ítem no válido. Valores posibles: {string.Join(", ", validTypes)}");
-                }
+                // Funcionalidad de trigger: Actualizar inventario
+                await UpdateInventoryForOrderDetail(orderDetail);
 
-                // Validar cantidad
-                if (detailDto.Quantity <= 0)
-                {
-                    throw new ValidationException("La cantidad debe ser mayor a 0");
-                }
-
-                // Verificar que la orden exista
-                var order = await _orderRepository.GetByIdAsync(orderId);
-                if (order == null)
-                {
-                    throw new ValidationException($"No se encontró la orden con ID: {orderId}");
-                }
-
-                // No se permite agregar detalles a pedidos entregados o cancelados
-                if (order.OrderStatus == "Delivered" || order.OrderStatus == "Cancelled")
-                {
-                    throw new ValidationException($"No se puede modificar una orden {order.OrderStatus}");
-                }
-
-                decimal unitPrice = 0;
-                string? itemName = null;
-
-                // Verificar que el ítem exista según su tipo
-                if (detailDto.ItemType == "Product")
-                {
-                    var product = await _productRepository.GetByIdAsync(detailDto.ItemID);
-                    if (product == null)
-                    {
-                        throw new ValidationException($"No se encontró el producto con ID: {detailDto.ItemID}");
-                    }
-
-                    unitPrice = product.SellingPrice;
-                    itemName = product.Name;
-                }
-                else if (detailDto.ItemType == "Combo")
-                {
-                    var combo = await _comboRepository.GetByIdAsync(detailDto.ItemID);
-                    if (combo == null)
-                    {
-                        throw new ValidationException($"No se encontró el combo con ID: {detailDto.ItemID}");
-                    }
-
-                    unitPrice = combo.SellingPrice;
-                    itemName = combo.Name;
-                }
-
-                // Calcular subtotal
-                decimal subtotal = unitPrice * detailDto.Quantity;
-
-                // Crear el detalle de orden
-                var orderDetail = new OrderDetailModel
-                {
-                    OrderID = orderId,
-                    ItemType = detailDto.ItemType,
-                    ItemID = detailDto.ItemID,
-                    Quantity = detailDto.Quantity,
-                    UnitPrice = unitPrice,
-                    SubTotal = subtotal,
-                    Notes = detailDto.Notes,
-                    Status = "Pending"
-                };
-
-                // Guardar el detalle
-                var createdDetail = await _orderDetailRepository.CreateAsync(orderDetail);
-
-                // Procesar personalizaciones si hay
-                if (detailDto.Customizations != null && detailDto.Customizations.Any())
-                {
-                    foreach (var customizationDto in detailDto.Customizations)
-                    {
-                        var customization = new OrderItemCustomizationModel
-                        {
-                            OrderDetailID = createdDetail.ID,
-                            IngredientID = customizationDto.IngredientID,
-                            CustomizationType = customizationDto.CustomizationType,
-                            Quantity = customizationDto.Quantity,
-                            ExtraCharge = customizationDto.ExtraCharge
-                        };
-
-                        createdDetail.Customizations.Add(customization);
-                    }
-
-                    await _orderDetailRepository.UpdateAsync(createdDetail);
-                }
-
-                // Recalcular total de la orden
+                // Recalcular el total de la orden
                 await CalculateOrderTotalAsync(orderId);
 
-                return createdDetail;
+                await transaction.CommitAsync();
+                return orderDetail;
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al agregar detalle a la orden {OrderId}", orderId);
                 throw;
             }
         }
 
+        private async Task<OrderDetailModel> AddOrderDetailWithoutTotal(int orderId, OrderDetailDTO detailDto)
+        {
+            // Validar tipo de ítem
+            if (string.IsNullOrWhiteSpace(detailDto.ItemType))
+            {
+                throw new ValidationException("El tipo de ítem es requerido");
+            }
+
+            // Validar que el tipo sea válido
+            var validTypes = new[] { "Product", "Combo" };
+            if (!validTypes.Contains(detailDto.ItemType))
+            {
+                throw new ValidationException($"Tipo de ítem no válido. Valores posibles: {string.Join(", ", validTypes)}");
+            }
+
+            // Validar cantidad
+            if (detailDto.Quantity <= 0)
+            {
+                throw new ValidationException("La cantidad debe ser mayor a 0");
+            }
+
+            // Verificar que la orden exista
+            var order = await _orderRepository.GetByIdAsync(orderId);
+            if (order == null)
+            {
+                throw new ValidationException($"No se encontró la orden con ID: {orderId}");
+            }
+
+            // No se permite agregar detalles a pedidos entregados o cancelados
+            if (order.OrderStatus == "Delivered" || order.OrderStatus == "Cancelled")
+            {
+                throw new ValidationException($"No se puede modificar una orden {order.OrderStatus}");
+            }
+
+            decimal unitPrice = 0;
+            string? itemName = null;
+
+            // Verificar que el ítem exista según su tipo
+            if (detailDto.ItemType == "Product")
+            {
+                var product = await _productRepository.GetByIdAsync(detailDto.ItemID);
+                if (product == null)
+                {
+                    throw new ValidationException($"No se encontró el producto con ID: {detailDto.ItemID}");
+                }
+
+                unitPrice = product.SellingPrice;
+                itemName = product.Name;
+            }
+            else if (detailDto.ItemType == "Combo")
+            {
+                var combo = await _comboRepository.GetByIdAsync(detailDto.ItemID);
+                if (combo == null)
+                {
+                    throw new ValidationException($"No se encontró el combo con ID: {detailDto.ItemID}");
+                }
+
+                unitPrice = combo.SellingPrice;
+                itemName = combo.Name;
+            }
+
+            // Calcular subtotal
+            decimal subtotal = unitPrice * detailDto.Quantity;
+
+            // Crear el detalle de orden
+            var orderDetail = new OrderDetailModel
+            {
+                OrderID = orderId,
+                ItemType = detailDto.ItemType,
+                ItemID = detailDto.ItemID,
+                Quantity = detailDto.Quantity,
+                UnitPrice = unitPrice,
+                SubTotal = subtotal,
+                Notes = detailDto.Notes,
+                Status = "Pending"
+            };
+
+            // Guardar el detalle
+            var createdDetail = await _orderDetailRepository.CreateAsync(orderDetail);
+
+            // Procesar personalizaciones si hay
+            if (detailDto.Customizations != null && detailDto.Customizations.Any())
+            {
+                foreach (var customizationDto in detailDto.Customizations)
+                {
+                    var customization = new OrderItemCustomizationModel
+                    {
+                        OrderDetailID = createdDetail.ID,
+                        IngredientID = customizationDto.IngredientID,
+                        CustomizationType = customizationDto.CustomizationType,
+                        Quantity = customizationDto.Quantity,
+                        ExtraCharge = customizationDto.ExtraCharge
+                    };
+
+                    createdDetail.Customizations.Add(customization);
+                }
+
+                await _orderDetailRepository.UpdateAsync(createdDetail);
+            }
+
+            return createdDetail;
+        }
+
         public async Task<bool> UpdateOrderDetailStatusAsync(int orderDetailId, string status)
         {
+            using var transaction = await _orderRepository.BeginTransactionAsync();
             try
             {
                 if (string.IsNullOrWhiteSpace(status))
@@ -477,10 +553,30 @@ namespace KaruRestauranteWebApp.BL.Services
                     throw new ValidationException($"Estado de detalle no válido. Valores posibles: {string.Join(", ", validStatuses)}");
                 }
 
-                return await _orderDetailRepository.UpdateStatusAsync(orderDetailId, status);
+                var detail = await _orderDetailRepository.GetByIdAsync(orderDetailId);
+                if (detail == null)
+                {
+                    return false;
+                }
+
+                // Guardar estado anterior
+                var previousStatus = detail.Status;
+
+                // Actualizar estado
+                var result = await _orderDetailRepository.UpdateStatusAsync(orderDetailId, status);
+
+                // Funcionalidad de trigger: Si se cancela un detalle, reversar ajustes de inventario
+                if (status == "Cancelled" && previousStatus != "Cancelled")
+                {
+                    await ReverseInventoryAdjustmentForDetail(detail);
+                }
+
+                await transaction.CommitAsync();
+                return result;
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al actualizar el estado del detalle {OrderDetailId}", orderDetailId);
                 throw;
             }
@@ -488,6 +584,7 @@ namespace KaruRestauranteWebApp.BL.Services
 
         public async Task<bool> RemoveOrderDetailAsync(int orderDetailId)
         {
+            using var transaction = await _orderRepository.BeginTransactionAsync();
             try
             {
                 // Verificar que el detalle exista
@@ -509,16 +606,21 @@ namespace KaruRestauranteWebApp.BL.Services
                     throw new ValidationException($"No se puede modificar una orden {order.OrderStatus}");
                 }
 
+                // Funcionalidad de trigger: Reversar ajustes de inventario
+                await ReverseInventoryAdjustmentForDetail(detail);
+
                 // Eliminar el detalle
                 var result = await _orderDetailRepository.DeleteAsync(orderDetailId);
 
                 // Recalcular total de la orden
                 await CalculateOrderTotalAsync(detail.OrderID);
 
+                await transaction.CommitAsync();
                 return result;
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al eliminar el detalle {OrderDetailId}", orderDetailId);
                 throw;
             }

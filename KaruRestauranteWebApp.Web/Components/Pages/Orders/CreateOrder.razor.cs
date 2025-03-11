@@ -30,6 +30,11 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         private List<ComboModel> combos = new();
         private List<IngredientModel> ingredients = new();
         private string[] orderTypes = new[] { "DineIn", "TakeOut", "Delivery" };
+        private List<CategoryModel> categories = new();
+        private List<FastFoodItemModel> filteredProducts = new();
+        private List<ComboModel> filteredCombos = new();
+        private string[] paymentMethods = new[] { "Efectivo", "Tarjeta de Crédito", "Tarjeta de Débito", "Transferencia", "Otro" };
+
 
         protected override async Task OnInitializedAsync()
         {
@@ -37,6 +42,10 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             {
                 await LoadData();
                 isLoaded = true;
+
+                // Inicializar listas filtradas
+                filteredProducts = products.Where(p => p.IsAvailable).ToList();
+                filteredCombos = combos.Where(c => c.IsAvailable).ToList();
             }
             catch (Exception ex)
             {
@@ -68,6 +77,13 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 products = JsonConvert.DeserializeObject<List<FastFoodItemModel>>(productsResponse.Data.ToString()) ?? new();
             }
 
+            // Cargar categorías
+            var categoriesResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Category");
+            if (categoriesResponse?.Success == true)
+            {
+                categories = JsonConvert.DeserializeObject<List<CategoryModel>>(categoriesResponse.Data.ToString()) ?? new();
+            }
+
             // Cargar combos
             var combosResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Combo");
             if (combosResponse?.Success == true)
@@ -83,6 +99,139 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             }
         }
 
+        private void SearchProducts(ChangeEventArgs args)
+        {
+            var searchTerm = args.Value?.ToString().ToLower() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(searchTerm))
+            {
+                filteredProducts = products.Where(p => p.IsAvailable).ToList();
+            }
+            else
+            {
+                filteredProducts = products
+                    .Where(p => p.IsAvailable &&
+                          (p.Name.ToLower().Contains(searchTerm) ||
+                           p.Description?.ToLower().Contains(searchTerm) == true))
+                    .ToList();
+            }
+        }
+
+        private void SearchCombos(ChangeEventArgs args)
+        {
+            var searchTerm = args.Value?.ToString().ToLower() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(searchTerm))
+            {
+                filteredCombos = combos.Where(c => c.IsAvailable).ToList();
+            }
+            else
+            {
+                filteredCombos = combos
+                    .Where(c => c.IsAvailable &&
+                          (c.Name.ToLower().Contains(searchTerm) ||
+                           c.Description?.ToLower().Contains(searchTerm) == true))
+                    .ToList();
+            }
+        }
+
+        private void AddProductToOrder(FastFoodItemModel product)
+        {
+            // Verificar si el producto ya está en el pedido
+            var existingDetail = model.OrderDetails
+                .FirstOrDefault(d => d.ItemType == "Product" && d.ItemID == product.ID);
+
+            if (existingDetail != null)
+            {
+                // Incrementar cantidad del producto existente
+                existingDetail.Quantity++;
+                CalculateDetailSubtotal(existingDetail);
+            }
+            else
+            {
+                // Añadir como nuevo producto
+                var detail = new OrderDetailDTO
+                {
+                    ItemType = "Product",
+                    ItemID = product.ID,
+                    ItemName = product.Name,
+                    Quantity = 1,
+                    UnitPrice = product.SellingPrice,
+                    SubTotal = product.SellingPrice,
+                    Status = "Pending",
+                    Customizations = new List<OrderItemCustomizationDTO>()
+                };
+
+                model.OrderDetails.Add(detail);
+                CalculateTotal();
+            }
+
+            // Notificar al usuario que se agregó el producto
+            NotificationService.Notify(NotificationSeverity.Success,
+                "Producto agregado", $"{product.Name} agregado al pedido", 2000);
+        }
+
+        private void AddComboToOrder(ComboModel combo)
+        {
+            // Verificar si el combo ya está en el pedido
+            var existingDetail = model.OrderDetails
+                .FirstOrDefault(d => d.ItemType == "Combo" && d.ItemID == combo.ID);
+
+            if (existingDetail != null)
+            {
+                // Incrementar cantidad del combo existente
+                existingDetail.Quantity++;
+                CalculateDetailSubtotal(existingDetail);
+            }
+            else
+            {
+                // Añadir como nuevo combo
+                var detail = new OrderDetailDTO
+                {
+                    ItemType = "Combo",
+                    ItemID = combo.ID,
+                    ItemName = combo.Name,
+                    Quantity = 1,
+                    UnitPrice = combo.SellingPrice,
+                    SubTotal = combo.SellingPrice,
+                    Status = "Pending",
+                    Customizations = new List<OrderItemCustomizationDTO>()
+                };
+
+                model.OrderDetails.Add(detail);
+                CalculateTotal();
+            }
+
+            // Notificar al usuario que se agregó el combo
+            NotificationService.Notify(NotificationSeverity.Success,
+                "Combo agregado", $"{combo.Name} agregado al pedido", 2000);
+        }
+
+        private void IncreaseQuantity(OrderDetailDTO detail)
+        {
+            detail.Quantity++;
+            CalculateDetailSubtotal(detail);
+        }
+
+        private void DecreaseQuantity(OrderDetailDTO detail)
+        {
+            if (detail.Quantity > 1)
+            {
+                detail.Quantity--;
+                CalculateDetailSubtotal(detail);
+            }
+        }
+
+        private BadgeStyle GetCustomizationBadgeStyle(string type)
+        {
+            return type switch
+            {
+                "Add" => BadgeStyle.Success,
+                "Remove" => BadgeStyle.Danger,
+                "Extra" => BadgeStyle.Warning,
+                _ => BadgeStyle.Light
+            };
+        }
         private void OnOrderTypeChanged(object value)
         {
             if (value != null)
@@ -212,10 +361,10 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 var customizations = await DialogService.OpenAsync<CustomizationDialog>("Personalizar Producto",
                     new Dictionary<string, object>
                     {
-                        { "ProductName", product.Name },
-                        { "ProductIngredients", product.Ingredients },
-                        { "Customizations", detail.Customizations },
-                        { "AllIngredients", ingredients }
+                { "ProductName", product.Name },
+                { "ProductIngredients", product.Ingredients ?? new List<ItemIngredientModel>() },
+                { "Customizations", detail.Customizations ?? new List<OrderItemCustomizationDTO>() },
+                { "AllIngredients", ingredients ?? new List<IngredientModel>() }
                     },
                     new DialogOptions
                     {
@@ -226,15 +375,19 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 
                 if (customizations != null)
                 {
-                    detail.Customizations = (List<OrderItemCustomizationDTO>)customizations;
+                    // Asegurarnos de que el resultado es del tipo esperado
+                    if (customizations is List<OrderItemCustomizationDTO> customizationsList)
+                    {
+                        detail.Customizations = customizationsList;
 
-                    // Recalcular precio con extras
-                    decimal extraCharges = detail.Customizations
-                        .Where(c => c.CustomizationType == "Extra")
-                        .Sum(c => c.ExtraCharge * c.Quantity);
+                        // Recalcular precio con extras
+                        decimal extraCharges = detail.Customizations
+                            .Where(c => c.CustomizationType == "Extra")
+                            .Sum(c => c.ExtraCharge * c.Quantity);
 
-                    detail.UnitPrice = product.SellingPrice + extraCharges;
-                    CalculateDetailSubtotal(detail);
+                        detail.UnitPrice = product.SellingPrice + extraCharges;
+                        CalculateDetailSubtotal(detail);
+                    }
                 }
             }
             catch (Exception ex)
@@ -308,6 +461,28 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 
                 if (response?.Success == true)
                 {
+                    var createdOrder = JsonConvert.DeserializeObject<OrderModel>(response.Data.ToString());
+
+                    // Si se creó exitosamente y hay método de pago, registramos el pago
+                    if (createdOrder != null && model.OrderDetails.Any())
+                    {
+                        // Registrar pago si el pedido está pagado (implementar según modelo de datos)
+                        if (model.PaymentMethod != null)
+                        {
+                            var paymentDto = new PaymentDTO
+                            {
+                                OrderID = createdOrder.ID,
+                                PaymentMethod = model.PaymentMethod,
+                                Amount = CalculateTotal(),
+                                ReferenceNumber = "",
+                                Notes = "Pago realizado al crear la orden"
+                            };
+
+                            await ApiClient.PostAsync<BaseResponseModel, PaymentDTO>(
+                                $"api/Order/{createdOrder.ID}/payments", paymentDto);
+                        }
+                    }
+
                     NotificationService.Notify(NotificationSeverity.Success,
                         "Éxito", "Pedido creado exitosamente", 4000);
                     NavigationManager.NavigateTo("/orders");
@@ -324,7 +499,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     "Error", $"Error al crear pedido: {ex.Message}", 4000);
             }
         }
-
         private class OrderFormModel
         {
             public string OrderType { get; set; } = "DineIn";
@@ -333,6 +507,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             public string Notes { get; set; } = string.Empty;
             public decimal DiscountAmount { get; set; } = 0;
             public List<OrderDetailDTO> OrderDetails { get; set; } = new();
+            public string PaymentMethod { get; set; } = "Efectivo";
         }
     }
 }

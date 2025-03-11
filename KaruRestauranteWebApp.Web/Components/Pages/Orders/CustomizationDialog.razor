@@ -1,5 +1,303 @@
-﻿<h3>CustomizationDialog</h3>
+﻿@inject DialogService DialogService
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+@using KaruRestauranteWebApp.Models.Models.Orders
+
+<RadzenCard>
+    <RadzenStack Gap="1rem">
+        <RadzenText TextStyle="TextStyle.H6">
+            Personalizar @ProductName
+        </RadzenText>
+
+        <RadzenTabs>
+            <Tabs>
+                <RadzenTabsItem Text="Agregar">
+                    <div class="customization-list mt-3">
+                        @foreach (var ingredient in AllIngredients.Where(i => i.IsActive))
+                        {
+                            bool isAdded = workingCustomizations.Any(c => c.IngredientID == ingredient.ID && c.CustomizationType == "Add");
+
+                            <div class="customization-item @(isAdded ? "selected" : "")">
+                                <div class="d-flex justify-content-between w-100 align-items-center">
+                                    <div>
+                                        <RadzenText TextStyle="TextStyle.Body1">@ingredient.Name</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Body2">@ingredient.UnitOfMeasure</RadzenText>
+                                    </div>
+
+                                    @if (isAdded)
+                                    {
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Agregado" />
+                                    }
+                                    else
+                                    {
+                                        <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="add" Size="ButtonSize.Small"
+                                                      Click="@(() => ToggleIngredient(ingredient, "Add"))" />
+                                    }
+                                </div>
+
+                                @if (isAdded)
+                                {
+                                    <div class="quantity-control mt-2">
+                                        <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="remove" Size="ButtonSize.Small"
+                                                      Click="@(() => AdjustIngredientQuantity(ingredient, -1, "Add", 0))" />
+                                        <span class="mx-2">@workingCustomizations.First(c => c.IngredientID == ingredient.ID && c.CustomizationType == "Add").Quantity</span>
+                                        <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="add" Size="ButtonSize.Small"
+                                                      Click="@(() => AdjustIngredientQuantity(ingredient, 1, "Add", 0))" />
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </RadzenTabsItem>
+
+                <RadzenTabsItem Text="Eliminar">
+                    <div class="customization-list mt-3">
+                        @foreach (var ingredientItem in GetProductIngredients())
+                        {
+                            var ingredient = AllIngredients.FirstOrDefault(i => i.ID == ingredientItem.IngredientID);
+                            if (ingredient == null) continue;
+
+                            bool isRemoved = workingCustomizations.Any(c => c.IngredientID == ingredient.ID && c.CustomizationType == "Remove");
+
+                            <div class="customization-item @(isRemoved ? "selected removed" : "")">
+                                <div class="d-flex justify-content-between w-100 align-items-center">
+                                    <div>
+                                        <RadzenText TextStyle="TextStyle.Body1">@ingredient.Name</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Body2">@ingredient.UnitOfMeasure</RadzenText>
+                                    </div>
+
+                                    @if (isRemoved)
+                                    {
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Eliminado" />
+                                    }
+                                    else
+                                    {
+                                        <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="remove" Size="ButtonSize.Small"
+                                                      Click="@(() => ToggleIngredient(ingredient, "Remove"))" />
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </RadzenTabsItem>
+
+                <RadzenTabsItem Text="Extra">
+                    <div class="customization-list mt-3">
+                        @foreach (var ingredientItem in GetProductIngredients().Where(i => i.CanBeExtra))
+                        {
+                            var ingredient = AllIngredients.FirstOrDefault(i => i.ID == ingredientItem.IngredientID);
+                            if (ingredient == null) continue;
+
+                            bool isExtra = workingCustomizations.Any(c => c.IngredientID == ingredient.ID && c.CustomizationType == "Extra");
+
+                            <div class="customization-item @(isExtra ? "selected extra" : "")">
+                                <div class="d-flex justify-content-between w-100 align-items-center">
+                                    <div>
+                                        <RadzenText TextStyle="TextStyle.Body1">@ingredient.Name</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Body2">
+                                            @ingredient.UnitOfMeasure -
+                                            Extra: @ingredientItem.ExtraPrice.ToString("₡#,##0.00")
+                                        </RadzenText>
+                                    </div>
+
+                                    @if (isExtra)
+                                    {
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Extra" />
+                                    }
+                                    else
+                                    {
+                                        <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="add" Size="ButtonSize.Small"
+                                                      Click="@(() => ToggleExtraIngredient(ingredient, ingredientItem))" />
+                                    }
+                                </div>
+
+                                @if (isExtra)
+                                {
+                                    <div class="quantity-control mt-2">
+                                        <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="remove" Size="ButtonSize.Small"
+                                                      Click="@(() => AdjustIngredientQuantity(ingredient, -1, "Extra", ingredientItem.ExtraPrice))" />
+                                        <span class="mx-2">@workingCustomizations.First(c => c.IngredientID == ingredient.ID && c.CustomizationType == "Extra").Quantity</span>
+                                        <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="add" Size="ButtonSize.Small"
+                                                      Click="@(() => AdjustIngredientQuantity(ingredient, 1, "Extra", ingredientItem.ExtraPrice))" />
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </RadzenTabsItem>
+            </Tabs>
+        </RadzenTabs>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="mt-3">
+            <RadzenButton Click=@(() => SaveCustomizations()) Text="Confirmar" ButtonStyle="ButtonStyle.Primary" />
+            <RadzenButton Click=@(() => DialogService.Close()) Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenCard>
+
+<style>
+    .customization-list {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .customization-item {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 8px;
+    }
+
+        .customization-item:hover {
+            background-color: #f9f9f9;
+        }
+
+        .customization-item.selected {
+            border-width: 2px;
+        }
+
+            .customization-item.selected.extra {
+                border-color: var(--rz-warning);
+                background-color: #fff8e5;
+            }
+
+            .customization-item.selected.removed {
+                border-color: var(--rz-danger);
+                background-color: #fff5f5;
+            }
+
+    .quantity-control {
+        display: flex;
+        align-items: center;
+    }
+</style>
 
 @code {
+    [Parameter]
+    public string ProductName { get; set; } = "";
 
+    [Parameter]
+    public IEnumerable<ItemIngredientModel> ProductIngredients { get; set; } = new List<ItemIngredientModel>();
+
+    [Parameter]
+    public List<OrderItemCustomizationDTO> Customizations { get; set; } = new();
+
+    [Parameter]
+    public IEnumerable<IngredientModel> AllIngredients { get; set; } = new List<IngredientModel>();
+
+    // Lista de trabajo, para garantizar que modificamos una copia local
+    private List<OrderItemCustomizationDTO> workingCustomizations = new();
+
+    protected override void OnInitialized()
+    {
+        // Copiar las personalizaciones existentes a nuestra lista de trabajo
+        if (Customizations != null)
+        {
+            workingCustomizations = Customizations.Select(c => new OrderItemCustomizationDTO
+                {
+                    IngredientID = c.IngredientID,
+                    IngredientName = c.IngredientName,
+                    CustomizationType = c.CustomizationType,
+                    Quantity = c.Quantity,
+                    ExtraCharge = c.ExtraCharge
+                }).ToList();
+        }
+    }
+
+    private IEnumerable<ItemIngredientModel> GetProductIngredients()
+    {
+        return ProductIngredients ?? new List<ItemIngredientModel>();
+    }
+
+    private void ToggleIngredient(IngredientModel ingredient, string customizationType)
+    {
+        // Verificar si ya existe esta personalización
+        var existing = workingCustomizations.FirstOrDefault(c =>
+            c.IngredientID == ingredient.ID && c.CustomizationType == customizationType);
+
+        if (existing != null)
+        {
+            // Si existe, lo eliminamos
+            workingCustomizations.Remove(existing);
+        }
+        else
+        {
+            // Si no existe, lo agregamos
+            workingCustomizations.Add(new OrderItemCustomizationDTO
+                {
+                    IngredientID = ingredient.ID,
+                    IngredientName = ingredient.Name,
+                    CustomizationType = customizationType,
+                    Quantity = 1,
+                    ExtraCharge = 0 // Para tipo Add y Remove
+                });
+        }
+
+        // Forzar la actualización de la UI
+        StateHasChanged();
+    }
+
+    private void ToggleExtraIngredient(IngredientModel ingredient, ItemIngredientModel itemIngredient)
+    {
+        // Verificar si ya existe esta personalización
+        var existing = workingCustomizations.FirstOrDefault(c =>
+            c.IngredientID == ingredient.ID && c.CustomizationType == "Extra");
+
+        if (existing != null)
+        {
+            // Si existe, lo eliminamos
+            workingCustomizations.Remove(existing);
+        }
+        else
+        {
+            // Si no existe, lo agregamos con cargo extra
+            workingCustomizations.Add(new OrderItemCustomizationDTO
+                {
+                    IngredientID = ingredient.ID,
+                    IngredientName = ingredient.Name,
+                    CustomizationType = "Extra",
+                    Quantity = 1,
+                    ExtraCharge = itemIngredient.ExtraPrice
+                });
+        }
+
+        // Forzar la actualización de la UI
+        StateHasChanged();
+    }
+
+    private void AdjustIngredientQuantity(IngredientModel ingredient, int change, string customizationType, decimal extraPrice)
+    {
+        var customization = workingCustomizations.FirstOrDefault(c =>
+            c.IngredientID == ingredient.ID && c.CustomizationType == customizationType);
+
+        if (customization != null)
+        {
+            int newQuantity = customization.Quantity + change;
+            if (newQuantity <= 0)
+            {
+                // Si la cantidad es 0 o menos, eliminamos la personalización
+                workingCustomizations.Remove(customization);
+            }
+            else
+            {
+                // Actualizamos la cantidad
+                customization.Quantity = newQuantity;
+            }
+
+            // Forzar la actualización de la UI
+            StateHasChanged();
+        }
+    }
+
+    private void SaveCustomizations()
+    {
+        // Actualizar la lista original con nuestras personalizaciones de trabajo
+        Customizations.Clear();
+        foreach (var item in workingCustomizations)
+        {
+            Customizations.Add(item);
+        }
+
+        // Cerrar el diálogo y devolver las personalizaciones
+        DialogService.Close(Customizations);
+    }
 }
