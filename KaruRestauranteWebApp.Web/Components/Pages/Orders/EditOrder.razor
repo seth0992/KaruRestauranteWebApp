@@ -1,0 +1,192 @@
+﻿@page "/orders/edit/{OrderId:int}"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+@using KaruRestauranteWebApp.Models.Entities.Orders
+@using KaruRestauranteWebApp.Models.Models.Orders
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+
+<RadzenStack Style="max-width: 1200px; margin: 0 auto;">
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="mb-4">
+        Editar Pedido #@(order?.OrderNumber ?? "")
+    </RadzenText>
+
+    @if (!isLoaded)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" class="mb-4" />
+    }
+    else if (order == null)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true">
+            La orden no fue encontrada o no puede ser editada.
+        </RadzenAlert>
+
+        <div class="mt-4">
+            <RadzenButton Click="@(() => NavigationManager.NavigateTo("/orders"))" Text="Volver a lista" ButtonStyle="ButtonStyle.Light" />
+        </div>
+    }
+    else
+    {
+        <RadzenTemplateForm TItem="OrderDTO" Data=@model Submit=@HandleSubmit>
+            <!-- Información básica del pedido -->
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                    Información Básica
+                </RadzenText>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <RadzenLabel Component="OrderType" Text="Tipo de Pedido" />
+                        <RadzenDropDown @bind-Value=@model.OrderType Name="OrderType"
+                                        Data=@orderTypes Style="width: 100%;" class="mb-1"
+                                        Change=@OnOrderTypeChanged />
+                        <RadzenRequiredValidator Component="OrderType" Text="El tipo de pedido es requerido" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <RadzenLabel Component="CustomerID" Text="Cliente" />
+                        <div class="d-flex gap-2 align-items-center">
+                            <RadzenDropDown @bind-Value=@model.CustomerID Name="CustomerID"
+                                            Data=@customers TextProperty="Name" ValueProperty="ID"
+                                            AllowClear="true" AllowFiltering="true" Placeholder="Seleccionar cliente"
+                                            Style="width: 100%;" class="mb-1" />
+                            <RadzenButton ButtonStyle="ButtonStyle.Secondary" Icon="person_add" Size="ButtonSize.Medium"
+                                          Click=@OpenNewCustomerDialog />
+                        </div>
+                    </div>
+
+                    @if (model.OrderType == "DineIn")
+                    {
+                        <div class="col-md-4">
+                            <RadzenLabel Component="TableID" Text="Mesa" />
+                            <RadzenDropDown @bind-Value=@model.TableID Name="TableID"
+                                            Data=@availableTables TextProperty="TableNumber" ValueProperty="ID"
+                                            Style="width: 100%;" class="mb-1" />
+                            <RadzenRequiredValidator Component="TableID" Text="La mesa es requerida para pedidos en sitio" />
+                        </div>
+                    }
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <RadzenLabel Component="Notes" Text="Notas del Pedido" />
+                        <RadzenTextArea @bind-Value=@model.Notes Name="Notes"
+                                        Style="width: 100%;" class="mb-1" Rows="2" />
+                    </div>
+                </div>
+            </RadzenCard>
+
+            <!-- Detalle del pedido -->
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" class="mb-3">
+                    Detalle del Pedido
+                </RadzenText>
+
+                <div class="mb-3">
+                    <RadzenButton Icon="add" Text="Agregar Producto" ButtonStyle="ButtonStyle.Primary"
+                                  Click=@OpenProductSelectionDialog class="me-2" />
+                    <RadzenButton Icon="add" Text="Agregar Combo" ButtonStyle="ButtonStyle.Secondary"
+                                  Click=@OpenComboSelectionDialog />
+                </div>
+
+                @if (model.OrderDetails.Any())
+                {
+                    <RadzenDataGrid Data="@model.OrderDetails" TItem="OrderDetailDTO"
+                                    AllowSorting="true" AllowPaging="false" AllowFiltering="false">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="OrderDetailDTO" Title="Tipo" Width="100px">
+                                <Template Context="detail">
+                                    <RadzenBadge BadgeStyle="@(detail.ItemType == "Product" ? BadgeStyle.Info : BadgeStyle.Success)"
+                                                 Text="@(detail.ItemType == "Product" ? "Producto" : "Combo")" />
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="OrderDetailDTO" Property="ItemName" Title="Nombre" Width="200px" />
+
+                            <RadzenDataGridColumn TItem="OrderDetailDTO" Property="Quantity" Title="Cantidad" Width="100px">
+                                <Template Context="detail">
+                                    <RadzenNumeric @bind-Value=@detail.Quantity Min="1"
+                                                   Change=@(() => CalculateDetailSubtotal(detail))
+                                                   Style="width: 100%;" TValue="int" />
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="OrderDetailDTO" Property="UnitPrice" Title="Precio Unit." Width="120px">
+                                <Template Context="detail">
+                                    @detail.UnitPrice.ToString("₡#,##0.00")
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="OrderDetailDTO" Property="SubTotal" Title="Subtotal" Width="120px">
+                                <Template Context="detail">
+                                    @detail.SubTotal.ToString("₡#,##0.00")
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="OrderDetailDTO" Title="Personalizar" Width="120px">
+                                <Template Context="detail">
+                                    @if (detail.ItemType == "Product" && CanCustomize(detail))
+                                    {
+                                        <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="tune" Size="ButtonSize.Small"
+                                                      Click=@(() => OpenCustomizationDialog(detail))
+                                                      Variant="Variant.Text" />
+                                    }
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="OrderDetailDTO" Title="Notas" Width="200px">
+                                <Template Context="detail">
+                                    <RadzenTextBox @bind-Value=@detail.Notes Style="width: 100%;" />
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn TItem="OrderDetailDTO" Title="" Width="70px">
+                                <Template Context="detail">
+                                    <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Size="ButtonSize.Small"
+                                                  Click=@(() => RemoveOrderDetail(detail))
+                                                  Variant="Variant.Flat" />
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6 offset-md-6">
+                            <RadzenCard>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <RadzenText TextStyle="TextStyle.Body1">Subtotal:</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1">@CalculateSubtotal().ToString("₡#,##0.00")</RadzenText>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <RadzenText TextStyle="TextStyle.Body1">IVA (13%):</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1">@CalculateTax().ToString("₡#,##0.00")</RadzenText>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <RadzenLabel Component="DiscountAmount" Text="Descuento:" />
+                                    <RadzenNumeric @bind-Value=@model.DiscountAmount Min="0" TValue="decimal" Format="₡#,##0.00"
+                                                   Change="@(() => CalculateTotal())" />
+                                </div>
+                                <hr />
+                                <div class="d-flex justify-content-between">
+                                    <RadzenText TextStyle="TextStyle.H6">Total:</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.H6">@CalculateTotal().ToString("₡#,##0.00")</RadzenText>
+                                </div>
+                            </RadzenCard>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <RadzenText TextStyle="TextStyle.Body1" class="my-3">
+                        No hay productos en el pedido
+                    </RadzenText>
+                }
+            </RadzenCard>
+
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar Cambios" ButtonStyle="ButtonStyle.Primary" />
+                <RadzenButton Click=@(() => NavigationManager.NavigateTo("/orders"))
+                              Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+            </RadzenStack>
+        </RadzenTemplateForm>
+    }
+</RadzenStack>

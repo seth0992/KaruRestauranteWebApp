@@ -29,12 +29,18 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         private List<FastFoodItemModel> products = new();
         private List<ComboModel> combos = new();
         private List<IngredientModel> ingredients = new();
-        private string[] orderTypes = new[] { "DineIn", "TakeOut", "Delivery" };
         private List<CategoryModel> categories = new();
         private List<FastFoodItemModel> filteredProducts = new();
         private List<ComboModel> filteredCombos = new();
-        private string[] paymentMethods = new[] { "Efectivo", "Tarjeta de Crédito", "Tarjeta de Débito", "Transferencia", "Otro" };
-
+        private string[] orderTypes = new[] { "DineIn", "TakeOut", "Delivery" };
+        private object[] paymentMethods = new[]
+        {
+            new { value = "Cash", name = "Efectivo" },
+            new { value = "CreditCard", name = "Tarjeta de Crédito" },
+            new { value = "DebitCard", name = "Tarjeta de Débito" },
+            new { value = "Transfer", name = "Transferencia" },
+            new { value = "Other", name = "Otro" }
+        };
 
         protected override async Task OnInitializedAsync()
         {
@@ -97,6 +103,25 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             {
                 ingredients = JsonConvert.DeserializeObject<List<IngredientModel>>(ingredientsResponse.Data.ToString()) ?? new();
             }
+        }
+
+        private void OnOrderTypeChanged(object value)
+        {
+            if (value != null)
+            {
+                string orderType = value.ToString();
+
+                if (orderType == "TakeOut" || orderType == "Delivery")
+                {
+                    model.TableID = null;
+                }
+            }
+        }
+
+        private async Task OpenNewCustomerDialog()
+        {
+            // Implementar diálogo para crear nuevo cliente
+            // Agregar la lógica aquí
         }
 
         private void SearchProducts(ChangeEventArgs args)
@@ -207,50 +232,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 "Combo agregado", $"{combo.Name} agregado al pedido", 2000);
         }
 
-        private void IncreaseQuantity(OrderDetailDTO detail)
-        {
-            detail.Quantity++;
-            CalculateDetailSubtotal(detail);
-        }
-
-        private void DecreaseQuantity(OrderDetailDTO detail)
-        {
-            if (detail.Quantity > 1)
-            {
-                detail.Quantity--;
-                CalculateDetailSubtotal(detail);
-            }
-        }
-
-        private BadgeStyle GetCustomizationBadgeStyle(string type)
-        {
-            return type switch
-            {
-                "Add" => BadgeStyle.Success,
-                "Remove" => BadgeStyle.Danger,
-                "Extra" => BadgeStyle.Warning,
-                _ => BadgeStyle.Light
-            };
-        }
-        private void OnOrderTypeChanged(object value)
-        {
-            if (value != null)
-            {
-                string orderType = value.ToString();
-
-                if (orderType == "TakeOut" || orderType == "Delivery")
-                {
-                    model.TableID = null;
-                }
-            }
-        }
-
-        private async Task OpenNewCustomerDialog()
-        {
-            // Implementar diálogo para crear nuevo cliente
-            // Agregar la lógica aquí
-        }
-
         private async Task OpenProductSelectionDialog()
         {
             try
@@ -271,21 +252,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 if (selectedProduct != null)
                 {
                     var product = (FastFoodItemModel)selectedProduct;
-
-                    // Añadir producto al pedido
-                    var detail = new OrderDetailDTO
-                    {
-                        ItemType = "Product",
-                        ItemID = product.ID,
-                        ItemName = product.Name,
-                        Quantity = 1,
-                        UnitPrice = product.SellingPrice,
-                        SubTotal = product.SellingPrice,
-                        Status = "Pending"
-                    };
-
-                    model.OrderDetails.Add(detail);
-                    CalculateTotal();
+                    AddProductToOrder(product);
                 }
             }
             catch (Exception ex)
@@ -315,21 +282,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 if (selectedCombo != null)
                 {
                     var combo = (ComboModel)selectedCombo;
-
-                    // Añadir combo al pedido
-                    var detail = new OrderDetailDTO
-                    {
-                        ItemType = "Combo",
-                        ItemID = combo.ID,
-                        ItemName = combo.Name,
-                        Quantity = 1,
-                        UnitPrice = combo.SellingPrice,
-                        SubTotal = combo.SellingPrice,
-                        Status = "Pending"
-                    };
-
-                    model.OrderDetails.Add(detail);
-                    CalculateTotal();
+                    AddComboToOrder(combo);
                 }
             }
             catch (Exception ex)
@@ -361,10 +314,10 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 var customizations = await DialogService.OpenAsync<CustomizationDialog>("Personalizar Producto",
                     new Dictionary<string, object>
                     {
-                { "ProductName", product.Name },
-                { "ProductIngredients", product.Ingredients ?? new List<ItemIngredientModel>() },
-                { "Customizations", detail.Customizations ?? new List<OrderItemCustomizationDTO>() },
-                { "AllIngredients", ingredients ?? new List<IngredientModel>() }
+                        { "ProductName", product.Name },
+                        { "ProductIngredients", product.Ingredients ?? new List<ItemIngredientModel>() },
+                        { "Customizations", detail.Customizations ?? new List<OrderItemCustomizationDTO>() },
+                        { "AllIngredients", ingredients ?? new List<IngredientModel>() }
                     },
                     new DialogOptions
                     {
@@ -403,6 +356,21 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             CalculateTotal();
         }
 
+        private void IncreaseQuantity(OrderDetailDTO detail)
+        {
+            detail.Quantity++;
+            CalculateDetailSubtotal(detail);
+        }
+
+        private void DecreaseQuantity(OrderDetailDTO detail)
+        {
+            if (detail.Quantity > 1)
+            {
+                detail.Quantity--;
+                CalculateDetailSubtotal(detail);
+            }
+        }
+
         private void CalculateDetailSubtotal(OrderDetailDTO detail)
         {
             detail.SubTotal = detail.UnitPrice * detail.Quantity;
@@ -425,6 +393,17 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             decimal subtotal = CalculateSubtotal();
             decimal tax = CalculateTax();
             return subtotal + tax - model.DiscountAmount;
+        }
+
+        private BadgeStyle GetCustomizationBadgeStyle(string type)
+        {
+            return type switch
+            {
+                "Add" => BadgeStyle.Success,
+                "Remove" => BadgeStyle.Danger,
+                "Extra" => BadgeStyle.Warning,
+                _ => BadgeStyle.Light
+            };
         }
 
         private async Task HandleSubmit()
@@ -466,8 +445,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     // Si se creó exitosamente y hay método de pago, registramos el pago
                     if (createdOrder != null && model.OrderDetails.Any())
                     {
-                        // Registrar pago si el pedido está pagado (implementar según modelo de datos)
-                        if (model.PaymentMethod != null)
+                        // Registrar pago si el pedido está pagado
+                        if (!string.IsNullOrEmpty(model.PaymentMethod))
                         {
                             var paymentDto = new PaymentDTO
                             {
@@ -499,6 +478,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     "Error", $"Error al crear pedido: {ex.Message}", 4000);
             }
         }
+
         private class OrderFormModel
         {
             public string OrderType { get; set; } = "DineIn";
@@ -507,7 +487,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             public string Notes { get; set; } = string.Empty;
             public decimal DiscountAmount { get; set; } = 0;
             public List<OrderDetailDTO> OrderDetails { get; set; } = new();
-            public string PaymentMethod { get; set; } = "Efectivo";
+            public string PaymentMethod { get; set; } = "Cash"; // Valor predeterminado en inglés
         }
     }
+
 }

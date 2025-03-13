@@ -32,7 +32,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         private ComboModel[]? combos;
         private bool isLoading = true;
         private System.Timers.Timer? refreshTimer;
-        private string selectedStatus = "Pending";
+        private string selectedStatus = "All";
         private string sortBy = "CreatedAt";
 
         private string[] orderStatuses = { "All", "Pending", "InProgress" };
@@ -63,7 +63,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             });
         }
 
-        private async Task LoadPendingOrders()
+        public async Task LoadPendingOrders()
         {
             try
             {
@@ -315,20 +315,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             }
         }
 
-        private string GetOrderCardClass(OrderModel order)
-        {
-            if (order.OrderDetails.All(d => d.Status == "Ready"))
-                return "all-ready";
-
-            if (order.OrderDetails.Any(d => d.Status == "InPreparation"))
-                return "in-progress";
-
-            if ((DateTime.Now - order.CreatedAt).TotalMinutes > 15)
-                return "attention-needed";
-
-            return "";
-        }
-
         private bool CanMarkOrderReady(OrderModel order)
         {
             // Solo se puede marcar como listo si todos los productos están en preparación o listos
@@ -427,6 +413,41 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 return $"{(int)timeSpan.TotalHours}h {timeSpan.Minutes}m";
             else
                 return $"{timeSpan.Minutes}m {timeSpan.Seconds}s";
+        }
+
+        private async Task PrintKitchenTicket(OrderModel order)
+        {
+            try
+            {
+                // Preparar datos para imprimir
+                var ticketData = new
+                {
+                    OrderNumber = order.OrderNumber,
+                    Table = order.Table?.TableNumber.ToString() ?? "Para llevar",
+                    CreatedAt = order.CreatedAt.ToString("dd/MM/yyyy HH:mm"),
+                    Items = order.OrderDetails.Select(d => new
+                    {
+                        Name = GetItemName(d),
+                        Quantity = d.Quantity,
+                        Notes = d.Notes,
+                        Customizations = d.Customizations.Select(c => new
+                        {
+                            Type = c.CustomizationType,
+                            Name = c.Ingredient?.Name ?? "",
+                            Quantity = c.Quantity
+                        }).ToList()
+                    }).ToList()
+                };
+
+                // Convertir a JSON y pasar a JavaScript para imprimir
+                var ticketJson = JsonConvert.SerializeObject(ticketData);
+                await JSRuntime.InvokeVoidAsync("printKitchenTicket", ticketJson);
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error,
+                    "Error", $"Error al imprimir ticket: {ex.Message}", 4000);
+            }
         }
 
         public void Dispose()

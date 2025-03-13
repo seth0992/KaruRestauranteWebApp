@@ -1,6 +1,7 @@
 ﻿using KaruRestauranteWebApp.BL.Repositories;
 using KaruRestauranteWebApp.Models.Entities.Orders;
 using KaruRestauranteWebApp.Models.Models.Orders;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 
@@ -15,7 +16,7 @@ namespace KaruRestauranteWebApp.BL.Services
         Task<List<OrderModel>> GetOrdersByTableAsync(int tableId);
         Task<List<OrderModel>> GetOrdersByCustomerAsync(int customerId);
         Task<OrderModel> CreateOrderAsync(OrderDTO orderDto, int userId);
-        Task UpdateOrderAsync(OrderDTO orderDto);
+        Task<OrderModel> UpdateOrderAsync(OrderDTO orderDto);
         Task<bool> UpdateOrderStatusAsync(int id, string status);
         Task<bool> UpdatePaymentStatusAsync(int id, string paymentStatus);
         Task<string> GenerateOrderNumberAsync();
@@ -23,6 +24,8 @@ namespace KaruRestauranteWebApp.BL.Services
         Task<bool> UpdateOrderDetailStatusAsync(int orderDetailId, string status);
         Task<bool> RemoveOrderDetailAsync(int orderDetailId);
         Task<decimal> CalculateOrderTotalAsync(int orderId);
+
+        Task<bool> DeleteOrderAsync(int orderId);
     }
 
     public class OrderService : IOrderService
@@ -60,6 +63,68 @@ namespace KaruRestauranteWebApp.BL.Services
             _productInventoryRepository = productInventoryRepository;
             _inventoryRepository = inventoryRepository;
             _logger = logger;
+        }
+
+        public async Task<bool> DeleteOrderAsync(int orderId)
+        {
+            var strategy = _orderRepository.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _orderRepository.BeginTransactionAsync();
+                try
+                {
+                    // Verificar que la orden exista
+                    var order = await _orderRepository.GetByIdAsync(orderId);
+                    if (order == null)
+                    {
+                        throw new ValidationException($"No se encontró la orden con ID: {orderId}");
+                    }
+
+                    // Verificar si hay pagos asociados
+                    if (order.Payments.Any())
+                    {
+                        throw new ValidationException("No se puede eliminar una orden que ya tiene pagos registrados. Considere cancelarla en su lugar.");
+                    }
+
+                    // Verificar si hay factura
+                    if (order.ElectronicInvoice != null)
+                    {
+                        throw new ValidationException("No se puede eliminar una orden que ya tiene factura electrónica. Considere cancelarla en su lugar.");
+                    }
+
+                    // Liberar la mesa si existe
+                    if (order.TableID.HasValue)
+                    {
+                        await _tableRepository.UpdateStatusAsync(order.TableID.Value, "Available");
+                        _logger.LogInformation("Mesa {TableId} liberada al eliminar orden {OrderId}", order.TableID.Value, orderId);
+                    }
+
+                    // Revertir ajustes de inventario para cada detalle
+                    foreach (var detail in order.OrderDetails)
+                    {
+                        await ReverseInventoryAdjustmentForDetail(detail);
+                    }
+
+                    // Eliminar detalles de la orden
+                    foreach (var detail in order.OrderDetails.ToList())
+                    {
+                        await _orderDetailRepository.DeleteAsync(detail.ID);
+                    }
+
+                    // Eliminar la orden
+                    var result = await _orderRepository.DeleteAsync(orderId);
+
+                    await transaction.CommitAsync();
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error al eliminar la orden {OrderId}", orderId);
+                    throw;
+                }
+            });
         }
 
         public async Task<List<OrderModel>> GetAllOrdersAsync(DateTime? fromDate = null, DateTime? toDate = null)
@@ -148,290 +213,569 @@ namespace KaruRestauranteWebApp.BL.Services
 
         public async Task<OrderModel> CreateOrderAsync(OrderDTO orderDto, int userId)
         {
-            // Iniciar transacción para realizar todas las operaciones como una unidad
-            using var transaction = await _orderRepository.BeginTransactionAsync();
-            try
+            var strategy = _orderRepository.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
             {
-                // Validar tipo de orden
-                if (string.IsNullOrWhiteSpace(orderDto.OrderType))
+                // Iniciar la transacción dentro del bloque de ejecución
+                using var transaction = await _orderRepository.BeginTransactionAsync();
+                try
                 {
-                    throw new ValidationException("El tipo de orden es requerido");
-                }
-
-                // Validar que el tipo sea válido
-                var validTypes = new[] { "DineIn", "TakeOut", "Delivery" };
-                if (!validTypes.Contains(orderDto.OrderType))
-                {
-                    throw new ValidationException($"Tipo de orden no válido. Valores posibles: {string.Join(", ", validTypes)}");
-                }
-
-                // Si es tipo DineIn, validar que se haya seleccionado una mesa
-                if (orderDto.OrderType == "DineIn" && !orderDto.TableID.HasValue)
-                {
-                    throw new ValidationException("Se requiere seleccionar una mesa para órdenes en sitio");
-                }
-
-                // Verificar mesa si está seleccionada
-                TableModel? table = null;
-                if (orderDto.TableID.HasValue)
-                {
-                    table = await _tableRepository.GetByIdAsync(orderDto.TableID.Value);
-                    if (table == null)
+                    // Validar tipo de orden
+                    if (string.IsNullOrWhiteSpace(orderDto.OrderType))
                     {
-                        throw new ValidationException($"No se encontró la mesa con ID: {orderDto.TableID.Value}");
+                        throw new ValidationException("El tipo de orden es requerido");
                     }
 
-                    // Verificar que la mesa esté disponible
-                    if (table.Status != "Available" && table.Status != "Reserved")
+                    // Validar que el tipo sea válido
+                    var validTypes = new[] { "DineIn", "TakeOut", "Delivery" };
+                    if (!validTypes.Contains(orderDto.OrderType))
                     {
-                        throw new ValidationException($"La mesa {table.TableNumber} no está disponible");
-                    }
-                }
-
-                // Verificar cliente si está seleccionado
-                CustomerModel? customer = null;
-                if (orderDto.CustomerID.HasValue)
-                {
-                    customer = await _customerRepository.GetByIdAsync(orderDto.CustomerID.Value);
-                    if (customer == null)
-                    {
-                        throw new ValidationException($"No se encontró el cliente con ID: {orderDto.CustomerID.Value}");
-                    }
-                }
-
-                // Crear la orden
-                var orderNumber = await GenerateOrderNumberAsync();
-                var order = new OrderModel
-                {
-                    OrderNumber = orderNumber,
-                    CustomerID = orderDto.CustomerID,
-                    TableID = orderDto.TableID,
-                    UserID = userId,
-                    OrderType = orderDto.OrderType,
-                    OrderStatus = "Pending",
-                    PaymentStatus = "Pending",
-                    TotalAmount = 0, // Se calculará al agregar detalles
-                    TaxAmount = 0,   // Se calculará al agregar detalles
-                    DiscountAmount = orderDto.DiscountAmount,
-                    Notes = orderDto.Notes,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                // Guardar la orden
-                await _orderRepository.CreateAsync(order);
-
-                // Funcionalidad de trigger: Si es orden en sitio, actualizar el estado de la mesa a ocupada
-                if (table != null)
-                {
-                    await _tableRepository.UpdateStatusAsync(table.ID, "Occupied");
-                    _logger.LogInformation("Mesa {TableId} marcada como ocupada para la orden {OrderId}", table.ID, order.ID);
-                }
-
-                // Agregar detalles a la orden si se proporcionaron
-                if (orderDto.OrderDetails != null && orderDto.OrderDetails.Any())
-                {
-                    foreach (var detailDto in orderDto.OrderDetails)
-                    {
-                        // Agregar detalle a la orden
-                        var orderDetail = await AddOrderDetailWithoutTotal(order.ID, detailDto);
-
-                        // Funcionalidad de trigger: Actualizar inventario según tipo de ítem
-                        await UpdateInventoryForOrderDetail(orderDetail);
+                        throw new ValidationException($"Tipo de orden no válido. Valores posibles: {string.Join(", ", validTypes)}");
                     }
 
-                    // Calcular total de la orden después de agregar todos los detalles
-                    await CalculateOrderTotalAsync(order.ID);
+                    // Si es tipo DineIn, validar que se haya seleccionado una mesa
+                    if (orderDto.OrderType == "DineIn" && !orderDto.TableID.HasValue)
+                    {
+                        throw new ValidationException("Se requiere seleccionar una mesa para órdenes en sitio");
+                    }
+
+                    // Verificar mesa si está seleccionada
+                    TableModel? table = null;
+                    if (orderDto.TableID.HasValue)
+                    {
+                        table = await _tableRepository.GetByIdAsync(orderDto.TableID.Value);
+                        if (table == null)
+                        {
+                            throw new ValidationException($"No se encontró la mesa con ID: {orderDto.TableID.Value}");
+                        }
+
+                        // Verificar que la mesa esté disponible
+                        if (table.Status != "Available" && table.Status != "Reserved")
+                        {
+                            throw new ValidationException($"La mesa {table.TableNumber} no está disponible");
+                        }
+                    }
+
+                    // Verificar cliente si está seleccionado
+                    CustomerModel? customer = null;
+                    if (orderDto.CustomerID.HasValue)
+                    {
+                        customer = await _customerRepository.GetByIdAsync(orderDto.CustomerID.Value);
+                        if (customer == null)
+                        {
+                            throw new ValidationException($"No se encontró el cliente con ID: {orderDto.CustomerID.Value}");
+                        }
+                    }
+
+                    // Crear la orden
+                    var orderNumber = await GenerateOrderNumberAsync();
+                    var order = new OrderModel
+                    {
+                        OrderNumber = orderNumber,
+                        CustomerID = orderDto.CustomerID,
+                        TableID = orderDto.TableID,
+                        UserID = userId,
+                        OrderType = orderDto.OrderType,
+                        OrderStatus = "Pending",
+                        PaymentStatus = "Pending",
+                        TotalAmount = 0, // Se calculará al agregar detalles
+                        TaxAmount = 0,   // Se calculará al agregar detalles
+                        DiscountAmount = orderDto.DiscountAmount,
+                        Notes = orderDto.Notes,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    // Guardar la orden
+                    await _orderRepository.CreateAsync(order);
+
+                    // Funcionalidad de trigger: Si es orden en sitio, actualizar el estado de la mesa a ocupada
+                    if (table != null)
+                    {
+                        await _tableRepository.UpdateStatusAsync(table.ID, "Occupied");
+                        _logger.LogInformation("Mesa {TableId} marcada como ocupada para la orden {OrderId}", table.ID, order.ID);
+                    }
+
+                    // Agregar detalles a la orden si se proporcionaron
+                    if (orderDto.OrderDetails != null && orderDto.OrderDetails.Any())
+                    {
+                        foreach (var detailDto in orderDto.OrderDetails)
+                        {
+                            // Agregar detalle a la orden
+                            var orderDetail = await AddOrderDetailWithoutTotal(order.ID, detailDto);
+
+                            // Funcionalidad de trigger: Actualizar inventario según tipo de ítem
+                            await UpdateInventoryForOrderDetail(orderDetail);
+                        }
+
+                        // Calcular total de la orden después de agregar todos los detalles
+                        await CalculateOrderTotalAsync(order.ID);
+                    }
+
+                    // Funcionalidad de trigger: Registrar actividad de creación de orden
+                    await LogOrderActivityAsync(order.ID, "Created", userId);
+
+                    // Confirmar todas las operaciones
+                    await transaction.CommitAsync();
+
+                    // Obtener orden completa con todas sus relaciones
+                    return await _orderRepository.GetByIdAsync(order.ID) ?? order;
                 }
-
-                // Funcionalidad de trigger: Registrar actividad de creación de orden
-                await LogOrderActivityAsync(order.ID, "Created", userId);
-
-                // Confirmar todas las operaciones
-                await transaction.CommitAsync();
-
-                // Obtener orden completa con todas sus relaciones
-                return await _orderRepository.GetByIdAsync(order.ID) ?? order;
-            }
-            catch (Exception ex)
-            {
-                // Deshacer todas las operaciones en caso de error
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error al crear la orden");
-                throw;
-            }
+                catch (Exception ex)
+                {
+                    // Deshacer todas las operaciones en caso de error
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error al crear la orden");
+                    throw;
+                }
+            });
         }
 
-        public async Task UpdateOrderAsync(OrderDTO orderDto)
+        public async Task<OrderModel> UpdateOrderAsync(OrderDTO orderDto)
         {
-            using var transaction = await _orderRepository.BeginTransactionAsync();
-            try
+            var strategy = _orderRepository.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
             {
-                // Verificar que la orden exista
-                var existingOrder = await _orderRepository.GetByIdAsync(orderDto.ID);
-                if (existingOrder == null)
+                using var transaction = await _orderRepository.BeginTransactionAsync();
+                try
                 {
-                    throw new ValidationException($"No se encontró la orden con ID: {orderDto.ID}");
-                }
+                    // Verificar que la orden exista
+                    var existingOrder = await _orderRepository.GetByIdAsync(orderDto.ID);
+                    if (existingOrder == null)
+                    {
+                        throw new ValidationException($"No se encontró la orden con ID: {orderDto.ID}");
+                    }
 
-                // No se permite cambiar pedidos que ya están entregados o cancelados
-                if (existingOrder.OrderStatus == "Delivered" || existingOrder.OrderStatus == "Cancelled")
+                    // No se permite cambiar pedidos que ya están entregados o cancelados
+                    if (existingOrder.OrderStatus == "Delivered" || existingOrder.OrderStatus == "Cancelled")
+                    {
+                        throw new ValidationException($"No se puede modificar una orden {existingOrder.OrderStatus}");
+                    }
+
+                    // Guardar estado y mesa anteriores para comparar
+                    var previousStatus = existingOrder.OrderStatus;
+                    var previousTableId = existingOrder.TableID;
+                    var previousCustomerId = existingOrder.CustomerID;
+
+                    // Actualizar datos básicos
+                    existingOrder.CustomerID = orderDto.CustomerID;
+                    existingOrder.TableID = orderDto.TableID;
+                    existingOrder.OrderType = orderDto.OrderType;
+                    existingOrder.Notes = orderDto.Notes;
+                    existingOrder.DiscountAmount = orderDto.DiscountAmount;
+                    existingOrder.UpdatedAt = DateTime.UtcNow;
+
+                    await _orderRepository.UpdateAsync(existingOrder);
+
+                    // Funcionalidad de trigger: Si cambió el estado, registrar el cambio
+                    if (previousStatus != existingOrder.OrderStatus)
+                    {
+                        await HandleOrderStatusChange(existingOrder, previousStatus);
+                    }
+
+                    // Funcionalidad de trigger: Si cambió la mesa, actualizar estados
+                    if (previousTableId != existingOrder.TableID)
+                    {
+                        await HandleTableChange(previousTableId, existingOrder.TableID);
+                    }
+
+                    // Actualizar detalles si se proporcionaron
+                    if (orderDto.OrderDetails != null && orderDto.OrderDetails.Any())
+                    {
+                        // Obtener detalles actuales para comparar
+                        var existingDetails = await _orderDetailRepository.GetByOrderIdAsync(existingOrder.ID);
+
+                        // Identificar detalles a eliminar (los que ya no están en la lista nueva)
+                        var detailsToRemove = existingDetails
+                            .Where(ed => !orderDto.OrderDetails.Any(nd => nd.ID == ed.ID))
+                            .ToList();
+
+                        // Eliminar detalles que ya no existen
+                        foreach (var detail in detailsToRemove)
+                        {
+                            // Revertir ajustes de inventario
+                            await ReverseInventoryAdjustmentForDetail(detail);
+                            await _orderDetailRepository.DeleteAsync(detail.ID);
+                        }
+
+                        // Actualizar o agregar detalles
+                        foreach (var detailDto in orderDto.OrderDetails)
+                        {
+                            if (detailDto.ID > 0)
+                            {
+                                // Es un detalle existente - actualizar
+                                var existingDetail = existingDetails.FirstOrDefault(d => d.ID == detailDto.ID);
+                                if (existingDetail != null)
+                                {
+                                    // Guardar cantidad anterior para ajustar inventario
+                                    int previousQuantity = existingDetail.Quantity;
+
+                                    // Actualizar datos
+                                    existingDetail.Quantity = detailDto.Quantity;
+                                    existingDetail.Notes = detailDto.Notes;
+                                    existingDetail.SubTotal = detailDto.UnitPrice * detailDto.Quantity;
+
+                                    await _orderDetailRepository.UpdateAsync(existingDetail);
+
+                                    // Ajustar inventario si cambió la cantidad
+                                    if (previousQuantity != detailDto.Quantity)
+                                    {
+                                        // Revertir ajuste anterior
+                                        var tempDetail = new OrderDetailModel
+                                        {
+                                            ItemID = existingDetail.ItemID,
+                                            ItemType = existingDetail.ItemType,
+                                            Quantity = previousQuantity
+                                        };
+                                        await ReverseInventoryAdjustmentForDetail(tempDetail);
+
+                                        // Aplicar nuevo ajuste
+                                        await UpdateInventoryForOrderDetail(existingDetail);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // Es un nuevo detalle - agregarlo
+                                var newDetail = await AddOrderDetailWithoutTotal(existingOrder.ID, detailDto);
+                                await UpdateInventoryForOrderDetail(newDetail);
+                            }
+                        }
+                    }
+
+                    // Recalcular el total
+                    await CalculateOrderTotalAsync(existingOrder.ID);
+
+                    await transaction.CommitAsync();
+                    return await _orderRepository.GetByIdAsync(existingOrder.ID) ?? existingOrder;
+                }
+                catch (Exception ex)
                 {
-                    throw new ValidationException($"No se puede modificar una orden {existingOrder.OrderStatus}");
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error al actualizar la orden {OrderId}", orderDto.ID);
+                    throw;
                 }
-
-                // Guardar estado y mesa anteriores para comparar
-                var previousStatus = existingOrder.OrderStatus;
-                var previousTableId = existingOrder.TableID;
-
-                // Actualizar solo campos permitidos
-                existingOrder.Notes = orderDto.Notes;
-                existingOrder.DiscountAmount = orderDto.DiscountAmount;
-                existingOrder.UpdatedAt = DateTime.UtcNow;
-
-                await _orderRepository.UpdateAsync(existingOrder);
-
-                // Funcionalidad de trigger: Si cambió el estado, registrar el cambio
-                if (previousStatus != existingOrder.OrderStatus)
-                {
-                    await HandleOrderStatusChange(existingOrder, previousStatus);
-                }
-
-                // Funcionalidad de trigger: Si cambió la mesa, actualizar estados
-                if (previousTableId != existingOrder.TableID)
-                {
-                    await HandleTableChange(previousTableId, existingOrder.TableID);
-                }
-
-                // Recalcular el total si se modificó el descuento
-                await CalculateOrderTotalAsync(existingOrder.ID);
-
-                await transaction.CommitAsync();
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error al actualizar la orden {OrderId}", orderDto.ID);
-                throw;
-            }
+            });
         }
+
+        //public async Task UpdateOrderAsync(OrderDTO orderDto)
+        //{
+        //    var strategy = _orderRepository.CreateExecutionStrategy();
+
+        //    await strategy.ExecuteAsync(async () =>
+        //    {
+        //        using var transaction = await _orderRepository.BeginTransactionAsync();
+        //        try
+        //        {
+        //            // Verificar que la orden exista
+        //            var existingOrder = await _orderRepository.GetByIdAsync(orderDto.ID);
+        //            if (existingOrder == null)
+        //            {
+        //                throw new ValidationException($"No se encontró la orden con ID: {orderDto.ID}");
+        //            }
+
+        //            // No se permite cambiar pedidos que ya están entregados o cancelados
+        //            if (existingOrder.OrderStatus == "Delivered" || existingOrder.OrderStatus == "Cancelled")
+        //            {
+        //                throw new ValidationException($"No se puede modificar una orden {existingOrder.OrderStatus}");
+        //            }
+
+        //            // Guardar estado y mesa anteriores para comparar
+        //            var previousStatus = existingOrder.OrderStatus;
+        //            var previousTableId = existingOrder.TableID;
+
+        //            // Actualizar solo campos permitidos
+        //            existingOrder.Notes = orderDto.Notes;
+        //            existingOrder.DiscountAmount = orderDto.DiscountAmount;
+        //            existingOrder.UpdatedAt = DateTime.UtcNow;
+
+        //            await _orderRepository.UpdateAsync(existingOrder);
+
+        //            // Funcionalidad de trigger: Si cambió el estado, registrar el cambio
+        //            if (previousStatus != existingOrder.OrderStatus)
+        //            {
+        //                await HandleOrderStatusChange(existingOrder, previousStatus);
+        //            }
+
+        //            // Funcionalidad de trigger: Si cambió la mesa, actualizar estados
+        //            if (previousTableId != existingOrder.TableID)
+        //            {
+        //                await HandleTableChange(previousTableId, existingOrder.TableID);
+        //            }
+
+        //            // Recalcular el total si se modificó el descuento
+        //            await CalculateOrderTotalAsync(existingOrder.ID);
+
+        //            await transaction.CommitAsync();
+        //            return existingOrder;
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            await transaction.RollbackAsync();
+        //            _logger.LogError(ex, "Error al actualizar la orden {OrderId}", orderDto.ID);
+        //            throw;
+        //        }
+        //    });
+        //}
 
         public async Task<bool> UpdateOrderStatusAsync(int id, string status)
         {
-            using var transaction = await _orderRepository.BeginTransactionAsync();
-            try
+            var strategy = _orderRepository.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
             {
-                if (string.IsNullOrWhiteSpace(status))
+                using var transaction = await _orderRepository.BeginTransactionAsync();
+                try
                 {
-                    throw new ValidationException("El estado de la orden es requerido");
-                }
+                    if (string.IsNullOrWhiteSpace(status))
+                    {
+                        throw new ValidationException("El estado de la orden es requerido");
+                    }
 
-                // Validar que el estado sea válido
-                var validStatuses = new[] { "Pending", "InProgress", "Ready", "Delivered", "Cancelled" };
-                if (!validStatuses.Contains(status))
+                    // Validar que el estado sea válido
+                    var validStatuses = new[] { "Pending", "InProgress", "Ready", "Delivered", "Cancelled" };
+                    if (!validStatuses.Contains(status))
+                    {
+                        throw new ValidationException($"Estado de orden no válido. Valores posibles: {string.Join(", ", validStatuses)}");
+                    }
+
+                    var order = await _orderRepository.GetByIdAsync(id);
+                    if (order == null)
+                    {
+                        throw new ValidationException($"No se encontró la orden con ID: {id}");
+                    }
+
+                    // Guardar estado anterior para comparar
+                    var previousStatus = order.OrderStatus;
+
+                    // Actualizar estado
+                    var result = await _orderRepository.UpdateStatusAsync(id, status);
+
+                    // Funcionalidad de trigger: Si cambió a entregado o cancelado, liberar la mesa
+                    if ((status == "Delivered" || status == "Cancelled") && order.TableID.HasValue)
+                    {
+                        await _tableRepository.UpdateStatusAsync(order.TableID.Value, "Available");
+                        _logger.LogInformation("Mesa {TableId} liberada por cambio de estado de orden a {Status}", order.TableID.Value, status);
+                    }
+
+                    // Funcionalidad de trigger: Si cambió a cancelado, reversar ajustes de inventario
+                    if (status == "Cancelled" && previousStatus != "Cancelled")
+                    {
+                        await ReverseInventoryAdjustments(id);
+                    }
+
+                    // Funcionalidad de trigger: Registrar cambio de estado
+                    await LogOrderStatusChangeAsync(id, previousStatus, status);
+
+                    await transaction.CommitAsync();
+                    return result;
+                }
+                catch (Exception ex)
                 {
-                    throw new ValidationException($"Estado de orden no válido. Valores posibles: {string.Join(", ", validStatuses)}");
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error al actualizar el estado de la orden {OrderId}", id);
+                    throw;
                 }
-
-                var order = await _orderRepository.GetByIdAsync(id);
-                if (order == null)
-                {
-                    throw new ValidationException($"No se encontró la orden con ID: {id}");
-                }
-
-                // Guardar estado anterior para comparar
-                var previousStatus = order.OrderStatus;
-
-                // Actualizar estado
-                var result = await _orderRepository.UpdateStatusAsync(id, status);
-
-                // Funcionalidad de trigger: Si cambió a entregado o cancelado, liberar la mesa
-                if ((status == "Delivered" || status == "Cancelled") && order.TableID.HasValue)
-                {
-                    await _tableRepository.UpdateStatusAsync(order.TableID.Value, "Available");
-                    _logger.LogInformation("Mesa {TableId} liberada por cambio de estado de orden a {Status}", order.TableID.Value, status);
-                }
-
-                // Funcionalidad de trigger: Si cambió a cancelado, reversar ajustes de inventario
-                if (status == "Cancelled" && previousStatus != "Cancelled")
-                {
-                    await ReverseInventoryAdjustments(id);
-                }
-
-                // Funcionalidad de trigger: Registrar cambio de estado
-                await LogOrderStatusChangeAsync(id, previousStatus, status);
-
-                await transaction.CommitAsync();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error al actualizar el estado de la orden {OrderId}", id);
-                throw;
-            }
+            });
         }
-
         public async Task<bool> UpdatePaymentStatusAsync(int id, string paymentStatus)
         {
-            using var transaction = await _orderRepository.BeginTransactionAsync();
-            try
+            var strategy = _orderRepository.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
             {
-                if (string.IsNullOrWhiteSpace(paymentStatus))
+                using var transaction = await _orderRepository.BeginTransactionAsync();
+                try
                 {
-                    throw new ValidationException("El estado de pago es requerido");
-                }
+                    if (string.IsNullOrWhiteSpace(paymentStatus))
+                    {
+                        throw new ValidationException("El estado de pago es requerido");
+                    }
 
-                // Validar que el estado sea válido
-                var validStatuses = new[] { "Pending", "Paid", "Partially Paid", "Cancelled" };
-                if (!validStatuses.Contains(paymentStatus))
+                    // Validar que el estado sea válido
+                    var validStatuses = new[] { "Pending", "Paid", "Partially Paid", "Cancelled" };
+                    if (!validStatuses.Contains(paymentStatus))
+                    {
+                        throw new ValidationException($"Estado de pago no válido. Valores posibles: {string.Join(", ", validStatuses)}");
+                    }
+
+                    var result = await _orderRepository.UpdatePaymentStatusAsync(id, paymentStatus);
+
+                    // Funcionalidad de trigger: Registrar cambio de estado de pago
+                    await LogPaymentStatusChangeAsync(id, paymentStatus);
+
+                    await transaction.CommitAsync();
+                    return result;
+                }
+                catch (Exception ex)
                 {
-                    throw new ValidationException($"Estado de pago no válido. Valores posibles: {string.Join(", ", validStatuses)}");
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error al actualizar el estado de pago de la orden {OrderId}", id);
+                    throw;
                 }
-
-                var result = await _orderRepository.UpdatePaymentStatusAsync(id, paymentStatus);
-
-                // Funcionalidad de trigger: Registrar cambio de estado de pago
-                await LogPaymentStatusChangeAsync(id, paymentStatus);
-
-                await transaction.CommitAsync();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error al actualizar el estado de pago de la orden {OrderId}", id);
-                throw;
-            }
+            });
         }
+
+        public async Task<OrderDetailModel> AddOrderDetailAsync(int orderId, OrderDetailDTO detailDto)
+        {
+            var strategy = _orderRepository.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _orderRepository.BeginTransactionAsync();
+                try
+                {
+                    var orderDetail = await AddOrderDetailWithoutTotal(orderId, detailDto);
+
+                    // Funcionalidad de trigger: Actualizar inventario
+                    await UpdateInventoryForOrderDetail(orderDetail);
+
+                    // Recalcular el total de la orden
+                    await CalculateOrderTotalAsync(orderId);
+
+                    await transaction.CommitAsync();
+                    return orderDetail;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error al agregar detalle a la orden {OrderId}", orderId);
+                    throw;
+                }
+            });
+        }
+
+        public async Task<bool> UpdateOrderDetailStatusAsync(int orderDetailId, string status)
+        {
+            var strategy = _orderRepository.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _orderRepository.BeginTransactionAsync();
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(status))
+                    {
+                        throw new ValidationException("El estado del detalle es requerido");
+                    }
+
+                    // Validar que el estado sea válido
+                    var validStatuses = new[] { "Pending", "InPreparation", "Ready", "Delivered", "Cancelled" };
+                    if (!validStatuses.Contains(status))
+                    {
+                        throw new ValidationException($"Estado de detalle no válido. Valores posibles: {string.Join(", ", validStatuses)}");
+                    }
+
+                    var detail = await _orderDetailRepository.GetByIdAsync(orderDetailId);
+                    if (detail == null)
+                    {
+                        return false;
+                    }
+
+                    // Guardar estado anterior
+                    var previousStatus = detail.Status;
+
+                    // Actualizar estado
+                    var result = await _orderDetailRepository.UpdateStatusAsync(orderDetailId, status);
+
+                    // Funcionalidad de trigger: Si se cancela un detalle, reversar ajustes de inventario
+                    if (status == "Cancelled" && previousStatus != "Cancelled")
+                    {
+                        await ReverseInventoryAdjustmentForDetail(detail);
+                    }
+
+                    await transaction.CommitAsync();
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error al actualizar el estado del detalle {OrderDetailId}", orderDetailId);
+                    throw;
+                }
+            });
+        }
+
+        public async Task<bool> RemoveOrderDetailAsync(int orderDetailId)
+        {
+            var strategy = _orderRepository.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _orderRepository.BeginTransactionAsync();
+                try
+                {
+                    // Verificar que el detalle exista
+                    var detail = await _orderDetailRepository.GetByIdAsync(orderDetailId);
+                    if (detail == null)
+                    {
+                        throw new ValidationException($"No se encontró el detalle con ID: {orderDetailId}");
+                    }
+
+                    // Verificar que la orden no esté entregada o cancelada
+                    var order = await _orderRepository.GetByIdAsync(detail.OrderID);
+                    if (order == null)
+                    {
+                        throw new ValidationException($"No se encontró la orden para el detalle: {orderDetailId}");
+                    }
+
+                    if (order.OrderStatus == "Delivered" || order.OrderStatus == "Cancelled")
+                    {
+                        throw new ValidationException($"No se puede modificar una orden {order.OrderStatus}");
+                    }
+
+                    // Funcionalidad de trigger: Reversar ajustes de inventario
+                    await ReverseInventoryAdjustmentForDetail(detail);
+
+                    // Eliminar el detalle
+                    var result = await _orderDetailRepository.DeleteAsync(orderDetailId);
+
+                    // Recalcular total de la orden
+                    await CalculateOrderTotalAsync(detail.OrderID);
+
+                    await transaction.CommitAsync();
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error al eliminar el detalle {OrderDetailId}", orderDetailId);
+                    throw;
+                }
+            });
+        }
+
+
 
         public async Task<string> GenerateOrderNumberAsync()
         {
             return await _orderRepository.GenerateOrderNumberAsync();
         }
 
-        public async Task<OrderDetailModel> AddOrderDetailAsync(int orderId, OrderDetailDTO detailDto)
-        {
-            using var transaction = await _orderRepository.BeginTransactionAsync();
-            try
-            {
-                var orderDetail = await AddOrderDetailWithoutTotal(orderId, detailDto);
+        //public async Task<OrderDetailModel> AddOrderDetailAsync(int orderId, OrderDetailDTO detailDto)
+        //{
+        //    using var transaction = await _orderRepository.BeginTransactionAsync();
+        //    try
+        //    {
+        //        var orderDetail = await AddOrderDetailWithoutTotal(orderId, detailDto);
 
-                // Funcionalidad de trigger: Actualizar inventario
-                await UpdateInventoryForOrderDetail(orderDetail);
+        //        // Funcionalidad de trigger: Actualizar inventario
+        //        await UpdateInventoryForOrderDetail(orderDetail);
 
-                // Recalcular el total de la orden
-                await CalculateOrderTotalAsync(orderId);
+        //        // Recalcular el total de la orden
+        //        await CalculateOrderTotalAsync(orderId);
 
-                await transaction.CommitAsync();
-                return orderDetail;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error al agregar detalle a la orden {OrderId}", orderId);
-                throw;
-            }
-        }
+        //        await transaction.CommitAsync();
+        //        return orderDetail;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        await transaction.RollbackAsync();
+        //        _logger.LogError(ex, "Error al agregar detalle a la orden {OrderId}", orderId);
+        //        throw;
+        //    }
+        //}
 
         private async Task<OrderDetailModel> AddOrderDetailWithoutTotal(int orderId, OrderDetailDTO detailDto)
         {
@@ -534,96 +878,6 @@ namespace KaruRestauranteWebApp.BL.Services
             }
 
             return createdDetail;
-        }
-
-        public async Task<bool> UpdateOrderDetailStatusAsync(int orderDetailId, string status)
-        {
-            using var transaction = await _orderRepository.BeginTransactionAsync();
-            try
-            {
-                if (string.IsNullOrWhiteSpace(status))
-                {
-                    throw new ValidationException("El estado del detalle es requerido");
-                }
-
-                // Validar que el estado sea válido
-                var validStatuses = new[] { "Pending", "InPreparation", "Ready", "Delivered", "Cancelled" };
-                if (!validStatuses.Contains(status))
-                {
-                    throw new ValidationException($"Estado de detalle no válido. Valores posibles: {string.Join(", ", validStatuses)}");
-                }
-
-                var detail = await _orderDetailRepository.GetByIdAsync(orderDetailId);
-                if (detail == null)
-                {
-                    return false;
-                }
-
-                // Guardar estado anterior
-                var previousStatus = detail.Status;
-
-                // Actualizar estado
-                var result = await _orderDetailRepository.UpdateStatusAsync(orderDetailId, status);
-
-                // Funcionalidad de trigger: Si se cancela un detalle, reversar ajustes de inventario
-                if (status == "Cancelled" && previousStatus != "Cancelled")
-                {
-                    await ReverseInventoryAdjustmentForDetail(detail);
-                }
-
-                await transaction.CommitAsync();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error al actualizar el estado del detalle {OrderDetailId}", orderDetailId);
-                throw;
-            }
-        }
-
-        public async Task<bool> RemoveOrderDetailAsync(int orderDetailId)
-        {
-            using var transaction = await _orderRepository.BeginTransactionAsync();
-            try
-            {
-                // Verificar que el detalle exista
-                var detail = await _orderDetailRepository.GetByIdAsync(orderDetailId);
-                if (detail == null)
-                {
-                    throw new ValidationException($"No se encontró el detalle con ID: {orderDetailId}");
-                }
-
-                // Verificar que la orden no esté entregada o cancelada
-                var order = await _orderRepository.GetByIdAsync(detail.OrderID);
-                if (order == null)
-                {
-                    throw new ValidationException($"No se encontró la orden para el detalle: {orderDetailId}");
-                }
-
-                if (order.OrderStatus == "Delivered" || order.OrderStatus == "Cancelled")
-                {
-                    throw new ValidationException($"No se puede modificar una orden {order.OrderStatus}");
-                }
-
-                // Funcionalidad de trigger: Reversar ajustes de inventario
-                await ReverseInventoryAdjustmentForDetail(detail);
-
-                // Eliminar el detalle
-                var result = await _orderDetailRepository.DeleteAsync(orderDetailId);
-
-                // Recalcular total de la orden
-                await CalculateOrderTotalAsync(detail.OrderID);
-
-                await transaction.CommitAsync();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error al eliminar el detalle {OrderDetailId}", orderDetailId);
-                throw;
-            }
         }
 
         public async Task<decimal> CalculateOrderTotalAsync(int orderId)

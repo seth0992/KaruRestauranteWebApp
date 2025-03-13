@@ -54,6 +54,90 @@ namespace KaruRestauranteWebApp.ApiService.Controllers
             }
         }
 
+        [HttpPut("{id}")]
+        [Authorize(Roles = "SuperAdmin,Admin,User")]
+        public async Task<ActionResult<BaseResponseModel>> UpdateOrder(int id, [FromBody] OrderDTO orderDto)
+        {
+            try
+            {
+                if (id != orderDto.ID)
+                {
+                    return BadRequest(new BaseResponseModel
+                    {
+                        Success = false,
+                        ErrorMessage = "ID no coincide"
+                    });
+                }
+
+                var order = await _orderService.UpdateOrderAsync(orderDto);
+
+                return Ok(new BaseResponseModel
+                {
+                    Success = true,
+                    Data = order,
+                    ErrorMessage = "Orden actualizada exitosamente"
+                });
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new BaseResponseModel
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al actualizar la orden {OrderId}", id);
+                return StatusCode(500, new BaseResponseModel
+                {
+                    Success = false,
+                    ErrorMessage = "Error interno del servidor"
+                });
+            }
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "SuperAdmin,Admin")]
+        public async Task<ActionResult<BaseResponseModel>> DeleteOrder(int id)
+        {
+            try
+            {
+                var result = await _orderService.DeleteOrderAsync(id);
+                if (!result)
+                {
+                    return NotFound(new BaseResponseModel
+                    {
+                        Success = false,
+                        ErrorMessage = "Orden no encontrada"
+                    });
+                }
+
+                return Ok(new BaseResponseModel
+                {
+                    Success = true,
+                    ErrorMessage = "Orden eliminada exitosamente"
+                });
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new BaseResponseModel
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al eliminar la orden {OrderId}", id);
+                return StatusCode(500, new BaseResponseModel
+                {
+                    Success = false,
+                    ErrorMessage = "Error interno del servidor"
+                });
+            }
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<BaseResponseModel>> GetOrder(int id)
         {
@@ -218,45 +302,45 @@ namespace KaruRestauranteWebApp.ApiService.Controllers
             }
         }
 
-        [HttpPut("{id}")]
-        public async Task<ActionResult<BaseResponseModel>> UpdateOrder(int id, [FromBody] OrderDTO orderDto)
-        {
-            try
-            {
-                if (id != orderDto.ID)
-                {
-                    return BadRequest(new BaseResponseModel
-                    {
-                        Success = false,
-                        ErrorMessage = "ID no coincide"
-                    });
-                }
+        //[HttpPut("{id}")]
+        //public async Task<ActionResult<BaseResponseModel>> UpdateOrder(int id, [FromBody] OrderDTO orderDto)
+        //{
+        //    try
+        //    {
+        //        if (id != orderDto.ID)
+        //        {
+        //            return BadRequest(new BaseResponseModel
+        //            {
+        //                Success = false,
+        //                ErrorMessage = "ID no coincide"
+        //            });
+        //        }
 
-                await _orderService.UpdateOrderAsync(orderDto);
-                return Ok(new BaseResponseModel
-                {
-                    Success = true,
-                    ErrorMessage = "Orden actualizada exitosamente"
-                });
-            }
-            catch (ValidationException ex)
-            {
-                return BadRequest(new BaseResponseModel
-                {
-                    Success = false,
-                    ErrorMessage = ex.Message
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al actualizar la orden {OrderId}", id);
-                return StatusCode(500, new BaseResponseModel
-                {
-                    Success = false,
-                    ErrorMessage = "Error interno del servidor"
-                });
-            }
-        }
+        //        await _orderService.UpdateOrderAsync(orderDto);
+        //        return Ok(new BaseResponseModel
+        //        {
+        //            Success = true,
+        //            ErrorMessage = "Orden actualizada exitosamente"
+        //        });
+        //    }
+        //    catch (ValidationException ex)
+        //    {
+        //        return BadRequest(new BaseResponseModel
+        //        {
+        //            Success = false,
+        //            ErrorMessage = ex.Message
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error al actualizar la orden {OrderId}", id);
+        //        return StatusCode(500, new BaseResponseModel
+        //        {
+        //            Success = false,
+        //            ErrorMessage = "Error interno del servidor"
+        //        });
+        //    }
+        //}
 
         [HttpPatch("{id}/status/{status}")]
         public async Task<ActionResult<BaseResponseModel>> UpdateOrderStatus(int id, string status)

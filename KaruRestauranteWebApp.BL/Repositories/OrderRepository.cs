@@ -19,6 +19,8 @@ namespace KaruRestauranteWebApp.BL.Repositories
         Task<bool> UpdatePaymentStatusAsync(int id, string paymentStatus);
         Task<string> GenerateOrderNumberAsync();
         Task<IDbContextTransaction> BeginTransactionAsync();
+        IExecutionStrategy CreateExecutionStrategy();
+        Task<bool> DeleteAsync(int id);
     }
 
     public class OrderRepository : IOrderRepository
@@ -28,6 +30,21 @@ namespace KaruRestauranteWebApp.BL.Repositories
         public OrderRepository(AppDbContext context)
         {
             _context = context;
+        }
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var order = await _context.Orders.FindAsync(id);
+            if (order == null)
+                return false;
+
+            _context.Orders.Remove(order);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public IExecutionStrategy CreateExecutionStrategy()
+        {
+            return _context.Database.CreateExecutionStrategy();
         }
 
         public async Task<IDbContextTransaction> BeginTransactionAsync()
@@ -67,6 +84,7 @@ namespace KaruRestauranteWebApp.BL.Repositories
                     .ThenInclude(od => od.Customizations)
                         .ThenInclude(c => c.Ingredient)
                 .Include(o => o.Payments)
+                    .ThenInclude(p => p.ProcessedByUser)
                 .Include(o => o.ElectronicInvoice)
                 .FirstOrDefaultAsync(o => o.ID == id);
         }
@@ -123,9 +141,9 @@ namespace KaruRestauranteWebApp.BL.Repositories
 
             order.CreatedAt = DateTime.UtcNow;
 
-            // Utilizar método sincrónico para evitar problemas con triggers
+            // Crear la orden 
             _context.Orders.Add(order);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             return order;
         }
@@ -143,8 +161,7 @@ namespace KaruRestauranteWebApp.BL.Repositories
             _context.Entry(order).Property(x => x.CreatedAt).IsModified = false;
             _context.Entry(order).Property(x => x.OrderNumber).IsModified = false;
 
-            // Utilizar método sincrónico para evitar problemas con triggers
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
         public async Task<bool> UpdateStatusAsync(int id, string status)
@@ -156,8 +173,7 @@ namespace KaruRestauranteWebApp.BL.Repositories
             order.OrderStatus = status;
             order.UpdatedAt = DateTime.UtcNow;
 
-            // Utilizar método sincrónico para evitar problemas con triggers
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             return true;
         }
 
@@ -170,8 +186,7 @@ namespace KaruRestauranteWebApp.BL.Repositories
             order.PaymentStatus = paymentStatus;
             order.UpdatedAt = DateTime.UtcNow;
 
-            // Utilizar método sincrónico para evitar problemas con triggers
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             return true;
         }
 
