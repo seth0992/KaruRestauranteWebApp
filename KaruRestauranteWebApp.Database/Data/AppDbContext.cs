@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
+using KaruRestauranteWebApp.Models.Entities.CashRegister;
 using KaruRestauranteWebApp.Models.Entities.Orders;
 using KaruRestauranteWebApp.Models.Entities.Restaurant;
 using KaruRestauranteWebApp.Models.Entities.Users;
@@ -167,7 +168,9 @@ namespace KaruRestauranteWebApp.Database.Data
         public DbSet<PaymentModel> Payments { get; set; }
         public DbSet<TableModel> Tables { get; set; }
 
-
+        //Caja
+        public DbSet<CashRegisterSessionModel> CashRegisterSessions { get; set; }
+        public DbSet<CashRegisterTransactionModel> CashRegisterTransactions { get; set; }
 
 
 

@@ -75,9 +75,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 //Add categories Services and repository
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
+
 //Add Invetory Services and repository 
 builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
+
 //Add Combos Services and repository
 builder.Services.AddScoped<IComboRepository, ComboRepository>();
 builder.Services.AddScoped<IComboService, ComboService>();
@@ -85,25 +87,37 @@ builder.Services.AddScoped<IComboService, ComboService>();
 //Add FastFood Services and repository
 builder.Services.AddScoped<IFastFoodRepository, FastFoodRepository>();
 builder.Services.AddScoped<IFastFoodService, FastFoodService>();
+
 //Add roductType Services and repository
 builder.Services.AddScoped<IProductTypeRepository, ProductTypeRepository>();
 builder.Services.AddScoped<IProductTypeService, ProductTypeService>();
+
 // Añadir Customer Services y repository
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
+
 // Añadir Ordens Services y repository
 builder.Services.AddScoped<IOrderDetailRepository, OrderDetailRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+
 // Añadir Table Services y repository
 builder.Services.AddScoped<ITableRepository, TableRepository>();
 builder.Services.AddScoped<ITableService, TableService>();
+
 // Añadir ElectroniInvoice Services y repository
 builder.Services.AddScoped<IElectronicInvoiceRepository, ElectronicInvoiceRepository>();
 builder.Services.AddScoped<IElectronicInvoiceService, ElectronicInvoiceService>();
+
 // Añadir ElectroniInvoice Services y repository
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+
+// Añadir CashRegister Services y repository
+builder.Services.AddScoped<ICashRegisterSessionRepository, CashRegisterSessionRepository>();
+builder.Services.AddScoped<ICashRegisterTransactionRepository, CashRegisterTransactionRepository>();
+builder.Services.AddScoped<ICashRegisterSessionService, CashRegisterSessionService>();
+builder.Services.AddScoped<ICashRegisterTransactionService, CashRegisterTransactionService>();
 
 //Add User services and Repository
 builder.Services.AddScoped<IUserRepository, UserRepository>();

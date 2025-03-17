@@ -1,6 +1,8 @@
 ﻿using KaruRestauranteWebApp.BL.Repositories;
 using KaruRestauranteWebApp.Models.Entities.Orders;
+using KaruRestauranteWebApp.Models.Models.CashRegister;
 using KaruRestauranteWebApp.Models.Models.Orders;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 
@@ -14,6 +16,7 @@ namespace KaruRestauranteWebApp.BL.Services
         Task<bool> DeletePaymentAsync(int id);
         Task<decimal> GetTotalPaidForOrderAsync(int orderId);
         Task UpdateOrderPaymentStatusAsync(int orderId);
+
     }
 
     public class PaymentService : IPaymentService
@@ -21,15 +24,21 @@ namespace KaruRestauranteWebApp.BL.Services
         private readonly IPaymentRepository _paymentRepository;
         private readonly IOrderRepository _orderRepository;
         private readonly ILogger<PaymentService> _logger;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
+        private readonly ICashRegisterTransactionService? _cashRegisterTransactionService;
 
         public PaymentService(
             IPaymentRepository paymentRepository,
             IOrderRepository orderRepository,
-            ILogger<PaymentService> logger)
+             IServiceScopeFactory serviceScopeFactory,
+            ILogger<PaymentService> logger,
+            ICashRegisterTransactionService? cashRegisterTransactionService)
         {
             _paymentRepository = paymentRepository;
             _orderRepository = orderRepository;
+            _serviceScopeFactory = serviceScopeFactory;
             _logger = logger;
+            _cashRegisterTransactionService = cashRegisterTransactionService;
         }
 
         public async Task<List<PaymentModel>> GetPaymentsByOrderIdAsync(int orderId)
@@ -113,6 +122,41 @@ namespace KaruRestauranteWebApp.BL.Services
                 // Actualizar el estado de pago de la orden
                 await UpdateOrderPaymentStatusAsync(paymentDto.OrderID);
 
+                // Registrar el pago en la caja chica si el método es efectivo
+                if (paymentDto.PaymentMethod == "Cash")
+                {
+                    try
+                    {
+                        // No usar GetCashRegisterTransactionService aquí, mejor inyectar el servicio
+                        // Si el servicio ICashRegisterTransactionService está disponible
+                        if (_cashRegisterTransactionService != null)
+                        {
+                            // Obtener la orden para incluir en la descripción
+                            var order1 = await _orderRepository.GetByIdAsync(paymentDto.OrderID);
+                            string orderDescription = order1 != null ? $"Orden #{order1.OrderNumber}" : $"Orden #{paymentDto.OrderID}";
+
+                            // Registrar ingreso en la caja
+                            var transaction = new CashRegisterTransactionDTO
+                            {
+                                TransactionType = "Income",
+                                Description = $"Pago en efectivo - {orderDescription}",
+                                AmountCRC = paymentDto.Amount, // Aquí asumimos que el pago es en colones
+                                AmountUSD = 0, // Si necesitas soportar pagos en dólares, modifica este valor
+                                PaymentMethod = "Cash",
+                                ReferenceNumber = paymentDto.ReferenceNumber,
+                                RelatedOrderID = paymentDto.OrderID
+                            };
+
+                            await _cashRegisterTransactionService.CreateTransactionAsync(transaction, userId);
+                        }
+                    }
+                    catch (Exception cashEx)
+                    {
+                        _logger.LogWarning(cashEx, "No se pudo registrar el pago en caja chica para la orden {OrderId}", paymentDto.OrderID);
+                        // Continuamos con el flujo normal aunque falle el registro en caja chica
+                    }
+                }
+
                 return payment;
             }
             catch (Exception ex)
@@ -120,6 +164,16 @@ namespace KaruRestauranteWebApp.BL.Services
                 _logger.LogError(ex, "Error al registrar pago para la orden: {OrderId}", paymentDto.OrderID);
                 throw;
             }
+        }
+
+
+        // Método auxiliar para obtener el servicio de caja chica
+        private ICashRegisterTransactionService? GetCashRegisterTransactionService()
+        {
+            // Usar el scope factory para crear un scope y obtener el servicio
+            // Esto requiere inyectar IServiceScopeFactory en el constructor
+            using var scope = _serviceScopeFactory.CreateScope();
+            return scope.ServiceProvider.GetService<ICashRegisterTransactionService>();
         }
 
         public async Task<bool> DeletePaymentAsync(int id)

@@ -1,0 +1,102 @@
+﻿@page "/cash-register/history"
+@using KaruRestauranteWebApp.Models.Models
+@using KaruRestauranteWebApp.Models.Models.CashRegister
+@using Microsoft.AspNetCore.Authorization
+@inject ApiClient ApiClient
+@inject IToastService ToastService
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<RadzenStack>
+    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start" Gap="0.5rem">
+        <RadzenColumn Size="8">
+            <RadzenText Text="Historial de Sesiones de Caja" TextStyle="TextStyle.H4" />
+        </RadzenColumn>
+        <RadzenColumn Size="4" class="rz-text-align-end">
+            <RadzenButton Click="@(() => NavigationManager.NavigateTo("/cash-register"))" Text="Volver a Caja" 
+                           Icon="arrow_back" ButtonStyle="ButtonStyle.Secondary" />
+        </RadzenColumn>
+    </RadzenRow>
+    
+    <RadzenCard>
+        @if (loading)
+        {
+            <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+        }
+        else
+        {
+            <RadzenDataGrid Data="@sessions" TItem="CashRegisterSessionDTO" AllowSorting="true" 
+                           AllowFiltering="true" AllowPaging="true" PageSize="10" 
+                           IsLoading="@loading" EmptyText="No hay sesiones registradas">
+                <Columns>
+                    <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="OpeningDate" Title="Fecha Apertura" FormatString="{0:dd/MM/yyyy HH:mm}" />
+                    <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="ClosingDate" Title=" Fecha Cierre" FormatString="{0:dd/MM/yyyy HH:mm}"/>
+<RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="ClosingDate" Title="Fecha Cierre" FormatString="{0:dd/MM/yyyy HH:mm}">
+                        <Template Context="data">
+                            @(data.ClosingDate.HasValue ? data.ClosingDate.Value.ToString("dd/MM/yyyy HH:mm") : "Abierta")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="OpeningUserName" Title="Abierta por" />
+                    <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="ClosingUserName" Title="Cerrada por" />
+                    <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="InitialAmountCRC" Title="Monto Inicial CRC" FormatString="₡ {0:N2}" />
+                    <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="FinalAmountCRC" Title="Monto Final CRC" FormatString="₡ {0:N2}" />
+                    <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="InitialAmountUSD" Title="Monto Inicial USD" FormatString="$ {0:N2}" />
+                    <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="FinalAmountUSD" Title="Monto Final USD" FormatString="$ {0:N2}" />
+                    <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="Status" Title="Estado">
+                        <Template Context="data">
+                            @if (data.Status == "Open")
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Abierta" />
+                            }
+                            else
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Cerrada" />
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Width="70px" Sortable="false" Filterable="false">
+                        <Template Context="data">
+                            <RadzenButton ButtonStyle="ButtonStyle.Info" Icon="visibility" Size="ButtonSize.Small"
+                                          Click="@(() => ViewSessionDetails(data.ID))" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    private bool loading = true;
+    private List<CashRegisterSessionDTO> sessions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSessions();
+    }
+
+    private async Task LoadSessions()
+    {
+        loading = true;
+        try
+        {
+            var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/CashRegister/sessions");
+            if (response != null && response.Success)
+            {
+                sessions = System.Text.Json.JsonSerializer.Deserialize<List<CashRegisterSessionDTO>>(
+                    response.Data.ToString() ?? "",
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<CashRegisterSessionDTO>();
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Error al cargar sesiones: {ex.Message}");
+        }
+        loading = false;
+    }
+
+    private void ViewSessionDetails(int sessionId)
+    {
+        NavigationManager.NavigateTo($"/cash-register/session/{sessionId}");
+    }
+}

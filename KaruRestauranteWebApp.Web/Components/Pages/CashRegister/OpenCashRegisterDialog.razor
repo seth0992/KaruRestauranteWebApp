@@ -1,0 +1,129 @@
+﻿@using KaruRestauranteWebApp.Models.Models
+@using KaruRestauranteWebApp.Models.Models.CashRegister
+@inject ApiClient ApiClient
+@inject DialogService DialogService
+@inject IToastService ToastService
+
+<RadzenTemplateForm TItem="CashRegisterSessionDTO" Data="@model" Submit="Submit" class="rz-p-0">
+    <RadzenStack Gap="1rem">
+        <RadzenRow>
+            <RadzenColumn Size="12">
+                <RadzenStack>
+                    <RadzenText TextStyle="TextStyle.Subtitle2">Montos Iniciales</RadzenText>
+                    <RadzenRow>
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H3">Colones (₡)</RadzenText>
+                            <RadzenStack>
+                                <RadzenFormField Text="Billetes" Variant="Variant.Outlined">
+                                    <RadzenNumeric @bind-Value="@model.InitialBillsCRC" Name="InitialBillsCRC"
+                                                   Min="0" Placeholder="Monto en billetes"
+                                                   Change="@OnColonesChange" class="w-100" TValue="decimal" />
+                                </RadzenFormField>
+                                <RadzenFormField Text="Monedas" Variant="Variant.Outlined">
+                                    <RadzenNumeric @bind-Value="@model.InitialCoinsCRC" Name="InitialCoinsCRC"
+                                                   Min="0" Placeholder="Monto en monedas"
+                                                   Change="@OnColonesChange" class="w-100" TValue="decimal" />
+                                </RadzenFormField>
+                                <RadzenFormField Text="Total en Colones" Variant="Variant.Outlined">
+                                    <RadzenNumeric @bind-Value="@model.InitialAmountCRC" Name="InitialAmountCRC"
+                                                   Min="0" Placeholder="Monto total en colones" Disabled="true"
+                                                   class="w-100" />
+                                </RadzenFormField>
+                            </RadzenStack>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H3">Dólares ($)</RadzenText>
+                            <RadzenStack>
+                                <RadzenFormField Text="Billetes" Variant="Variant.Outlined">
+                                    <RadzenNumeric @bind-Value="@model.InitialBillsUSD" Name="InitialBillsUSD"
+                                                   Min="0" Placeholder="Monto en billetes"
+                                                   Change="@OnDolaresChange" class="w-100" TValue="decimal"/>
+                                </RadzenFormField>
+                                <RadzenFormField Text="Monedas" Variant="Variant.Outlined">
+                                    <RadzenNumeric @bind-Value="@model.InitialCoinsUSD" Name="InitialCoinsUSD"
+                                                   Min="0" Placeholder="Monto en monedas"
+                                                   Change="@OnDolaresChange" class="w-100" TValue="decimal" />
+                                </RadzenFormField>
+                                <RadzenFormField Text="Total en Dólares" Variant="Variant.Outlined">
+                                    <RadzenNumeric @bind-Value="@model.InitialAmountUSD" Name="InitialAmountUSD"
+                                                   Min="0" Placeholder="Monto total en dólares" Disabled="true"
+                                                   class="w-100" />
+                                </RadzenFormField>
+                            </RadzenStack>
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenFormField Text="Notas (Opcional)" Variant="Variant.Outlined">
+                        <RadzenTextArea @bind-Value="@model.Notes" Name="Notes" Placeholder="Notas adicionales"
+                                        class="w-100" />
+                    </RadzenFormField>
+                </RadzenStack>
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenButton ButtonType="ButtonType.Submit" Text="Abrir Caja" ButtonStyle="ButtonStyle.Primary"
+                      Icon="check" class="rz-mt-4" />
+        <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Icon="close" Click="Cancel" class="rz-mt-2" />
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    private CashRegisterSessionDTO model = new CashRegisterSessionDTO();
+    private bool loading = false;
+
+    protected override void OnInitialized()
+    {
+        model = new CashRegisterSessionDTO
+            {
+                OpeningDate = DateTime.Now,
+                Status = "Open",
+                InitialAmountCRC = 0,
+                InitialAmountUSD = 0,
+                InitialBillsCRC = 0,
+                InitialCoinsCRC = 0,
+                InitialBillsUSD = 0,
+                InitialCoinsUSD = 0
+            };
+    }
+
+    private void OnColonesChange()
+    {
+        model.InitialAmountCRC = model.InitialBillsCRC + model.InitialCoinsCRC;
+        StateHasChanged();
+    }
+
+    private void OnDolaresChange()
+    {
+        model.InitialAmountUSD = model.InitialBillsUSD + model.InitialCoinsUSD;
+        StateHasChanged();
+    }
+
+    private async Task Submit()
+    {
+        loading = true;
+        try
+        {
+            var response = await ApiClient.PostAsync<BaseResponseModel, CashRegisterSessionDTO>("api/CashRegister/sessions/open", model);
+            if (response != null && response.Success)
+            {
+                DialogService.Close(true);
+            }
+            else
+            {
+                ToastService.ShowError(response?.ErrorMessage ?? "Error al abrir la caja");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Error al abrir la caja: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        DialogService.Close(false);
+    }
+}

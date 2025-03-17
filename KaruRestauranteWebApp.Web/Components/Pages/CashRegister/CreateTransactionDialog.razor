@@ -1,0 +1,184 @@
+﻿@using KaruRestauranteWebApp.Models.Entities.Orders
+@using KaruRestauranteWebApp.Models.Models
+@using KaruRestauranteWebApp.Models.Models.CashRegister
+@using KaruRestauranteWebApp.Models.Models.Orders
+@inject ApiClient ApiClient
+@inject DialogService DialogService
+@inject IToastService ToastService
+
+<RadzenTemplateForm TItem="CashRegisterTransactionDTO" Data="@model" Submit="Submit" class="rz-p-0">
+    <RadzenStack Gap="1rem">
+        <RadzenRow>
+            <RadzenColumn Size="12">
+                <RadzenStack>
+                    <RadzenFormField Text="Tipo de Movimiento" Variant="Variant.Outlined">
+                        <RadzenDropDown @bind-Value="@model.TransactionType" Data="@transactionTypes"
+                                        TextProperty="Text" ValueProperty="Value" AllowFiltering="false"
+                                        Change="@OnTransactionTypeChange" Name="TransactionType" class="w-100" />
+                    </RadzenFormField>
+
+                    <RadzenFormField Text="Descripción" Variant="Variant.Outlined">
+                        <RadzenTextBox @bind-Value="@model.Description" Name="Description" Placeholder="Descripción del movimiento"
+                                       class="w-100" />
+                        <RadzenRequiredValidator Component="Description" Text="La descripción es requerida" />
+                    </RadzenFormField>
+
+                    <RadzenText TextStyle="TextStyle.Subtitle2">Montos</RadzenText>
+                    <RadzenRow>
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenFormField Text="Monto en Colones (₡)" Variant="Variant.Outlined">
+                                <RadzenNumeric @bind-Value="@model.AmountCRC" Name="AmountCRC"
+                                               Min="0" Placeholder="Monto en colones" class="w-100" />
+                            </RadzenFormField>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenFormField Text="Monto en Dólares ($)" Variant="Variant.Outlined">
+                                <RadzenNumeric @bind-Value="@model.AmountUSD" Name="AmountUSD"
+                                               Min="0" Placeholder="Monto en dólares" class="w-100" />
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <RadzenFormField Text="Método de Pago" Variant="Variant.Outlined">
+                        <RadzenDropDown @bind-Value="@model.PaymentMethod" Data="@paymentMethods"
+                                        TextProperty="Text" ValueProperty="Value" AllowFiltering="false"
+                                        Name="PaymentMethod" class="w-100" />
+                    </RadzenFormField>
+
+                    <RadzenFormField Text="Número de Referencia (Opcional)" Variant="Variant.Outlined">
+                        <RadzenTextBox @bind-Value="@model.ReferenceNumber" Name="ReferenceNumber" Placeholder="Número de referencia"
+                                       class="w-100" />
+                    </RadzenFormField>
+
+                    <RadzenFormField Text="Orden Relacionada (Opcional)" Variant="Variant.Outlined">
+                        <RadzenDropDown @bind-Value="@model.RelatedOrderID" Data="@orders" AllowClear="true"
+                                        TextProperty="OrderNumber" ValueProperty="ID" AllowFiltering="true"
+                                        Placeholder="Seleccione una orden" Name="RelatedOrderID" class="w-100" />
+                    </RadzenFormField>
+                </RadzenStack>
+            </RadzenColumn>
+        </RadzenRow>
+
+        @if (model.TransactionType == "Expense")
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Light" ShowIcon="true">
+                Este movimiento reducirá el saldo de la caja. Asegúrese de que la información sea correcta.
+            </RadzenAlert>
+        }
+
+        <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar Movimiento" ButtonStyle="ButtonStyle.Primary"
+                      Icon="check" class="rz-mt-4" />
+        <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Icon="close" Click="Cancel" class="rz-mt-2" />
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter]
+    public int SessionId { get; set; }
+
+    private CashRegisterTransactionDTO model = new();
+    private bool loading = false;
+    private List<OrderModel> orders = new();
+
+    private class DropdownItem
+    {
+        public string Text { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+    }
+
+    private List<DropdownItem> transactionTypes = new()
+    {
+        new DropdownItem { Text = "Ingreso", Value = "Income" },
+        new DropdownItem { Text = "Gasto", Value = "Expense" }
+    };
+
+    private List<DropdownItem> paymentMethods = new()
+    {
+        new DropdownItem { Text = "Efectivo", Value = "Cash" },
+        new DropdownItem { Text = "Tarjeta", Value = "Card" },
+        new DropdownItem { Text = "Transferencia", Value = "Transfer" },
+        new DropdownItem { Text = "Otro", Value = "Other" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        model = new CashRegisterTransactionDTO
+            {
+                SessionID = SessionId,
+                TransactionDate = DateTime.Now,
+                TransactionType = "Income",
+                AmountCRC = 0,
+                AmountUSD = 0,
+                PaymentMethod = "Cash"
+            };
+
+        await LoadOrders();
+    }
+
+    private async Task LoadOrders()
+    {
+        try
+        {
+            var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Order");
+            if (response != null && response.Success)
+            {
+                orders = System.Text.Json.JsonSerializer.Deserialize<List<OrderModel>>(
+                    response.Data.ToString() ?? "",
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<OrderModel>();
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowWarning($"No se pudieron cargar las órdenes: {ex.Message}");
+        }
+    }
+
+    private void OnTransactionTypeChange()
+    {
+        if (model.TransactionType == "Expense")
+        {
+            model.Description = "Gasto: ";
+        }
+        else
+        {
+            model.Description = "Ingreso: ";
+        }
+        StateHasChanged();
+    }
+
+    private async Task Submit()
+    {
+        loading = true;
+        try
+        {
+            if (model.AmountCRC == 0 && model.AmountUSD == 0)
+            {
+                ToastService.ShowError("Debe ingresar un monto en colones o en dólares");
+                return;
+            }
+
+            var response = await ApiClient.PostAsync<BaseResponseModel, CashRegisterTransactionDTO>("api/CashRegister/transactions", model);
+            if (response != null && response.Success)
+            {
+                DialogService.Close(true);
+            }
+            else
+            {
+                ToastService.ShowError(response?.ErrorMessage ?? "Error al registrar el movimiento");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Error al registrar el movimiento: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        DialogService.Close(false);
+    }
+}

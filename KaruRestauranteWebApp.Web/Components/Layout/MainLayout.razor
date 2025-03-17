@@ -55,6 +55,10 @@
                 <RadzenPanelMenuItem Text="Ordenes" Icon="inventory" Path="/orders" />
                 <RadzenPanelMenuItem Text="Cocina" Icon="inventory" Path="/kitchen" />
             </RadzenPanelMenuItem>
+            <RadzenPanelMenuItem Text="Caja Chica" Icon="payments">
+                <RadzenPanelMenuItem Text="Gestión de Caja" Icon="attach_money" Path="/cash-register" />
+                <RadzenPanelMenuItem Text="Historial" Icon="history" Path="/cash-register/history" />
+            </RadzenPanelMenuItem>
             <AuthorizeView Roles="SuperAdmin,Admin" Context="adminContext">
                 <Authorized>
                     <RadzenPanelMenuItem Text="Administración" Icon="admin_panel_settings">

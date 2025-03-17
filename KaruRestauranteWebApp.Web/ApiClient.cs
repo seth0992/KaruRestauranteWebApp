@@ -237,6 +237,104 @@ public class ApiClient
         }
     }
 
+
+    public async Task<List<T>> GetListAsync<T>(string requestUri) where T : class
+    {
+        try
+        {
+            // Obtener la respuesta HTTP directamente para poder examinar su contenido
+            await SetAuthorizationHeader();
+            var httpResponse = await _httpClient.GetAsync(requestUri);
+
+            if (httpResponse.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                await HandleUnauthorizedResponse();
+                if (_httpClient.DefaultRequestHeaders.Authorization != null)
+                {
+                    httpResponse = await _httpClient.GetAsync(requestUri);
+                }
+            }
+
+            // Leer el contenido JSON sin procesar
+            string rawJson = await httpResponse.Content.ReadAsStringAsync();
+            Console.WriteLine($"Raw JSON response: {rawJson}");
+
+            if (!httpResponse.IsSuccessStatusCode)
+            {
+                _toastService.ShowError($"Error en la solicitud: {httpResponse.StatusCode}");
+                return new List<T>();
+            }
+
+            // Primero intentamos deserializar a BaseResponseModel
+            var options = new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+
+            try
+            {
+                var baseResponse = System.Text.Json.JsonSerializer.Deserialize<BaseResponseModel>(rawJson, options);
+                if (baseResponse != null && baseResponse.Success && baseResponse.Data != null)
+                {
+                    // Convertir Data a JSON y luego a List<T>
+                    string dataJson = System.Text.Json.JsonSerializer.Serialize(baseResponse.Data);
+                    Console.WriteLine($"Data JSON: {dataJson}");
+
+                    try
+                    {
+                        var list = System.Text.Json.JsonSerializer.Deserialize<List<T>>(dataJson, options);
+                        return list ?? new List<T>();
+                    }
+                    catch (Exception dataEx)
+                    {
+                        Console.WriteLine($"Error deserializing Data to List<{typeof(T).Name}>: {dataEx.Message}");
+
+                        // Intento alternativo: Podría ser un objeto individual, no una lista
+                        try
+                        {
+                            // Si es un objeto único, lo envolvemos en una lista
+                            var singleItem = System.Text.Json.JsonSerializer.Deserialize<T>(dataJson, options);
+                            if (singleItem != null)
+                            {
+                                return new List<T> { singleItem };
+                            }
+                        }
+                        catch
+                        {
+                            // Ignoramos este error y continuamos
+                        }
+                    }
+                }
+
+                // Si llegamos aquí, algo falló en la deserialización
+                _toastService.ShowError("No se pudieron procesar los datos recibidos");
+                return new List<T>();
+            }
+            catch (Exception baseEx)
+            {
+                Console.WriteLine($"Error deserializing to BaseResponseModel: {baseEx.Message}");
+
+                // Intentar deserializar directamente a List<T>
+                try
+                {
+                    var list = System.Text.Json.JsonSerializer.Deserialize<List<T>>(rawJson, options);
+                    return list ?? new List<T>();
+                }
+                catch (Exception listEx)
+                {
+                    Console.WriteLine($"Error deserializing directly to List<{typeof(T).Name}>: {listEx.Message}");
+                    _toastService.ShowError($"Error al procesar los datos: {listEx.Message}");
+                    return new List<T>();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"General error in GetListAsync: {ex.Message}");
+            _toastService.ShowError($"Error: {ex.Message}");
+            return new List<T>();
+        }
+    }
     private async Task HandleErrorResponse(HttpResponseMessage response)
     {
         var error = await response.Content.ReadAsStringAsync();
