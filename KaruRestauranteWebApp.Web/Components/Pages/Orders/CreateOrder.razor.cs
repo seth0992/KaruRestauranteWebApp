@@ -32,13 +32,16 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         private List<CategoryModel> categories = new();
         private List<FastFoodItemModel> filteredProducts = new();
         private List<ComboModel> filteredCombos = new();
+
         private string[] orderTypes = new[] { "DineIn", "TakeOut", "Delivery" };
+
         private object[] paymentMethods = new[]
         {
             new { value = "Cash", name = "Efectivo" },
             new { value = "CreditCard", name = "Tarjeta de Crédito" },
             new { value = "DebitCard", name = "Tarjeta de Débito" },
             new { value = "Transfer", name = "Transferencia" },
+            new { value = "SIMPE", name = "SIMPE Movil" },
             new { value = "Other", name = "Otro" }
         };
 
