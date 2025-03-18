@@ -1,0 +1,453 @@
+﻿@inject DialogService DialogService
+@using KaruRestauranteWebApp.Models.Models.Orders
+
+<RadzenCard Style="padding: 20px; max-width: 900px;">
+    <RadzenStack Gap="1rem">
+        <RadzenText TextStyle="TextStyle.H5" Class="mb-4">Procesar Pago</RadzenText>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <RadzenCard class="py-3 mb-2" Style="background-color: #f8f9fa; border: none;">
+                    <div class="text-center">
+                        <RadzenText TextStyle="TextStyle.Subtitle1">Total a Pagar</RadzenText>
+                        <RadzenText TextStyle="TextStyle.H4" Style="color: var(--rz-primary-dark);">
+                            ₡@TotalAmount.ToString("#,##0.00")
+                        </RadzenText>
+                    </div>
+                </RadzenCard>
+
+                <div class="d-flex flex-column">
+                    <RadzenText TextStyle="TextStyle.Subtitle2" class="mb-2">Seleccione método de pago</RadzenText>
+                    <div class="payment-methods-grid">
+                        @foreach (var method in paymentMethods)
+                        {
+                            <div class="payment-method-btn @(PaymentMethod == (string)method.GetType().GetProperty("value").GetValue(method) ? "selected" : "")"
+                                 @onclick="@(() => SelectPaymentMethod((string)method.GetType().GetProperty("value").GetValue(method)))">
+                                <RadzenIcon Icon="@GetPaymentIcon((string)method.GetType().GetProperty("value").GetValue(method))" class="mb-2" />
+                                <span>@method.GetType().GetProperty("name").GetValue(method)</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <RadzenText TextStyle="TextStyle.Subtitle2" class="mb-2">Moneda</RadzenText>
+                    <div class="d-flex gap-2">
+                        <RadzenButton Click="@(() => SelectCurrency("CRC"))"
+                                      ButtonStyle="@(Currency == "CRC" ? ButtonStyle.Primary : ButtonStyle.Light)"
+                                      Text="₡ Colones" />
+                        <RadzenButton Click="@(() => SelectCurrency("USD"))"
+                                      ButtonStyle="@(Currency == "USD" ? ButtonStyle.Primary : ButtonStyle.Light)"
+                                      Text="$ Dólares" />
+                    </div>
+
+                    @if (Currency == "USD")
+                    {
+                        <div class="mt-2">
+                            <RadzenLabel Text="Tipo de cambio" />
+                            <RadzenNumeric @bind-Value="@ExchangeRate" Format="#,##0.00" Min="1" Style="width: 100%" />
+                        </div>
+                    }
+                </div>
+
+                @if (PaymentMethod != "Cash")
+                {
+                    <div class="mt-3">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="mb-2">Información adicional</RadzenText>
+                        <RadzenLabel Text="Referencia" />
+                        <RadzenTextBox @bind-Value="@ReferenceNumber" Style="width: 100%"
+                                       Placeholder="Número de referencia o autorización" />
+                        <RadzenLabel Text="Notas" class="mt-2" />
+                        <RadzenTextArea @bind-Value="@Notes" Style="width: 100%" Rows="2"
+                                        Placeholder="Opcional: información adicional" />
+                    </div>
+                }
+            </div>
+
+            <div class="col-md-6">
+                @if (PaymentMethod == "Cash")
+                {
+                    <div class="cash-payment-section">
+                        <RadzenCard class="py-3 mb-3" Style="background-color: #f8f9fa; border: none;">
+                            <div class="text-center">
+                                <RadzenText TextStyle="TextStyle.Subtitle1">Monto recibido (@(Currency == "CRC" ? "₡" : "$"))</RadzenText>
+                                <RadzenText TextStyle="TextStyle.H4" Style="color: var(--rz-success-dark);">
+                                    @(Currency == "CRC" ? "₡" : "$")@AmountReceivedDisplay
+                                </RadzenText>
+                            </div>
+                        </RadzenCard>
+
+                        <div class="numeric-keypad">
+                            @foreach (var num in new[] { 7, 8, 9, 4, 5, 6, 1, 2, 3, 0 })
+                            {
+                                <div class="keypad-btn" @onclick="@(() => AddDigit(num))">@num</div>
+                            }
+                            <div class="keypad-btn" @onclick="@(() => AddDecimalPoint())">.</div>
+                            <div class="keypad-btn clear-btn" @onclick="@(() => ClearAmount())">C</div>
+                        </div>
+
+                        <div class="quick-amount-buttons mt-3">
+                            @foreach (var amount in GetQuickAmounts())
+                            {
+                                <RadzenButton Click="@(() => SetAmount(amount))"
+                                              ButtonStyle="ButtonStyle.Light"
+                                              Text="@(Currency == "CRC" ? $"₡{amount:#,##0}" : $"${amount:#,##0}")" />
+                            }
+                        </div>
+
+                        <RadzenCard class="py-3 mt-3" Style="background-color: #EFFFEF; border: none;">
+                            <div class="text-center">
+                                <RadzenText TextStyle="TextStyle.Subtitle1">Vuelto</RadzenText>
+                                <RadzenText TextStyle="TextStyle.H4" Style="color: var(--rz-success-dark);">
+                                    @(Currency == "CRC" ? "₡" : "$")@Change.ToString("#,##0.00")
+                                </RadzenText>
+                            </div>
+                        </RadzenCard>
+                    </div>
+                }
+                else
+                {
+                    <RadzenCard class="py-5 mt-4" Style="background-color: #f8f9fa; border: none;">
+                        <div class="text-center">
+                            <RadzenIcon Icon="@GetPaymentIcon(PaymentMethod)" Style="font-size: 48px; color: var(--rz-primary-light);" />
+                            <RadzenText TextStyle="TextStyle.H5" class="mt-3">@GetPaymentMethodName(PaymentMethod)</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1" class="mt-2">
+                                @(string.IsNullOrEmpty(ReferenceNumber)
+                                    ? "Ingrese el número de referencia"
+                                    : $"Referencia: {ReferenceNumber}")
+                            </RadzenText>
+                        </div>
+                    </RadzenCard>
+                }
+            </div>
+        </div>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton Click="@ProcessPayment" Text="Procesar Pago" ButtonStyle="ButtonStyle.Primary"
+                          Disabled="@(!CanProcessPayment())" />
+            <RadzenButton Click="@(() => DialogService.Close(null))" Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenCard>
+
+<style>
+    .payment-methods-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+
+    .payment-method-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 10px;
+        border-radius: 4px;
+        background-color: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+        .payment-method-btn:hover {
+            background-color: #e9ecef;
+        }
+
+        .payment-method-btn.selected {
+            background-color: var(--rz-primary-lighter);
+            color: var(--rz-primary-dark);
+        }
+
+    .numeric-keypad {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+    .keypad-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 50px;
+        font-size: 20px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+        .keypad-btn:hover {
+            background-color: #e9ecef;
+        }
+
+    .clear-btn {
+        background-color: #fff0f0;
+        color: var(--rz-danger);
+    }
+
+        .clear-btn:hover {
+            background-color: #ffe0e0;
+        }
+
+    .quick-amount-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public decimal TotalAmount { get; set; }
+
+    private string PaymentMethod { get; set; } = "Cash";
+    private string Currency { get; set; } = "CRC"; // CRC = Colones, USD = Dólares
+    private decimal ExchangeRate { get; set; } = 515; // Tipo de cambio USD a CRC (este valor podría venir de una API externa)
+    private string AmountReceivedDisplay { get; set; } = "0";
+    private decimal AmountReceived { get; set; } = 0;
+    private decimal Change { get; set; } = 0;
+    private string ReferenceNumber { get; set; } = string.Empty;
+    private string Notes { get; set; } = string.Empty;
+
+    // Definir objetos de métodos de pago con una clase específica para evitar problemas con propiedades
+    private class PaymentMethodOption
+    {
+        public string value { get; set; }
+        public string name { get; set; }
+    }
+
+    private PaymentMethodOption[] paymentMethods = new[]
+    {
+        new PaymentMethodOption { value = "Cash", name = "Efectivo" },
+        new PaymentMethodOption { value = "CreditCard", name = "T. Crédito" },
+        new PaymentMethodOption { value = "DebitCard", name = "T. Débito" },
+        new PaymentMethodOption { value = "SIMPE", name = "SIMPE" },
+        new PaymentMethodOption { value = "Transfer", name = "Transferencia" },
+        new PaymentMethodOption { value = "Other", name = "Otro" }
+    };
+
+    protected override void OnInitialized()
+    {
+        // Sugerir un monto apropiado para empezar (redondear al siguiente mil)
+        if (Currency == "CRC")
+        {
+            int roundedAmount = (int)Math.Ceiling(TotalAmount / 1000) * 1000;
+            AmountReceived = roundedAmount;
+            AmountReceivedDisplay = roundedAmount.ToString();
+        }
+        else
+        {
+            int roundedAmount = (int)Math.Ceiling((TotalAmount / ExchangeRate) / 5) * 5;
+            AmountReceived = roundedAmount;
+            AmountReceivedDisplay = roundedAmount.ToString();
+        }
+
+        CalculateChange();
+    }
+
+    private void SelectPaymentMethod(string method)
+    {
+        PaymentMethod = method;
+        StateHasChanged();
+    }
+
+    private void SelectCurrency(string currency)
+    {
+        if (Currency != currency)
+        {
+            Currency = currency;
+
+            // Convertir el monto recibido a la nueva moneda
+            if (currency == "USD")
+            {
+                AmountReceived = Math.Round(AmountReceived / ExchangeRate, 2);
+                AmountReceivedDisplay = AmountReceived.ToString();
+            }
+            else // CRC
+            {
+                AmountReceived = Math.Round(AmountReceived * ExchangeRate);
+                AmountReceivedDisplay = AmountReceived.ToString();
+            }
+
+            CalculateChange();
+            StateHasChanged();
+        }
+    }
+
+    private void AddDigit(int digit)
+    {
+        if (AmountReceivedDisplay == "0")
+        {
+            AmountReceivedDisplay = digit.ToString();
+        }
+        else
+        {
+            AmountReceivedDisplay += digit.ToString();
+        }
+
+        if (decimal.TryParse(AmountReceivedDisplay, out decimal amount))
+        {
+            AmountReceived = amount;
+            CalculateChange();
+        }
+    }
+
+    private void AddDecimalPoint()
+    {
+        if (!AmountReceivedDisplay.Contains("."))
+        {
+            AmountReceivedDisplay += ".";
+        }
+    }
+
+    private void ClearAmount()
+    {
+        AmountReceivedDisplay = "0";
+        AmountReceived = 0;
+        CalculateChange();
+    }
+
+    private void SetAmount(decimal amount)
+    {
+        AmountReceived = amount;
+        AmountReceivedDisplay = amount.ToString();
+        CalculateChange();
+    }
+
+    private decimal[] GetQuickAmounts()
+    {
+        if (Currency == "CRC")
+        {
+            // Para colones, sugerir montos redondos
+            int baseAmount = (int)Math.Ceiling(TotalAmount / 1000) * 1000;
+            return new decimal[]
+            {
+                baseAmount,
+                baseAmount + 1000,
+                baseAmount + 2000,
+                baseAmount + 5000,
+                10000,
+                20000
+            };
+        }
+        else
+        {
+            // Para dólares, montos redondos en dólares
+            int baseAmount = (int)Math.Ceiling(TotalAmount / ExchangeRate / 5) * 5;
+            return new decimal[]
+            {
+                baseAmount,
+                baseAmount + 5,
+                baseAmount + 10,
+                20,
+                50,
+                100
+            };
+        }
+    }
+
+    private void CalculateChange()
+    {
+        if (PaymentMethod == "Cash")
+        {
+            decimal totalInSelectedCurrency = Currency == "CRC" ? TotalAmount : Math.Round(TotalAmount / ExchangeRate, 2);
+            Change = Math.Max(0, AmountReceived - totalInSelectedCurrency);
+        }
+        else
+        {
+            Change = 0;
+        }
+    }
+
+    private bool CanProcessPayment()
+    {
+        if (PaymentMethod == "Cash")
+        {
+            decimal totalInSelectedCurrency = Currency == "CRC" ? TotalAmount : Math.Round(TotalAmount / ExchangeRate, 2);
+            return AmountReceived >= totalInSelectedCurrency;
+        }
+
+        if (PaymentMethod == "CreditCard" || PaymentMethod == "DebitCard" || PaymentMethod == "Transfer" || PaymentMethod == "SIMPE")
+        {
+            return !string.IsNullOrWhiteSpace(ReferenceNumber);
+        }
+
+        return true; // Para otros métodos
+    }
+
+    private void ProcessPayment()
+    {
+        // Siempre almacenamos el monto en colones en el sistema
+        decimal amountInCRC = Currency == "CRC" ? AmountReceived : Math.Round(AmountReceived * ExchangeRate, 2);
+        decimal changeInCRC = Currency == "CRC" ? Change : Math.Round(Change * ExchangeRate, 2);
+
+        // Guardar los valores originales para impresión
+        decimal amountOriginal = AmountReceived;
+        decimal changeOriginal = Change;
+
+        var paymentDto = new PaymentDTO
+            {
+                PaymentMethod = PaymentMethod,
+                Amount = TotalAmount, // Siempre en colones
+                ReferenceNumber = ReferenceNumber,
+                Notes = Currency == "USD"
+                           ? $"Pago en dólares: ${AmountReceived:N2} (TC: ₡{ExchangeRate:N2}). {Notes}"
+                           : Notes
+            };
+
+        var result = new PaymentResult
+            {
+                Success = true,
+                PaymentInfo = paymentDto,
+                AmountReceived = amountInCRC,
+                Change = changeInCRC,
+                Currency = Currency,
+                ExchangeRate = ExchangeRate,
+                AmountReceivedOriginal = amountOriginal,
+                ChangeOriginal = changeOriginal
+            };
+
+        DialogService.Close(result);
+    }
+
+    private string GetPaymentIcon(string method)
+    {
+        return method switch
+        {
+            "Cash" => "payments",
+            "CreditCard" => "credit_card",
+            "DebitCard" => "credit_score",
+            "SIMPE" => "smartphone",
+            "Transfer" => "account_balance",
+            "Other" => "more_horiz",
+            _ => "payments"
+        };
+    }
+
+    private string GetPaymentMethodName(string method)
+    {
+        return method switch
+        {
+            "Cash" => "Efectivo",
+            "CreditCard" => "Tarjeta de Crédito",
+            "DebitCard" => "Tarjeta de Débito",
+            "SIMPE" => "SIMPE Móvil",
+            "Transfer" => "Transferencia Bancaria",
+            "Other" => "Otro medio de pago",
+            _ => method
+        };
+    }
+
+    public class PaymentResult
+    {
+        public bool Success { get; set; }
+        public PaymentDTO PaymentInfo { get; set; }
+        public decimal AmountReceived { get; set; }     // En colones (CRC)
+        public decimal Change { get; set; }             // En colones (CRC)
+        public string Currency { get; set; } = "CRC";   // CRC o USD
+        public decimal ExchangeRate { get; set; } = 1;  // Tipo de cambio si se usó USD
+        public decimal AmountReceivedOriginal { get; set; } // En la moneda original (CRC o USD)
+        public decimal ChangeOriginal { get; set; }         // En la moneda original (CRC o USD)
+    }
+}

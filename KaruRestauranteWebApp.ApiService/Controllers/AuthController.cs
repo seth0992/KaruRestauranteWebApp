@@ -75,32 +75,44 @@ namespace KaruRestauranteWebApp.ApiService.Controllers
         [HttpGet("loginByRefreshToken")]
         public async Task<ActionResult<LoginResponseModel>> LoginByRefreshToken(string refreshToken)
         {
-
-            var refreshTokenModel = await _authService.GetRefreshTokenModel(refreshToken);
-
-            if (refreshTokenModel == null)
+            try
             {
-                return StatusCode(StatusCodes.Status400BadRequest);
+                if (string.IsNullOrEmpty(refreshToken))
+                {
+                    return BadRequest(new { message = "Token de refresco inválido" });
+                }
+
+                var refreshTokenModel = await _authService.GetRefreshTokenModel(refreshToken);
+
+                if (refreshTokenModel == null)
+                {
+                    return BadRequest(new { message = "Token de refresco no encontrado o inválido" });
+                }
+
+                var newToken = GenerateJwtToken(refreshTokenModel.User, isRefreshToken: false);
+                var newRefreshToken = GenerateJwtToken(refreshTokenModel.User, isRefreshToken: true);
+
+                await _authService.AddRefreshTokenModel(new RefreshTokenModel
+                {
+                    RefreshToken = newRefreshToken,
+                    UserID = refreshTokenModel.UserID,
+                });
+
+                return new LoginResponseModel
+                {
+                    Token = newToken,
+                    TokenExpired = DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeSeconds(),
+                    RefreshToken = newRefreshToken
+                };
+
+            }
+            catch (Exception ex)
+            {
+                //_logger.LogError(ex, "Error al refrescar token");
+                return StatusCode(500, new { message = "Error interno del servidor" });
             }
 
-
-            var newToken = GenerateJwtToken(refreshTokenModel.User, isRefreshToken: false);
-            var newRefreshToken = GenerateJwtToken(refreshTokenModel.User, isRefreshToken: true);
-
-            await _authService.AddRefreshTokenModel(new RefreshTokenModel
-            {
-                RefreshToken = newRefreshToken,
-                UserID = refreshTokenModel.UserID,
-            });
-
-            return new LoginResponseModel
-            {
-                Token = newToken,
-                TokenExpired = DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeSeconds(),
-                RefreshToken = newRefreshToken
-            };
         }
-
     }
 
 }

@@ -28,54 +28,87 @@ namespace KaruRestauranteWebApp.BL.Repositories
             await _appDbContext.SaveChangesAsync();
         }
 
+        //public async Task<RefreshTokenModel> GetRefreshTokenModel(string refreshToken)
+        //{
+        //    try
+        //    {  // Imprimir o registrar el token recibido
+        //        System.Diagnostics.Debug.WriteLine($"Token recibido: {refreshToken}");
+
+        //        // Obtener todos los tokens para verificar
+        //        var allTokens = await _appDbContext.RefreshTokens.ToListAsync();
+
+
+        //        // Primero verificamos si el token existe por sí solo
+        //        var tokenExists = await _appDbContext.RefreshTokens
+        //            .AnyAsync(n => n.RefreshToken.Equals(refreshToken));
+
+        //        if (!tokenExists)
+        //            throw new Exception("Token no encontrado en la base de datos");
+
+        //        // Verificamos la relación con User
+        //        var tokenWithUser = await _appDbContext.RefreshTokens
+        //            .Include(n => n.User)
+        //            .FirstOrDefaultAsync(n => n.RefreshToken == refreshToken);
+
+        //        if (tokenWithUser?.User == null)
+        //            throw new Exception("Token encontrado pero User es null");
+
+        //        // Verificamos la relación con UserRoles
+        //        var tokenWithUserRoles = await _appDbContext.RefreshTokens
+        //            .Include(n => n.User)
+        //            .ThenInclude(n => n.UserRoles)
+        //            .FirstOrDefaultAsync(n => n.RefreshToken == refreshToken);
+
+        //        if (tokenWithUserRoles?.User?.UserRoles == null)
+        //            throw new Exception("UserRoles es null");
+
+        //        // Finalmente la consulta completa
+        //        var completeToken = await _appDbContext.RefreshTokens
+        //            .Include(n => n.User)
+        //            .ThenInclude(n => n.UserRoles)
+        //            .ThenInclude(n => n.Role)
+        //            .FirstOrDefaultAsync(n => n.RefreshToken == refreshToken);
+
+        //        return completeToken;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        // Aquí podrías agregar logging
+        //        var x = ex.InnerException;
+        //        throw;
+        //    }
+        //}
+
         public async Task<RefreshTokenModel> GetRefreshTokenModel(string refreshToken)
         {
             try
-            {  // Imprimir o registrar el token recibido
-                System.Diagnostics.Debug.WriteLine($"Token recibido: {refreshToken}");
-
-                // Obtener todos los tokens para verificar
-                var allTokens = await _appDbContext.RefreshTokens.ToListAsync();
-
-
-                // Primero verificamos si el token existe por sí solo
-                var tokenExists = await _appDbContext.RefreshTokens
-                    .AnyAsync(n => n.RefreshToken.Equals(refreshToken));
-
-                if (!tokenExists)
-                    throw new Exception("Token no encontrado en la base de datos");
-
-                // Verificamos la relación con User
+            {
+                // Buscar el token directamente
                 var tokenWithUser = await _appDbContext.RefreshTokens
-                    .Include(n => n.User)
-                    .FirstOrDefaultAsync(n => n.RefreshToken == refreshToken);
-
-                if (tokenWithUser?.User == null)
-                    throw new Exception("Token encontrado pero User es null");
-
-                // Verificamos la relación con UserRoles
-                var tokenWithUserRoles = await _appDbContext.RefreshTokens
-                    .Include(n => n.User)
-                    .ThenInclude(n => n.UserRoles)
-                    .FirstOrDefaultAsync(n => n.RefreshToken == refreshToken);
-
-                if (tokenWithUserRoles?.User?.UserRoles == null)
-                    throw new Exception("UserRoles es null");
-
-                // Finalmente la consulta completa
-                var completeToken = await _appDbContext.RefreshTokens
                     .Include(n => n.User)
                     .ThenInclude(n => n.UserRoles)
                     .ThenInclude(n => n.Role)
                     .FirstOrDefaultAsync(n => n.RefreshToken == refreshToken);
 
-                return completeToken;
+                if (tokenWithUser == null)
+                {
+                    // En lugar de lanzar Exception, retornar null
+                    return null;
+                }
+
+                if (tokenWithUser.User == null)
+                {
+                    // En lugar de lanzar Exception, retornar null
+                    return null;
+                }
+
+                return tokenWithUser;
             }
             catch (Exception ex)
             {
-                // Aquí podrías agregar logging
-                var x = ex.InnerException;
-                throw;
+                // Loguear la excepción pero no lanzarla
+                // Logger.LogError(ex, "Error al obtener RefreshToken");
+                return null;
             }
         }
 

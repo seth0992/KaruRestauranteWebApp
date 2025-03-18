@@ -217,5 +217,7 @@ namespace KaruRestauranteWebApp.BL.Services
             if (!validTypes.Contains(transaction.TransactionType.ToUpper()))
                 throw new InvalidOperationException("Tipo de transacción no válido");
         }
+
+
     }
 }

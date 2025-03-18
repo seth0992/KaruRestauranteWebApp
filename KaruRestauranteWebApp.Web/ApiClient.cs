@@ -49,6 +49,50 @@ public class ApiClient
         }
     }
 
+    //private async Task<bool> RefreshTokenAsync()
+    //{
+    //    try
+    //    {
+    //        await _semaphore.WaitAsync();
+    //        if (_isRefreshing) return true;
+
+    //        _isRefreshing = true;
+    //        var sessionState = (await _localStorage.GetAsync<LoginResponseModel>("sessionState")).Value;
+
+    //        if (sessionState == null || string.IsNullOrEmpty(sessionState.RefreshToken))
+    //        {
+    //            return false;
+    //        }
+
+    //        // Quitar el header de autorización para la llamada de refresh
+    //        _httpClient.DefaultRequestHeaders.Authorization = null;
+
+    //        var response = await _httpClient.GetAsync($"api/Auth/loginByRefreshToken?refreshToken={sessionState.RefreshToken}");
+
+    //        if (response.IsSuccessStatusCode)
+    //        {
+    //            var newSession = await response.Content.ReadFromJsonAsync<LoginResponseModel>();
+    //            if (newSession != null)
+    //            {
+    //                await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(newSession);
+    //                return true;
+    //            }
+    //        }
+
+    //        return false;
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _toastService.ShowError($"Error al refrescar el token: {ex.Message}");
+    //        return false;
+    //    }
+    //    finally
+    //    {
+    //        _isRefreshing = false;
+    //        _semaphore.Release();
+    //    }
+    //}
+
     private async Task<bool> RefreshTokenAsync()
     {
         try
@@ -61,29 +105,46 @@ public class ApiClient
 
             if (sessionState == null || string.IsNullOrEmpty(sessionState.RefreshToken))
             {
+                await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
+                _navigationManager.NavigateTo("/login", true);
                 return false;
             }
 
             // Quitar el header de autorización para la llamada de refresh
             _httpClient.DefaultRequestHeaders.Authorization = null;
 
-            var response = await _httpClient.GetAsync($"api/Auth/loginByRefreshToken?refreshToken={sessionState.RefreshToken}");
-
-            if (response.IsSuccessStatusCode)
+            try
             {
-                var newSession = await response.Content.ReadFromJsonAsync<LoginResponseModel>();
-                if (newSession != null)
-                {
-                    await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(newSession);
-                    return true;
-                }
-            }
+                var response = await _httpClient.GetAsync($"api/Auth/loginByRefreshToken?refreshToken={sessionState.RefreshToken}");
 
-            return false;
+                if (response.IsSuccessStatusCode)
+                {
+                    var newSession = await response.Content.ReadFromJsonAsync<LoginResponseModel>();
+                    if (newSession != null)
+                    {
+                        await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(newSession);
+                        return true;
+                    }
+                }
+
+                // Si no se pudo refrescar, cerrar sesión
+                await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
+                _navigationManager.NavigateTo("/login", true);
+                return false;
+            }
+            catch
+            {
+                // Si ocurre cualquier error en el proceso de refresh, cerrar sesión
+                await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
+                _navigationManager.NavigateTo("/login", true);
+                return false;
+            }
         }
         catch (Exception ex)
         {
             _toastService.ShowError($"Error al refrescar el token: {ex.Message}");
+            await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
+            _navigationManager.NavigateTo("/login", true);
             return false;
         }
         finally
@@ -95,9 +156,18 @@ public class ApiClient
 
     private async Task HandleUnauthorizedResponse()
     {
-        var refreshSuccess = await RefreshTokenAsync();
-        if (!refreshSuccess)
+        try
         {
+            var refreshSuccess = await RefreshTokenAsync();
+            if (!refreshSuccess)
+            {
+                await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
+                _navigationManager.NavigateTo("/login", true);
+            }
+        }
+        catch (Exception)
+        {
+            // Si ocurre cualquier error, asegurar el logout
             await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
             _navigationManager.NavigateTo("/login", true);
         }

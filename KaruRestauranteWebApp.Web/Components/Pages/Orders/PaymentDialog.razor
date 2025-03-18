@@ -1,0 +1,128 @@
+﻿// Nuevo componente PaymentDialog.razor
+
+@inject DialogService DialogService
+@using KaruRestauranteWebApp.Models.Models.Orders
+
+<RadzenCard>
+    <RadzenStack Gap="1rem">
+        <RadzenText TextStyle="TextStyle.H5">Procesar Pago</RadzenText>
+        
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <RadzenLabel Text="Total a pagar" />
+                <RadzenNumeric @bind-Value="@TotalAmount" Format="₡#,##0.00" ReadOnly="true" Style="width: 100%" />
+            </div>
+            <div class="col-md-6">
+                <RadzenLabel Text="Método de pago" />
+                <RadzenDropDown @bind-Value="@PaymentMethod" Data="@paymentMethods" TextProperty="name" ValueProperty="value"
+                                Style="width: 100%" />
+            </div>
+        </div>
+        
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <RadzenLabel Text="Monto recibido" />
+                <RadzenNumeric @bind-Value="@AmountReceived" Format="₡#,##0.00" Min="0" Style="width: 100%"
+                               Change="@CalculateChange" TValue="decimal"/>
+            </div>
+            <div class="col-md-6">
+                <RadzenLabel Text="Cambio" />
+                <RadzenNumeric @bind-Value="@Change" Format="₡#,##0.00" ReadOnly="true" 
+                               Style="width: 100%; background-color: #f8f9fa;" />
+            </div>
+        </div>
+        
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <RadzenLabel Text="Referencia (opcional)" />
+                <RadzenTextBox @bind-Value="@ReferenceNumber" Style="width: 100%" 
+                               Placeholder="Número de referencia o autorización" />
+            </div>
+        </div>
+        
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <RadzenLabel Text="Notas" />
+                <RadzenTextArea @bind-Value="@Notes" Style="width: 100%" Rows="2" />
+            </div>
+        </div>
+        
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton Click="@ProcessPayment" Text="Procesar Pago" ButtonStyle="ButtonStyle.Primary" 
+                          Disabled="@(!CanProcessPayment())" />
+            <RadzenButton Click="@(() => DialogService.Close(null))" Text="Cancelar" ButtonStyle="ButtonStyle.Light" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter]
+    public decimal TotalAmount { get; set; }
+    
+    private string PaymentMethod { get; set; } = "Cash";
+    private decimal AmountReceived { get; set; }
+    private decimal Change { get; set; }
+    private string ReferenceNumber { get; set; } = string.Empty;
+    private string Notes { get; set; } = string.Empty;
+    
+    private object[] paymentMethods = new[]
+    {
+        new { value = "Cash", name = "Efectivo" },
+        new { value = "CreditCard", name = "Tarjeta de Crédito" },
+        new { value = "DebitCard", name = "Tarjeta de Débito" },
+        new { value = "Transfer", name = "Transferencia" },
+        new { value = "SIMPE", name = "SIMPE Móvil" },
+        new { value = "Other", name = "Otro" }
+    };
+    
+    private void CalculateChange()
+    {
+        if (PaymentMethod == "Cash" && AmountReceived > 0)
+        {
+            Change = Math.Max(0, AmountReceived - TotalAmount);
+        }
+        else
+        {
+            Change = 0;
+        }
+    }
+    
+    private bool CanProcessPayment()
+    {
+        if (PaymentMethod == "Cash")
+        {
+            return AmountReceived >= TotalAmount;
+        }
+        
+        return !string.IsNullOrWhiteSpace(PaymentMethod);
+    }
+    
+    private void ProcessPayment()
+    {
+        var paymentDto = new PaymentDTO
+        {
+            PaymentMethod = PaymentMethod,
+            Amount = TotalAmount,
+            ReferenceNumber = ReferenceNumber,
+            Notes = Notes
+        };
+        
+        var result = new PaymentResult
+        {
+            Success = true,
+            PaymentInfo = paymentDto,
+            AmountReceived = AmountReceived,
+            Change = Change
+        };
+        
+        DialogService.Close(result);
+    }
+    
+    public class PaymentResult
+    {
+        public bool Success { get; set; }
+        public PaymentDTO PaymentInfo { get; set; }
+        public decimal AmountReceived { get; set; }
+        public decimal Change { get; set; }
+    }
+}

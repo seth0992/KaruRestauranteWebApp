@@ -1,5 +1,6 @@
 ﻿using KaruRestauranteWebApp.BL.Repositories;
 using KaruRestauranteWebApp.Models.Entities.Orders;
+using KaruRestauranteWebApp.Models.Entities.Restaurant;
 using KaruRestauranteWebApp.Models.Models.Orders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -459,66 +460,6 @@ namespace KaruRestauranteWebApp.BL.Services
             });
         }
 
-        //public async Task UpdateOrderAsync(OrderDTO orderDto)
-        //{
-        //    var strategy = _orderRepository.CreateExecutionStrategy();
-
-        //    await strategy.ExecuteAsync(async () =>
-        //    {
-        //        using var transaction = await _orderRepository.BeginTransactionAsync();
-        //        try
-        //        {
-        //            // Verificar que la orden exista
-        //            var existingOrder = await _orderRepository.GetByIdAsync(orderDto.ID);
-        //            if (existingOrder == null)
-        //            {
-        //                throw new ValidationException($"No se encontró la orden con ID: {orderDto.ID}");
-        //            }
-
-        //            // No se permite cambiar pedidos que ya están entregados o cancelados
-        //            if (existingOrder.OrderStatus == "Delivered" || existingOrder.OrderStatus == "Cancelled")
-        //            {
-        //                throw new ValidationException($"No se puede modificar una orden {existingOrder.OrderStatus}");
-        //            }
-
-        //            // Guardar estado y mesa anteriores para comparar
-        //            var previousStatus = existingOrder.OrderStatus;
-        //            var previousTableId = existingOrder.TableID;
-
-        //            // Actualizar solo campos permitidos
-        //            existingOrder.Notes = orderDto.Notes;
-        //            existingOrder.DiscountAmount = orderDto.DiscountAmount;
-        //            existingOrder.UpdatedAt = DateTime.UtcNow;
-
-        //            await _orderRepository.UpdateAsync(existingOrder);
-
-        //            // Funcionalidad de trigger: Si cambió el estado, registrar el cambio
-        //            if (previousStatus != existingOrder.OrderStatus)
-        //            {
-        //                await HandleOrderStatusChange(existingOrder, previousStatus);
-        //            }
-
-        //            // Funcionalidad de trigger: Si cambió la mesa, actualizar estados
-        //            if (previousTableId != existingOrder.TableID)
-        //            {
-        //                await HandleTableChange(previousTableId, existingOrder.TableID);
-        //            }
-
-        //            // Recalcular el total si se modificó el descuento
-        //            await CalculateOrderTotalAsync(existingOrder.ID);
-
-        //            await transaction.CommitAsync();
-        //            return existingOrder;
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            await transaction.RollbackAsync();
-        //            _logger.LogError(ex, "Error al actualizar la orden {OrderId}", orderDto.ID);
-        //            throw;
-        //        }
-        //    });
-        //}
-
         public async Task<bool> UpdateOrderStatusAsync(int id, string status)
         {
             var strategy = _orderRepository.CreateExecutionStrategy();
@@ -747,35 +688,11 @@ namespace KaruRestauranteWebApp.BL.Services
         }
 
 
-
         public async Task<string> GenerateOrderNumberAsync()
         {
             return await _orderRepository.GenerateOrderNumberAsync();
         }
 
-        //public async Task<OrderDetailModel> AddOrderDetailAsync(int orderId, OrderDetailDTO detailDto)
-        //{
-        //    using var transaction = await _orderRepository.BeginTransactionAsync();
-        //    try
-        //    {
-        //        var orderDetail = await AddOrderDetailWithoutTotal(orderId, detailDto);
-
-        //        // Funcionalidad de trigger: Actualizar inventario
-        //        await UpdateInventoryForOrderDetail(orderDetail);
-
-        //        // Recalcular el total de la orden
-        //        await CalculateOrderTotalAsync(orderId);
-
-        //        await transaction.CommitAsync();
-        //        return orderDetail;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        await transaction.RollbackAsync();
-        //        _logger.LogError(ex, "Error al agregar detalle a la orden {OrderId}", orderId);
-        //        throw;
-        //    }
-        //}
 
         private async Task<OrderDetailModel> AddOrderDetailWithoutTotal(int orderId, OrderDetailDTO detailDto)
         {
@@ -922,6 +839,101 @@ namespace KaruRestauranteWebApp.BL.Services
                 throw;
             }
         }
+
+        public async Task<(bool IsAvailable, List<string> UnavailableItems)> VerifyInventoryForOrder(List<OrderDetailDTO> orderDetails)
+        {
+            var unavailableItems = new List<string>();
+
+            try
+            {
+                foreach (var detail in orderDetails)
+                {
+                    if (detail.ItemType == "Product")
+                    {
+                        // Verificar producto individual
+                        var product = await _productRepository.GetByIdAsync(detail.ItemID);
+                        if (product == null) continue;
+
+                        bool isAvailable = await VerifyProductAvailability(product, detail.Quantity);
+                        if (!isAvailable)
+                        {
+                            unavailableItems.Add(product.Name);
+                        }
+                    }
+                    else if (detail.ItemType == "Combo")
+                    {
+                        // Verificar cada producto del combo
+                        var combo = await _comboRepository.GetByIdAsync(detail.ItemID);
+                        if (combo?.Items == null) continue;
+
+                        foreach (var comboItem in combo.Items)
+                        {
+                            var comboProduct = await _productRepository.GetByIdAsync(comboItem.FastFoodItemID);
+                            if (comboProduct == null) continue;
+
+                            bool isAvailable = await VerifyProductAvailability(comboProduct, comboItem.Quantity * detail.Quantity);
+                            if (!isAvailable)
+                            {
+                                unavailableItems.Add($"{comboProduct.Name} (en combo {combo.Name})");
+                            }
+                        }
+                    }
+                }
+
+                return (unavailableItems.Count == 0, unavailableItems);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al verificar disponibilidad de inventario para la orden");
+                throw;
+            }
+        }
+
+        private async Task<bool> VerifyProductAvailability(FastFoodItemModel product, int quantity)
+        {
+            if (product == null) return false;
+
+            try
+            {
+                // Verificar si es producto de inventario (ID=2)
+                if (product.ProductTypeID == 2) // Tipo "Inventory"
+                {
+                    // Verificar stock directo del producto
+                    var inventory = await _productInventoryRepository.GetByProductIdAsync(product.ID);
+                    if (inventory == null) return false;
+
+                    return inventory.CurrentStock >= quantity;
+                }
+                else // Tipo "Prepared" (ID=1)
+                {
+                    // Verificar ingredientes
+                    if (product.Ingredients == null || !product.Ingredients.Any())
+                        return true; // Si no tiene ingredientes registrados, asumimos que está disponible
+
+                    foreach (var itemIngredient in product.Ingredients)
+                    {
+                        // Obtener ingrediente actualizado
+                        var ingredient = await _inventoryRepository.GetIngredientByIdAsync(itemIngredient.IngredientID);
+                        if (ingredient == null) return false;
+
+                        // Verificar stock suficiente
+                        decimal requiredQuantity = itemIngredient.Quantity * quantity;
+                        if (ingredient.StockQuantity < requiredQuantity)
+                        {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al verificar disponibilidad del producto {ProductId}", product.ID);
+                return false;
+            }
+        }
+
 
         #region Métodos privados para manejar la lógica que estaba en los triggers
 
