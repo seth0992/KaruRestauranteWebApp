@@ -4,6 +4,7 @@ using KaruRestauranteWebApp.Models.Models;
 using Microsoft.AspNetCore.Components;
 using Newtonsoft.Json;
 using Radzen;
+using System.Diagnostics;
 
 namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 {
@@ -25,12 +26,15 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         public required DialogService DialogService { get; set; }
 
         private OrderModel? order;
-        private FastFoodItemModel[]? products;
-        private ComboModel[]? combos;
+        private List<FastFoodItemModel>? products;
+        private List<ComboModel>? combos;
+        private bool isLoading = true;
 
         protected override async Task OnInitializedAsync()
         {
+            isLoading = true;
             await LoadOrder();
+            isLoading = false;
         }
 
         private async Task LoadOrder()
@@ -42,8 +46,11 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 {
                     order = JsonConvert.DeserializeObject<OrderModel>(response.Data.ToString());
 
-                    // Cargar productos y combos para mostrar nombres
+                    // Cargar productos y combos antes de actualizar la UI
                     await LoadProductsAndCombos();
+
+                    // Forzar actualización de la UI después de cargar todos los datos
+                    StateHasChanged();
                 }
                 else
                 {
@@ -59,6 +66,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 NavigationManager.NavigateTo("/orders");
             }
         }
+
         private async Task LoadProductsAndCombos()
         {
             try
@@ -67,18 +75,49 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 var productsResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/FastFood");
                 if (productsResponse?.Success == true)
                 {
-                    products = JsonConvert.DeserializeObject<FastFoodItemModel[]>(productsResponse.Data.ToString());
+                    products = JsonConvert.DeserializeObject<List<FastFoodItemModel>>(productsResponse.Data.ToString());
+                    Console.WriteLine($"Productos cargados: {products?.Count ?? 0}");
+                }
+                else
+                {
+                    Console.WriteLine("Error al cargar productos: " + productsResponse?.ErrorMessage);
                 }
 
                 // Cargar combos
                 var combosResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Combo");
                 if (combosResponse?.Success == true)
                 {
-                    combos = JsonConvert.DeserializeObject<ComboModel[]>(combosResponse.Data.ToString());
+                    combos = JsonConvert.DeserializeObject<List<ComboModel>>(combosResponse.Data.ToString());
+                    Console.WriteLine($"Combos cargados: {combos?.Count ?? 0}");
+
+                    // Si hay combos, asegurarse de que tengan cargados sus elementos
+                    if (combos != null)
+                    {
+                        foreach (var combo in combos)
+                        {
+                            if (combo.Items != null)
+                            {
+                                foreach (var item in combo.Items)
+                                {
+                                    // Asegurarse de que el producto dentro del combo tenga nombre
+                                    if (item.FastFoodItem == null && products != null)
+                                    {
+                                        item.FastFoodItem = products.FirstOrDefault(p => p.ID == item.FastFoodItemID);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Error al cargar combos: " + combosResponse?.ErrorMessage);
                 }
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error en LoadProductsAndCombos: {ex.Message}");
+                Debug.WriteLine($"Error en LoadProductsAndCombos: {ex}");
                 NotificationService.Notify(NotificationSeverity.Warning,
                     "Advertencia", "No se pudieron cargar los nombres de algunos productos", 4000);
             }
@@ -195,6 +234,32 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 "Delivered" => "Entregado",
                 "Cancelled" => "Cancelado",
                 _ => status
+            };
+        }
+
+        private string GetInvoiceStatusName(string status)
+        {
+            return status switch
+            {
+                "Generated" => "Generada",
+                "Sent" => "Enviada",
+                "Accepted" => "Aceptada",
+                "Rejected" => "Rechazada",
+                _ => status
+            };
+        }
+
+        private string GetPaymentMethodName(string method)
+        {
+            return method switch
+            {
+                "Cash" => "Efectivo",
+                "CreditCard" => "Tarjeta de Crédito",
+                "DebitCard" => "Tarjeta de Débito",
+                "SIMPE" => "SIMPE Móvil",
+                "Transfer" => "Transferencia",
+                "Other" => "Otro",
+                _ => method
             };
         }
 

@@ -106,9 +106,31 @@
                         </Template>
                     </RadzenDataGridColumn>
 
-                    <RadzenDataGridColumn TItem="OrderDetailModel" Title="Producto" Width="200px">
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Title="Producto" Width="300px">
                         <Template Context="detail">
-                            @GetItemName(detail)
+                            <div class="d-flex flex-column">
+                                <span>@GetItemName(detail)</span>
+                                @if (detail.ItemType == "Combo" && combos != null)
+                                {
+                                    var combo = combos.FirstOrDefault(c => c.ID == detail.ItemID);
+                                    if (combo?.Items != null && combo.Items.Any())
+                                    {
+                                        <div class="combo-items-container mt-1">
+                                            <small class="text-muted">Contiene:</small>
+                                            <ul class="combo-items-list ps-3 mb-0">
+                                                @foreach (var item in combo.Items)
+                                                {
+                                                    <li><small>@(item.FastFoodItem?.Name ?? $"Producto #{item.FastFoodItemID}") x@(item.Quantity)</small></li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+                                }
+                                @if (!string.IsNullOrEmpty(detail.Notes))
+                                {
+                                    <small class="text-muted">@detail.Notes</small>
+                                }
+                            </div>
                         </Template>
                     </RadzenDataGridColumn>
 
@@ -132,9 +154,7 @@
                         </Template>
                     </RadzenDataGridColumn>
 
-                    <RadzenDataGridColumn TItem="OrderDetailModel" Property="Notes" Title="Notas" Width="180px" />
-
-                    <RadzenDataGridColumn TItem="OrderDetailModel" Title="Personalizaciones" Width="200px">
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Title="Personalizaciones" Width="150px">
                         <Template Context="detail">
                             @if (detail.Customizations.Any())
                             {
@@ -190,7 +210,11 @@
                             </Template>
                         </RadzenDataGridColumn>
 
-                        <RadzenDataGridColumn TItem="PaymentModel" Property="PaymentMethod" Title="Método" Width="150px" />
+                        <RadzenDataGridColumn TItem="PaymentModel" Property="PaymentMethod" Title="Método" Width="150px">
+                            <Template Context="payment">
+                                @GetPaymentMethodName(payment.PaymentMethod)
+                            </Template>
+                        </RadzenDataGridColumn>
 
                         <RadzenDataGridColumn TItem="PaymentModel" Property="Amount" Title="Monto" Width="150px">
                             <Template Context="payment">
@@ -228,7 +252,7 @@
 
                             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                                 <RadzenText TextStyle="TextStyle.Subtitle1">Estado:</RadzenText>
-                                <RadzenBadge BadgeStyle="@GetInvoiceStatusBadgeStyle(order.ElectronicInvoice.InvoiceStatus)" Text="@order.ElectronicInvoice.InvoiceStatus" />
+                                <RadzenBadge BadgeStyle="@GetInvoiceStatusBadgeStyle(order.ElectronicInvoice.InvoiceStatus)" Text="@GetInvoiceStatusName(order.ElectronicInvoice.InvoiceStatus)" />
                             </RadzenStack>
                         </RadzenStack>
                     </RadzenColumn>
@@ -259,3 +283,17 @@
         }
     }
 </RadzenStack>
+
+<style>
+    .combo-items-container {
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        padding: 4px 8px;
+        margin-top: 4px;
+    }
+
+    .combo-items-list {
+        margin: 0;
+        padding-left: 15px;
+    }
+</style>

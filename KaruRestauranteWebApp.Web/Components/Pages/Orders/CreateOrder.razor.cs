@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Newtonsoft.Json;
 using Radzen;
 using Microsoft.JSInterop;
+using KaruRestauranteWebApp.Models.Models.Restaurant;
 
 namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 {
@@ -203,40 +204,108 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 "Producto agregado", $"{product.Name} agregado al pedido", 2000);
         }
 
-        private void AddComboToOrder(ComboModel combo)
+        //private void AddComboToOrder(ComboModel combo)
+        //{
+        //    // Verificar si el combo ya está en el pedido
+        //    var existingDetail = model.OrderDetails
+        //        .FirstOrDefault(d => d.ItemType == "Combo" && d.ItemID == combo.ID);
+
+        //    if (existingDetail != null)
+        //    {
+        //        // Incrementar cantidad del combo existente
+        //        existingDetail.Quantity++;
+        //        CalculateDetailSubtotal(existingDetail);
+        //    }
+        //    else
+        //    {
+        //        // Añadir como nuevo combo
+        //        var detail = new OrderDetailDTO
+        //        {
+        //            ItemType = "Combo",
+        //            ItemID = combo.ID,
+        //            ItemName = combo.Name,
+        //            Quantity = 1,
+        //            UnitPrice = combo.SellingPrice,
+        //            SubTotal = combo.SellingPrice,
+        //            Status = "Pending",
+        //            Customizations = new List<OrderItemCustomizationDTO>()
+        //        };
+
+        //        model.OrderDetails.Add(detail);
+        //        CalculateTotal();
+        //    }
+
+        //    // Notificar al usuario que se agregó el combo
+        //    NotificationService.Notify(NotificationSeverity.Success,
+        //        "Combo agregado", $"{combo.Name} agregado al pedido", 2000);
+        //}
+
+        private async Task AddComboToOrder(ComboModel combo)
         {
-            // Verificar si el combo ya está en el pedido
-            var existingDetail = model.OrderDetails
-                .FirstOrDefault(d => d.ItemType == "Combo" && d.ItemID == combo.ID);
+            try
+            {
+                // Mostrar el diálogo con detalles del combo
+                var result = await DialogService.OpenAsync<ComboDetailsDialog>("Detalles del Combo",
+                    new Dictionary<string, object>
+                    {
+                { "Combo", combo },
+                { "ShowPrices", true }
+                    },
+                    new DialogOptions
+                    {
+                        Width = "700px",
+                        Height = "auto",
+                        CloseDialogOnOverlayClick = false
+                    });
 
-            if (existingDetail != null)
-            {
-                // Incrementar cantidad del combo existente
-                existingDetail.Quantity++;
-                CalculateDetailSubtotal(existingDetail);
-            }
-            else
-            {
-                // Añadir como nuevo combo
-                var detail = new OrderDetailDTO
+                // Si el usuario cancela, no hacer nada
+                if (result == null) return;
+
+                // Verificar si el combo ya está en el pedido
+                var existingDetail = model.OrderDetails
+                    .FirstOrDefault(d => d.ItemType == "Combo" && d.ItemID == combo.ID);
+
+                if (existingDetail != null)
                 {
-                    ItemType = "Combo",
-                    ItemID = combo.ID,
-                    ItemName = combo.Name,
-                    Quantity = 1,
-                    UnitPrice = combo.SellingPrice,
-                    SubTotal = combo.SellingPrice,
-                    Status = "Pending",
-                    Customizations = new List<OrderItemCustomizationDTO>()
-                };
+                    // Incrementar cantidad del combo existente
+                    existingDetail.Quantity++;
+                    CalculateDetailSubtotal(existingDetail);
+                }
+                else
+                {
+                    // Añadir como nuevo combo
+                    var detail = new OrderDetailDTO
+                    {
+                        ItemType = "Combo",
+                        ItemID = combo.ID,
+                        ItemName = combo.Name,
+                        Quantity = 1,
+                        UnitPrice = combo.SellingPrice,
+                        SubTotal = combo.SellingPrice,
+                        Status = "Pending",
+                        Customizations = new List<OrderItemCustomizationDTO>(),
+                        // Agregar un campo que contenga los componentes del combo (para mostrar en la cocina)
+                        ComboItems = combo.Items.Select(i => new ComboItemDetail
+                        {
+                            ItemName = i.FastFoodItem?.Name ?? $"Producto #{i.FastFoodItemID}",
+                            Quantity = i.Quantity,
+                            SpecialInstructions = i.SpecialInstructions
+                        }).ToList()
+                    };
 
-                model.OrderDetails.Add(detail);
-                CalculateTotal();
+                    model.OrderDetails.Add(detail);
+                    CalculateTotal();
+                }
+
+                // Notificar al usuario que se agregó el combo
+                NotificationService.Notify(NotificationSeverity.Success,
+                    "Combo agregado", $"{combo.Name} agregado al pedido", 2000);
             }
-
-            // Notificar al usuario que se agregó el combo
-            NotificationService.Notify(NotificationSeverity.Success,
-                "Combo agregado", $"{combo.Name} agregado al pedido", 2000);
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error,
+                    "Error", $"Error al agregar combo: {ex.Message}", 4000);
+            }
         }
 
         private async Task OpenProductSelectionDialog()
@@ -413,200 +482,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             };
         }
 
-        //private async Task HandleSubmit()
-        //{
-        //    try
-        //    {
-        //        if (!model.OrderDetails.Any())
-        //        {
-        //            NotificationService.Notify(NotificationSeverity.Warning,
-        //                "Validación", "Debe agregar al menos un producto al pedido", 4000);
-        //            return;
-        //        }
-
-        //        if (model.OrderType == "DineIn" && !model.TableID.HasValue)
-        //        {
-        //            NotificationService.Notify(NotificationSeverity.Warning,
-        //                "Validación", "Debe seleccionar una mesa para pedidos en sitio", 4000);
-        //            return;
-        //        }
-
-        //        // Verificar disponibilidad de inventario usando el servicio API
-        //        bool inventoryOk = true;
-        //        List<string> unavailableItems = new List<string>();
-
-        //        foreach (var detail in model.OrderDetails)
-        //        {
-        //            if (detail.ItemType == "Product")
-        //            {
-        //                // Verificar stock de producto
-        //                var productResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/ProductInventory/product/{detail.ItemID}");
-
-        //                if (productResponse?.Success == true)
-        //                {
-        //                    var inventory = JsonConvert.DeserializeObject<ProductInventoryModel>(productResponse.Data.ToString());
-        //                    if (inventory == null || inventory.CurrentStock < detail.Quantity)
-        //                    {
-        //                        inventoryOk = false;
-        //                        unavailableItems.Add(detail.ItemName);
-        //                    }
-        //                }
-        //            }
-        //            else if (detail.ItemType == "Combo")
-        //            {
-        //                // Para combos, obtener sus componentes
-        //                var comboResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Combo/{detail.ItemID}");
-        //                if (comboResponse?.Success == true)
-        //                {
-        //                    var combo = JsonConvert.DeserializeObject<ComboModel>(comboResponse.Data.ToString());
-        //                    if (combo?.Items != null)
-        //                    {
-        //                        foreach (var comboItem in combo.Items)
-        //                        {
-        //                            // Verificar stock de cada producto en el combo
-        //                            var productResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/ProductInventory/product/{comboItem.FastFoodItemID}");
-
-        //                            if (productResponse?.Success == true)
-        //                            {
-        //                                var inventory = JsonConvert.DeserializeObject<ProductInventoryModel>(productResponse.Data.ToString());
-        //                                int requiredQuantity = comboItem.Quantity * detail.Quantity;
-
-        //                                if (inventory == null || inventory.CurrentStock < requiredQuantity)
-        //                                {
-        //                                    inventoryOk = false;
-        //                                    var productName = comboItem.FastFoodItem?.Name ?? $"Producto #{comboItem.FastFoodItemID}";
-        //                                    unavailableItems.Add($"{productName} (en combo {combo.Name})");
-        //                                }
-        //                            }
-        //                        }
-        //                    }
-        //                }
-        //            }
-        //        }
-
-        //        if (!inventoryOk)
-        //        {
-        //            NotificationService.Notify(NotificationSeverity.Warning,
-        //                "Inventario insuficiente",
-        //                $"No hay suficiente inventario para: {string.Join(", ", unavailableItems)}",
-        //                6000);
-        //            return;
-        //        }
-
-        //        // Calcular el total
-        //        decimal total = CalculateTotal();
-
-        //        // Mostrar diálogo de pago
-        //        var paymentResult = await DialogService.OpenAsync<PaymentProcessDialog>("Procesar Pago",
-        //            new Dictionary<string, object>
-        //            {
-        //        { "TotalAmount", total }
-        //            },
-        //            new DialogOptions
-        //            {
-        //                Width = "500px",
-        //                Height = "auto",
-        //                CloseDialogOnOverlayClick = false
-        //            });
-
-        //        if (paymentResult == null || !(paymentResult is PaymentProcessDialog.PaymentResult))
-        //        {
-        //            // El usuario canceló el pago
-        //            return;
-        //        }
-
-        //        var paymentInfo = (PaymentProcessDialog.PaymentResult)paymentResult;
-
-        //        // Mapear a DTO para enviar a la API
-        //        var orderDto = new OrderDTO
-        //        {
-        //            OrderType = model.OrderType,
-        //            CustomerID = model.CustomerID,
-        //            TableID = model.TableID,
-        //            Notes = model.Notes,
-        //            DiscountAmount = model.DiscountAmount,
-        //            OrderDetails = model.OrderDetails
-        //        };
-
-        //        var response = await ApiClient.PostAsync<BaseResponseModel, OrderDTO>(
-        //            "api/Order", orderDto);
-
-        //        if (response?.Success == true)
-        //        {
-        //            var createdOrder = JsonConvert.DeserializeObject<OrderModel>(response.Data.ToString());
-
-        //            // Si se creó exitosamente y hay método de pago, registramos el pago
-        //            if (createdOrder != null)
-        //            {
-        //                // Registrar pago
-        //                var paymentDto = paymentInfo.PaymentInfo;
-        //                paymentDto.OrderID = createdOrder.ID;
-
-        //                var paymentResponse = await ApiClient.PostAsync<BaseResponseModel, PaymentDTO>(
-        //                    $"api/Order/{createdOrder.ID}/payments", paymentDto);
-
-        //                if (paymentResponse?.Success == true)
-        //                {
-        //                    // Preparar datos para impresión
-        //                    var printData = new
-        //                    {
-        //                        orderNumber = createdOrder.OrderNumber,
-        //                        customerName = customers.FirstOrDefault(c => c.ID == model.CustomerID)?.Name ?? "Cliente General",
-        //                        table = availableTables.FirstOrDefault(t => t.ID == model.TableID)?.TableNumber.ToString() ?? "",
-        //                        orderType = model.OrderType,
-        //                        items = model.OrderDetails.Select(d => new
-        //                        {
-        //                            name = d.ItemName,
-        //                            quantity = d.Quantity,
-        //                            price = d.UnitPrice,
-        //                            notes = d.Notes,
-        //                            customizations = d.Customizations.Select(c => new
-        //                            {
-        //                                type = c.CustomizationType,
-        //                                name = c.IngredientName,
-        //                                quantity = c.Quantity
-        //                            }).ToList()
-        //                        }).ToList(),
-        //                        subtotal = CalculateSubtotal(),
-        //                        tax = CalculateTax(),
-        //                        discount = model.DiscountAmount,
-        //                        total = total,
-        //                        paymentMethod = GetPaymentMethodName(paymentInfo.PaymentInfo.PaymentMethod),
-        //                        amountReceived = paymentInfo.AmountReceived,
-        //                        change = paymentInfo.Change,
-        //                        referenceNumber = paymentInfo.PaymentInfo.ReferenceNumber,
-        //                        notes = model.Notes
-        //                    };
-
-        //                    // Imprimir tickets
-        //                    await JSRuntime.InvokeVoidAsync("printerService.printPaymentReceipt", printData);
-        //                    await JSRuntime.InvokeVoidAsync("printerService.printKitchenTicket", printData);
-
-        //                    NotificationService.Notify(NotificationSeverity.Success,
-        //                        "Éxito", "Pedido creado y pagado exitosamente", 4000);
-        //                    NavigationManager.NavigateTo("/orders");
-        //                }
-        //                else
-        //                {
-        //                    NotificationService.Notify(NotificationSeverity.Warning,
-        //                        "Advertencia", "Pedido creado pero hubo un problema al registrar el pago", 4000);
-        //                    NavigationManager.NavigateTo($"/orders/details/{createdOrder.ID}");
-        //                }
-        //            }
-        //        }
-        //        else
-        //        {
-        //            NotificationService.Notify(NotificationSeverity.Error,
-        //                "Error", response?.ErrorMessage ?? "Error al crear pedido", 4000);
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        NotificationService.Notify(NotificationSeverity.Error,
-        //            "Error", $"Error al crear pedido: {ex.Message}", 4000);
-        //    }
-        //}
-
+     
         private async Task HandleSubmit()
         {
             try
@@ -784,6 +660,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                             NotificationService.Notify(NotificationSeverity.Success,
                                 "Éxito", "Pedido creado y pagado exitosamente", 4000);
                             NavigationManager.NavigateTo("/orders");
+
+                            await UpdateInventoryAfterOrder(createdOrder.ID);
                         }
                         else
                         {
@@ -818,6 +696,60 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 "Other" => "Otro",
                 _ => method
             };
+        }
+
+
+        private async Task UpdateInventoryAfterOrder(int orderId)
+        {
+            try
+            {
+                // Para cada detalle de la orden, actualizar el inventario correspondiente
+                foreach (var detail in model.OrderDetails)
+                {
+                    if (detail.ItemType == "Product")
+                    {
+                        // Actualizar inventario del producto
+                        await ApiClient.PostAsync<BaseResponseModel, StockMovementDTO>(
+                            "api/ProductInventory/movement",
+                            new StockMovementDTO
+                            {
+                                ProductInventoryID = detail.ItemID,
+                                MovementType = "Salida",
+                                Quantity = detail.Quantity,
+                                Notes = $"Venta en orden #{orderId}"
+                            });
+                    }
+                    else if (detail.ItemType == "Combo")
+                    {
+                        // Para combos, necesitamos obtener sus componentes y actualizar cada uno
+                        var comboResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Combo/{detail.ItemID}");
+                        if (comboResponse?.Success == true)
+                        {
+                            var combo = JsonConvert.DeserializeObject<ComboModel>(comboResponse.Data.ToString());
+                            if (combo?.Items != null)
+                            {
+                                foreach (var comboItem in combo.Items)
+                                {
+                                    await ApiClient.PostAsync<BaseResponseModel, StockMovementDTO>(
+                                        "api/ProductInventory/movement",
+                                        new StockMovementDTO
+                                        {
+                                            ProductInventoryID = comboItem.FastFoodItemID,
+                                            MovementType = "Salida",
+                                            Quantity = comboItem.Quantity * detail.Quantity,
+                                            Notes = $"Venta en combo #{combo.ID}, orden #{orderId}"
+                                        });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Warning,
+                    "Advertencia", $"La orden se creó, pero hubo problemas actualizando el inventario: {ex.Message}", 6000);
+            }
         }
 
 

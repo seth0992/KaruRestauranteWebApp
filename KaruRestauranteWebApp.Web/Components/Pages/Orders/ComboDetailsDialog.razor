@@ -1,0 +1,130 @@
+﻿@inject DialogService DialogService
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+
+<RadzenCard>
+    <RadzenStack Gap="1rem">
+        <RadzenText TextStyle="TextStyle.H5">Detalles del Combo</RadzenText>
+
+        <div class="d-flex flex-column mb-3">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                @if (!string.IsNullOrEmpty(Combo.ImageUrl))
+                {
+                    <RadzenImage Path="@Combo.ImageUrl" Style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;" />
+                }
+                else
+                {
+                    <div style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background-color: #f5f5f5; border-radius: 8px;">
+                        <RadzenIcon Icon="fastfood" Style="font-size: 40px; color: #888;" />
+                    </div>
+                }
+
+                <div>
+                    <RadzenText TextStyle="TextStyle.H6">@Combo.Name</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body2">@Combo.Description</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" style="color: var(--rz-success-dark);">@Combo.SellingPrice.ToString("₡#,##0.00")</RadzenText>
+                </div>
+            </RadzenStack>
+        </div>
+
+        <RadzenText TextStyle="TextStyle.Subtitle1" class="mb-2">Este combo incluye:</RadzenText>
+
+        <RadzenDataGrid Data="@Combo.Items" TItem="ComboItemModel" AllowPaging="false" AllowSorting="false">
+            <Columns>
+                <RadzenDataGridColumn TItem="ComboItemModel" Title="Producto" Width="200px">
+                    <Template Context="item">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            @if (item.FastFoodItem != null && !string.IsNullOrEmpty(item.FastFoodItem.ImageUrl))
+                            {
+                                <RadzenImage Path="@item.FastFoodItem?.ImageUrl" Style="width: 32px; height: 32px; border-radius: 4px;" />
+                            }
+                            else
+                            {
+                                <RadzenIcon Icon="restaurant" />
+                            }
+                            <span>@(item.FastFoodItem?.Name ?? $"Producto #{item.FastFoodItemID}")</span>
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="ComboItemModel" Property="Quantity" Title="Cantidad" Width="80px" />
+
+                <RadzenDataGridColumn TItem="ComboItemModel" Property="AllowCustomization" Title="Personalizable" Width="120px">
+                    <Template Context="item">
+                        @if (item.AllowCustomization)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Sí" />
+                        }
+                        else
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="No" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                @if (ShowPrices)
+                {
+                    <RadzenDataGridColumn TItem="ComboItemModel" Title="Precio Ind." Width="100px">
+                        <Template Context="item">
+                            @(item.FastFoodItem?.SellingPrice.ToString("₡#,##0.00") ?? "-")
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ComboItemModel" Title="Subtotal" Width="100px">
+                        <Template Context="item">
+                            @((item.FastFoodItem?.SellingPrice * item.Quantity ?? 0).ToString("₡#,##0.00"))
+                        </Template>
+                    </RadzenDataGridColumn>
+                }
+
+                <RadzenDataGridColumn TItem="ComboItemModel" Property="SpecialInstructions" Title="Instrucciones" Width="200px">
+                    <Template Context="item">
+                        @(string.IsNullOrEmpty(item.SpecialInstructions) ? "-" : item.SpecialInstructions)
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+
+        @if (ShowPrices && Combo.DiscountPercentage > 0)
+        {
+            <div class="savings-info mt-3 p-2 bg-light border rounded">
+                <RadzenText TextStyle="TextStyle.Body2" class="mb-0">
+                    <strong>Ahorro:</strong> @(CalculateSavings().ToString("₡#,##0.00"))
+                    (@Combo.DiscountPercentage.ToString("0.##")% de descuento)
+                </RadzenText>
+            </div>
+        }
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="mt-3">
+            <RadzenButton Click="AddToOrder" Text="Agregar al Pedido" Icon="add_shopping_cart" ButtonStyle="ButtonStyle.Primary" />
+            <RadzenButton Click="@(() => DialogService.Close())" Text="Cerrar" ButtonStyle="ButtonStyle.Light" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter]
+    public ComboModel Combo { get; set; } = new();
+
+    [Parameter]
+    public bool ShowPrices { get; set; } = true;
+
+    private decimal CalculateSavings()
+    {
+        decimal regularTotal = 0;
+
+        foreach (var item in Combo.Items)
+        {
+            if (item.FastFoodItem != null)
+            {
+                regularTotal += item.FastFoodItem.SellingPrice * item.Quantity;
+            }
+        }
+
+        return regularTotal - Combo.SellingPrice;
+    }
+
+    private void AddToOrder()
+    {
+        DialogService.Close(Combo);
+    }
+}
