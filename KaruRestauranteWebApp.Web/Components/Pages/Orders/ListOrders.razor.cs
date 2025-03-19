@@ -177,9 +177,14 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             }
         }
 
-        private void ViewOrderDetails(DataGridRowMouseEventArgs<OrderModel> args)
+        //private void ViewOrderDetails(DataGridRowMouseEventArgs<OrderModel> args)
+        //{
+        //    //NavigationManager.NavigateTo($"/orders/details/{args.Data.ID}");
+        //}
+
+        private void NavigateToEdit(int orderId)
         {
-            NavigationManager.NavigateTo($"/orders/details/{args.Data.ID}");
+            NavigationManager.NavigateTo($"/orders/edit/{orderId}");
         }
     }
 }

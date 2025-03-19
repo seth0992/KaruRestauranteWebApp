@@ -51,7 +51,6 @@
                           AllowPaging="true"
                           PageSize="10"
                           FilterMode="FilterMode.Advanced"
-                          RowClick="@ViewOrderDetails"
                           FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
                 <Columns>
                     <RadzenDataGridColumn TItem="OrderModel" Property="OrderNumber" Title="Número" Width="120px" />
@@ -104,10 +103,10 @@
                                 
                                 @if (order.OrderStatus != "Delivered" && order.OrderStatus != "Cancelled")
                                 {
-                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
-                                              Click=@(() => NavigationManager.NavigateTo($"/orders/edit/{order.ID}"))
-                                              Title="Editar"
-                                              Variant="Variant.Text"/>
+                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
+                                                  Click=@(() => NavigateToEdit(order.ID))
+                                                  Title="Editar"
+                                                  Variant="Variant.Text" />
                                 }
                                 
                                 <AuthorizeView Roles="SuperAdmin,Admin">

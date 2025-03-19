@@ -65,7 +65,9 @@ namespace KaruRestauranteWebApp.BL.Repositories
                 _context.Entry(local).State = EntityState.Detached;
             }
 
+            // Establecer manualmente la fecha de actualización
             customer.UpdatedAt = DateTime.UtcNow;
+
             _context.Entry(customer).State = EntityState.Modified;
             _context.Entry(customer).Property(x => x.CreatedAt).IsModified = false;
 
