@@ -32,10 +32,5 @@ namespace KaruRestauranteWebApp.Models.Models.Orders
         public List<ComboItemDetail> ComboItems { get; set; } = new();
     }
 
-    public class ComboItemDetail
-    {
-        public string ItemName { get; set; } = string.Empty;
-        public int Quantity { get; set; } = 1;
-        public string? SpecialInstructions { get; set; }
-    }
+
 }

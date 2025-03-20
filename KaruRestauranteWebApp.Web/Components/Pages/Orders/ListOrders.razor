@@ -92,37 +92,31 @@
                                        Text="@GetPaymentStatusName(order.PaymentStatus)" />
                         </Template>
                     </RadzenDataGridColumn>
-                    
-                    <RadzenDataGridColumn TItem="OrderModel" Title="Acciones" Width="180px">
+
+                    <RadzenDataGridColumn TItem="OrderModel" Title="Acciones" Width="200px" TextAlign="TextAlign.Center">
                         <Template Context="order">
                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="0.5rem">
-                                <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
-                                          Click=@(() => NavigationManager.NavigateTo($"/orders/details/{order.ID}"))
-                                          Title="Ver detalles"
-                                          Variant="Variant.Text"/>
-                                
+                                <RadzenButton ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" Icon="visibility"
+                                              Click="@(() => NavigateToOrderDetails(order.ID))" Tooltip="Ver detalles" />
+
+                                @if (order.PaymentStatus != "Paid" && order.PaymentStatus != "Cancelled")
+                                {
+                                    <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="payment"
+                                                  Click="@(() => NavigateToPayment(order.ID))" Variant="Variant.Outlined"
+                                                  Tooltip="Procesar pago" />
+                                }
+
                                 @if (order.OrderStatus != "Delivered" && order.OrderStatus != "Cancelled")
                                 {
-                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
-                                                  Click=@(() => NavigateToEdit(order.ID))
-                                                  Title="Editar"
-                                                  Variant="Variant.Text" />
+                                    <RadzenButton ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Icon="edit"
+                                                  Click="@(() => NavigateToEditOrder(order.ID))" Variant="Variant.Outlined"
+                                                  Tooltip="Editar orden" />
                                 }
-                                
-                                <AuthorizeView Roles="SuperAdmin,Admin">
-                                    <Authorized>
-                                        @if (order.OrderStatus != "Cancelled")
-                                        {
-                                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small"
-                                                      Click=@(() => ShowDeleteConfirmation(order))
-                                                      Title="Cancelar"
-                                                      Variant="Variant.Text"/>
-                                        }
-                                    </Authorized>
-                                </AuthorizeView>
                             </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
+                
+                
                 </Columns>
             </RadzenDataGrid>
         </RadzenCard>

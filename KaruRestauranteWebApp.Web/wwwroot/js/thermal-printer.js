@@ -284,5 +284,99 @@
             case "Extra": return "Extra";
             default: return type;
         }
+    },
+
+    // Función para imprimir solo ticket de cocina
+    printKitchenTicketOnly: async function (orderData) {
+        try {
+            // Generar el contenido del ticket de cocina
+            const content = this.generateKitchenTicketOnlyContent(orderData);
+
+            // Si estamos en desarrollo, mostrar en consola
+            if (window.location.hostname === 'localhost') {
+                console.log("TICKET DE COCINA (SOLO):\n" + content);
+                return true;
+            }
+
+            // Intentar imprimir usando la API de impresión
+            try {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`<html><head><title>Ticket de Cocina</title>
+                    <style>
+                        body { font-family: monospace; font-size: 12px; }
+                        pre { white-space: pre-wrap; }
+                    </style>
+                </head><body><pre>${content}</pre></body></html>`);
+                printWindow.document.close();
+
+                // Especificar la impresora por su nombre
+                const printOptions = {
+                    printer: this.printerConfig.name
+                };
+
+                printWindow.print();
+                setTimeout(() => printWindow.close(), 500);
+                return true;
+            } catch (printError) {
+                console.error("Error en la impresión del ticket de cocina:", printError);
+                return this.printFallback(content);
+            }
+        } catch (error) {
+            console.error("Error al imprimir ticket de cocina:", error);
+            return false;
+        }
+    },
+
+    // Generar contenido del ticket de cocina sin información de pago
+    generateKitchenTicketOnlyContent: function (orderData) {
+        const width = this.printerConfig.width;
+        let content = "";
+
+        // Encabezado más grande y visible
+        content += this.centerText("*** TICKET DE COCINA ***", width) + "\n";
+        content += "========================================\n";
+        content += `Orden: ${orderData.orderNumber}\n`;
+        content += `Fecha: ${new Date().toLocaleString()}\n`;
+
+        if (orderData.table) {
+            content += `Mesa: ${orderData.table}\n`;
+        } else {
+            content += `Tipo: ${this.getOrderTypeName(orderData.orderType)}\n`;
+        }
+
+        content += "========================================\n\n";
+
+        // Detalle de productos (más enfocado a la cocina)
+        orderData.items.forEach(item => {
+            content += `>>> ${item.quantity} x ${item.name}\n`;
+
+            // Añadir personalizaciones si existen
+            if (item.customizations && item.customizations.length > 0) {
+                item.customizations.forEach(custom => {
+                    content += `    ${this.getCustomizationTypeName(custom.type)}: ${custom.name} x${custom.quantity}\n`;
+                });
+            }
+
+            // Añadir notas si existen
+            if (item.notes) {
+                content += `    Notas: ${item.notes}\n`;
+            }
+
+            content += "\n";
+        });
+
+        content += "========================================\n";
+
+        // Si hay notas generales para la orden
+        if (orderData.notes) {
+            content += "NOTAS GENERALES:\n";
+            content += this.formatTextToWidth(orderData.notes, width) + "\n";
+            content += "========================================\n";
+        }
+
+        content += "\n\n\n\n";  // Espacio para corte
+
+        return content;
     }
+
 };

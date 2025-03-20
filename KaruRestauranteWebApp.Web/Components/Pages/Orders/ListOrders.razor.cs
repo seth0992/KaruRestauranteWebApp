@@ -181,7 +181,28 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         //{
         //    //NavigationManager.NavigateTo($"/orders/details/{args.Data.ID}");
         //}
+        private void ProcessOrderPayment(OrderModel order)
+        {
+            NavigationManager.NavigateTo($"/orders/payment/{order.ID}");
+        }
+        private void NavigateToOrderDetails(int orderId)
+        {
+            NavigationManager.NavigateTo($"/orders/details/{orderId}");
+        }
 
+        private void NavigateToPayment(int orderId)
+        {
+            NavigationManager.NavigateTo($"/orders/payment/{orderId}");
+        }
+
+        private void NavigateToEditOrder(int orderId)
+        {
+            NavigationManager.NavigateTo($"/orders/edit/{orderId}");
+        }
+        private bool CanEditOrder(OrderModel order)
+        {
+            return order.OrderStatus != "Delivered" && order.OrderStatus != "Cancelled";
+        }
         private void NavigateToEdit(int orderId)
         {
             NavigationManager.NavigateTo($"/orders/edit/{orderId}");
