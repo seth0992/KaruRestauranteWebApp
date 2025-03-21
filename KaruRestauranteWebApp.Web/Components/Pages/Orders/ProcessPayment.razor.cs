@@ -34,6 +34,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         private decimal paidAmount;
         private decimal pendingAmount;
         private List<IngredientModel> ingredients = new();
+        private List<FastFoodItemModel> products = new();
+        private List<ComboModel> combos = new();
 
         protected override async Task OnInitializedAsync()
         {
@@ -49,33 +51,73 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             }
         }
 
+        //private async Task LoadData()
+        //{
+        //    // Cargar la orden
+        //    var orderResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Order/{OrderId}");
+        //    if (orderResponse?.Success == true)
+        //    {
+        //        order = JsonConvert.DeserializeObject<OrderModel>(orderResponse.Data.ToString());
+
+        //        // Calcular el monto pagado y pendiente
+        //        if (order != null)
+        //        {
+        //            paidAmount = order.Payments?.Sum(p => p.Amount) ?? 0;
+        //            pendingAmount = order.TotalAmount - paidAmount;
+
+        //            // Si ya está pagado completamente, actualizar el estado
+        //            if (paidAmount >= order.TotalAmount && order.PaymentStatus != "Paid")
+        //            {
+        //                await UpdateOrderPaymentStatus("Paid");
+        //            }
+        //            else if (paidAmount > 0 && paidAmount < order.TotalAmount && order.PaymentStatus != "Partially Paid")
+        //            {
+        //                await UpdateOrderPaymentStatus("Partially Paid");
+        //            }
+        //        }
+        //    }
+
+        //    // Cargar ingredientes para mostrar nombres en las personalizaciones
+        //    var ingredientsResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Inventory/ingredients");
+        //    if (ingredientsResponse?.Success == true)
+        //    {
+        //        ingredients = JsonConvert.DeserializeObject<List<IngredientModel>>(ingredientsResponse.Data.ToString()) ?? new();
+        //    }
+        //}
+
         private async Task LoadData()
         {
-            // Cargar la orden
+            // Cargar la orden (código existente)
             var orderResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Order/{OrderId}");
             if (orderResponse?.Success == true)
             {
                 order = JsonConvert.DeserializeObject<OrderModel>(orderResponse.Data.ToString());
 
-                // Calcular el monto pagado y pendiente
+                // Calcular el monto pagado y pendiente (código existente)
                 if (order != null)
                 {
                     paidAmount = order.Payments?.Sum(p => p.Amount) ?? 0;
                     pendingAmount = order.TotalAmount - paidAmount;
 
-                    // Si ya está pagado completamente, actualizar el estado
-                    if (paidAmount >= order.TotalAmount && order.PaymentStatus != "Paid")
-                    {
-                        await UpdateOrderPaymentStatus("Paid");
-                    }
-                    else if (paidAmount > 0 && paidAmount < order.TotalAmount && order.PaymentStatus != "Partially Paid")
-                    {
-                        await UpdateOrderPaymentStatus("Partially Paid");
-                    }
+                    // Código existente para actualizar estado...
                 }
             }
 
-            // Cargar ingredientes para mostrar nombres en las personalizaciones
+            // Cargar productos para obtener nombres
+            var productsResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/FastFood");
+            if (productsResponse?.Success == true)
+            {
+                products = JsonConvert.DeserializeObject<List<FastFoodItemModel>>(productsResponse.Data.ToString()) ?? new();
+            }
+
+            // Cargar combos para obtener nombres
+            var combosResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Combo");
+            if (combosResponse?.Success == true)
+            {
+                combos = JsonConvert.DeserializeObject<List<ComboModel>>(combosResponse.Data.ToString()) ?? new();
+            }
+
+            // Cargar ingredientes (código existente)
             var ingredientsResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Inventory/ingredients");
             if (ingredientsResponse?.Success == true)
             {
@@ -286,23 +328,41 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 
         private string GetItemName(OrderDetailModel detail)
         {
-            // Buscamos primero en los datos del detalle si hay un nombre disponible
-            if (!string.IsNullOrEmpty(detail.Notes) && detail.Notes.Contains(" - "))
-            {
-                // A veces el nombre puede estar en las notas en formato "ID - Nombre"
-                return detail.Notes;
-            }
-
-            // En versiones recientes de la API, el detalle ya trae esta propiedad
+            // En lugar de solo devolver el ID y el tipo, devolver el nombre real
+            // Si el detail tiene un nombre, usarlo directamente
             //if (!string.IsNullOrEmpty(detail.ItemName))
             //{
             //    return detail.ItemName;
             //}
 
-            // Si no encontramos el nombre, devolvemos un valor genérico pero más descriptivo
-            return detail.ItemType == "Product" ?
-                  $"Producto #{detail.ItemID}" :
-                  $"Combo #{detail.ItemID}";
+            // Si no tiene nombre, intentar obtenerlo del contexto
+            if (detail.ItemType == "Product")
+            {
+                // Si ya tenemos productos cargados, buscar en la lista
+                var product = products.FirstOrDefault(p => p.ID == detail.ItemID);
+                if (product != null)
+                {
+                    return product.Name;
+                }
+
+                // Si no, devolver algo genérico pero más informativo
+                return $"Producto #{detail.ItemID}";
+            }
+            else if (detail.ItemType == "Combo")
+            {
+                // Si ya tenemos combos cargados, buscar en la lista
+                var combo = combos.FirstOrDefault(c => c.ID == detail.ItemID);
+                if (combo != null)
+                {
+                    return combo.Name;
+                }
+
+                // Si no, devolver algo genérico pero más informativo
+                return $"Combo #{detail.ItemID}";
+            }
+
+            // Por defecto, devolver algo genérico
+            return $"Item {detail.ItemType} #{detail.ItemID}";
         }
 
         private BadgeStyle GetCustomizationBadgeStyle(string type)

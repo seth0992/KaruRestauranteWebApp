@@ -151,20 +151,32 @@
 
         content += "========================================\n\n";
 
-        // Detalle de productos
+        // Detalle de productos - ASEGURARSE QUE MUESTRE NOMBRES CORRECTOS
         content += "PRODUCTOS:\n";
         orderData.items.forEach(item => {
-            content += `${item.quantity} x ${item.name}\n`;
+            // Formatear el nombre del producto para asegurar que sea legible
+            let productName = item.name || "Producto sin nombre";
+
+            // Limitar longitud para evitar líneas muy largas
+            if (productName.length > 30) {
+                productName = productName.substring(0, 27) + "...";
+            }
+
+            content += `${item.quantity} x ${productName}\n`;
             content += `   ${item.price.toFixed(2)} c/u   ${(item.quantity * item.price).toFixed(2)}\n`;
 
             // Añadir personalizaciones si existen
             if (item.customizations && item.customizations.length > 0) {
                 item.customizations.forEach(custom => {
-                    content += `   - ${this.getCustomizationTypeName(custom.type)}: ${custom.name} x${custom.quantity}\n`;
+                    let customText = `   - ${this.getCustomizationTypeName(custom.type)}: ${custom.name}`;
+                    if (custom.quantity > 1) {
+                        customText += ` x${custom.quantity}`;
+                    }
+                    content += customText + "\n";
                 });
             }
 
-            if (item.notes) {
+            if (item.notes && !item.notes.includes(" - ")) { // Evitar imprimir notas que contengan el formato "ID - Nombre"
                 content += `   Nota: ${item.notes}\n`;
             }
 

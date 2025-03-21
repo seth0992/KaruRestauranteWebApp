@@ -99,12 +99,12 @@
                                 <RadzenButton ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" Icon="visibility"
                                               Click="@(() => NavigateToOrderDetails(order.ID))" Tooltip="Ver detalles" />
 
-                                @if (order.PaymentStatus != "Paid" && order.PaymentStatus != "Cancelled")
-                                {
+                               @*  @if (order.PaymentStatus != "Paid" && order.PaymentStatus != "Cancelled")
+                                { *@
                                     <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="payment"
                                                   Click="@(() => NavigateToPayment(order.ID))" Variant="Variant.Outlined"
                                                   Tooltip="Procesar pago" />
-                                }
+                                @* } *@
 
                                 @if (order.OrderStatus != "Delivered" && order.OrderStatus != "Cancelled")
                                 {

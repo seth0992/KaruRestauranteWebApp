@@ -39,7 +39,7 @@
     {
         <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
     }
-    else if (pendingOrders == null || !pendingOrders.Any())
+    else if (filteredOrders == null || !filteredOrders.Any())
     {
         <RadzenCard>
             <div class="text-center p-5">
@@ -148,6 +148,12 @@
     .kitchen-order-items :deep(th) {
         background-color: #f8f9fa;
     }
+
+    .highlight-element {
+        box-shadow: 0 0 15px var(--rz-warning) !important;
+        transform: scale(1.01);
+        transition: all 0.5s ease;
+    }
 </style>
 
 @code {
@@ -180,7 +186,7 @@
         </div>
 
         <div class="kitchen-order-details">
-            <RadzenDataGrid Data="@order.OrderDetails" TItem="OrderDetailModel"
+            <RadzenDataGrid Data="@order.OrderDetails.Where(d => d.Status != "Cancelled")" TItem="OrderDetailModel"
                             AllowSorting="false" AllowPaging="false" AllowFiltering="false"
                             class="kitchen-order-items">
                 <Columns>
@@ -206,7 +212,7 @@
 
                     <RadzenDataGridColumn TItem="OrderDetailModel" Title="Personalización" Width="120px">
                         <Template Context="detail">
-                            @if (detail.Customizations.Any())
+                            @if (detail.Customizations != null && detail.Customizations.Any())
                             {
                                 <RadzenButton Icon="tune" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                                               Click="() => ShowCustomizations(detail.Customizations)"

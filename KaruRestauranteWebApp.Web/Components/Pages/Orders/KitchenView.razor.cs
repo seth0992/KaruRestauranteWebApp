@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Newtonsoft.Json;
 using Radzen;
+using System.Diagnostics;
 
 namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 {
@@ -28,8 +29,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         private List<OrderModel> pendingOrders = new();
         private List<OrderModel> filteredOrders = new();
         private List<OrderModel> needsAttentionOrders = new();
-        private FastFoodItemModel[]? products;
-        private ComboModel[]? combos;
+        private List<FastFoodItemModel> products = new();
+        private List<ComboModel> combos = new();
         private bool isLoading = true;
         private System.Timers.Timer? refreshTimer;
         private string selectedStatus = "All";
@@ -68,24 +69,40 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             try
             {
                 isLoading = true;
+                StateHasChanged();
 
-                // Cargar órdenes pendientes y en proceso
+                // Cargar productos y combos primero para asegurar que estén disponibles
+                await LoadProductsAndCombos();
+
+                // Modificar para cargar órdenes con todos sus detalles
                 var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Order");
                 if (response?.Success == true)
                 {
                     var allOrders = JsonConvert.DeserializeObject<List<OrderModel>>(response.Data.ToString()) ?? new();
 
                     // Filtrar pedidos pendientes o en proceso
-                    pendingOrders = allOrders
-                        .Where(o => o.OrderStatus == "Pending" || o.OrderStatus == "InProgress")
-                        .ToList();
+                    pendingOrders = new List<OrderModel>();
 
-                    filteredOrders = pendingOrders;
+                    foreach (var order in allOrders.Where(o => o.OrderStatus == "Pending" || o.OrderStatus == "InProgress"))
+                    {
+                        // Obtener detalles completos de cada orden
+                        var detailedResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Order/{order.ID}");
+                        if (detailedResponse?.Success == true)
+                        {
+                            var detailedOrder = JsonConvert.DeserializeObject<OrderModel>(detailedResponse.Data.ToString());
+                            if (detailedOrder != null)
+                            {
+                                pendingOrders.Add(detailedOrder);
+                            }
+                        }
+                    }
 
                     // Identificar pedidos que necesitan atención (más de 20 minutos de espera)
                     needsAttentionOrders = pendingOrders
                         .Where(o => (DateTime.Now - o.CreatedAt).TotalMinutes > 20)
                         .ToList();
+
+                    ApplyFilters();
                 }
                 else
                 {
@@ -93,18 +110,15 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                         "Error", response?.ErrorMessage ?? "Error al cargar pedidos", 4000);
                 }
 
-                // Cargar productos y combos para mostrar nombres
-                await LoadProductsAndCombos();
-
-                ApplyFilters();
-
                 isLoading = false;
+                StateHasChanged();
             }
             catch (Exception ex)
             {
                 isLoading = false;
                 NotificationService.Notify(NotificationSeverity.Error,
                     "Error", $"Error al cargar pedidos: {ex.Message}", 4000);
+                StateHasChanged();
             }
         }
 
@@ -112,28 +126,48 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         {
             try
             {
-                if (products == null)
+                // Cargar productos
+                var productsResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/FastFood");
+                if (productsResponse?.Success == true)
                 {
-                    // Cargar productos
-                    var productsResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/FastFood");
-                    if (productsResponse?.Success == true)
-                    {
-                        products = JsonConvert.DeserializeObject<FastFoodItemModel[]>(productsResponse.Data.ToString());
-                    }
+                    products = JsonConvert.DeserializeObject<List<FastFoodItemModel>>(productsResponse.Data.ToString()) ?? new();
+                    Debug.WriteLine($"Productos cargados: {products.Count}");
+                }
+                else
+                {
+                    Debug.WriteLine("Error al cargar productos: " + productsResponse?.ErrorMessage);
                 }
 
-                if (combos == null)
+                // Cargar combos
+                var combosResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Combo");
+                if (combosResponse?.Success == true)
                 {
-                    // Cargar combos
-                    var combosResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Combo");
-                    if (combosResponse?.Success == true)
+                    combos = JsonConvert.DeserializeObject<List<ComboModel>>(combosResponse.Data.ToString()) ?? new();
+                    Debug.WriteLine($"Combos cargados: {combos.Count}");
+
+                    // Complementar los productos dentro de cada combo
+                    foreach (var combo in combos)
                     {
-                        combos = JsonConvert.DeserializeObject<ComboModel[]>(combosResponse.Data.ToString());
+                        if (combo.Items != null)
+                        {
+                            foreach (var item in combo.Items)
+                            {
+                                if (item.FastFoodItem == null)
+                                {
+                                    item.FastFoodItem = products.FirstOrDefault(p => p.ID == item.FastFoodItemID);
+                                }
+                            }
+                        }
                     }
+                }
+                else
+                {
+                    Debug.WriteLine("Error al cargar combos: " + combosResponse?.ErrorMessage);
                 }
             }
             catch (Exception ex)
             {
+                Debug.WriteLine($"Error en LoadProductsAndCombos: {ex.Message}");
                 NotificationService.Notify(NotificationSeverity.Warning,
                     "Advertencia", "No se pudieron cargar los nombres de algunos productos", 4000);
             }
@@ -260,6 +294,9 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 
                     NotificationService.Notify(NotificationSeverity.Success,
                         "Éxito", $"Pedido {order.OrderNumber} marcado como listo", 3000);
+
+                    // Recargar pedidos después de marcar como listo
+                    await LoadPendingOrders();
                 }
                 else
                 {
@@ -283,7 +320,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             catch (Exception ex)
             {
                 // Solo registrar error, no interrumpir flujo
-                Console.WriteLine($"Error al actualizar estado de orden: {ex.Message}");
+                Debug.WriteLine($"Error al actualizar estado de orden: {ex.Message}");
             }
         }
 
@@ -307,7 +344,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             var order = filteredOrders.FirstOrDefault(o => o.ID == orderId);
             if (order != null)
             {
-                int index = filteredOrders.IndexOf(order);
                 string elementId = $"order-{orderId}";
 
                 // Usar JavaScript para hacer scroll hasta el elemento
@@ -392,12 +428,12 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 
         private string GetItemName(OrderDetailModel detail)
         {
-            if (detail.ItemType == "Product" && products != null)
+            if (detail.ItemType == "Product")
             {
                 var product = products.FirstOrDefault(p => p.ID == detail.ItemID);
                 return product?.Name ?? $"Producto #{detail.ItemID}";
             }
-            else if (detail.ItemType == "Combo" && combos != null)
+            else if (detail.ItemType == "Combo")
             {
                 var combo = combos.FirstOrDefault(c => c.ID == detail.ItemID);
                 return combo?.Name ?? $"Combo #{detail.ItemID}";
@@ -419,29 +455,29 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         {
             try
             {
-                // Preparar datos para imprimir
+                // Preparar datos para imprimir - no intentamos asignar a detail.ItemName
                 var ticketData = new
                 {
-                    OrderNumber = order.OrderNumber,
-                    Table = order.Table?.TableNumber.ToString() ?? "Para llevar",
-                    CreatedAt = order.CreatedAt.ToString("dd/MM/yyyy HH:mm"),
-                    Items = order.OrderDetails.Select(d => new
+                    orderNumber = order.OrderNumber,
+                    table = order.Table?.TableNumber.ToString() ?? "Para llevar",
+                    createdAt = order.CreatedAt.ToString("dd/MM/yyyy HH:mm"),
+                    items = order.OrderDetails.Select(d => new
                     {
-                        Name = GetItemName(d),
-                        Quantity = d.Quantity,
-                        Notes = d.Notes,
-                        Customizations = d.Customizations.Select(c => new
+                        name = GetItemName(d),  // Usamos el método que ya tienes para obtener el nombre
+                        quantity = d.Quantity,
+                        notes = d.Notes,
+                        customizations = d.Customizations.Select(c => new
                         {
-                            Type = c.CustomizationType,
-                            Name = c.Ingredient?.Name ?? "",
-                            Quantity = c.Quantity
+                            type = c.CustomizationType,
+                            name = c.Ingredient?.Name ?? "",
+                            quantity = c.Quantity
                         }).ToList()
-                    }).ToList()
+                    }).ToList(),
+                    notes = order.Notes
                 };
 
-                // Convertir a JSON y pasar a JavaScript para imprimir
-                var ticketJson = JsonConvert.SerializeObject(ticketData);
-                await JSRuntime.InvokeVoidAsync("printKitchenTicket", ticketJson);
+                // Llamar a la función JavaScript para imprimir
+                await JSRuntime.InvokeVoidAsync("printerService.printKitchenTicket", ticketData);
             }
             catch (Exception ex)
             {
