@@ -30,6 +30,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         public required IJSRuntime JSRuntime { get; set; }
 
         private bool isLoaded;
+        private bool isCashRegisterOpen = false;
         private OrderModel order;
         private decimal paidAmount;
         private decimal pendingAmount;
@@ -41,7 +42,12 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         {
             try
             {
+                // Verificar si hay una sesión de caja abierta
+                await CheckCashRegisterStatus();
+
+                // Cargar datos de la orden independientemente del estado de la caja
                 await LoadData();
+
                 isLoaded = true;
             }
             catch (Exception ex)
@@ -51,55 +57,57 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             }
         }
 
-        //private async Task LoadData()
-        //{
-        //    // Cargar la orden
-        //    var orderResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Order/{OrderId}");
-        //    if (orderResponse?.Success == true)
-        //    {
-        //        order = JsonConvert.DeserializeObject<OrderModel>(orderResponse.Data.ToString());
+        private async Task CheckCashRegisterStatus()
+        {
+            try
+            {
+                var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/CashRegister/sessions/current");
 
-        //        // Calcular el monto pagado y pendiente
-        //        if (order != null)
-        //        {
-        //            paidAmount = order.Payments?.Sum(p => p.Amount) ?? 0;
-        //            pendingAmount = order.TotalAmount - paidAmount;
-
-        //            // Si ya está pagado completamente, actualizar el estado
-        //            if (paidAmount >= order.TotalAmount && order.PaymentStatus != "Paid")
-        //            {
-        //                await UpdateOrderPaymentStatus("Paid");
-        //            }
-        //            else if (paidAmount > 0 && paidAmount < order.TotalAmount && order.PaymentStatus != "Partially Paid")
-        //            {
-        //                await UpdateOrderPaymentStatus("Partially Paid");
-        //            }
-        //        }
-        //    }
-
-        //    // Cargar ingredientes para mostrar nombres en las personalizaciones
-        //    var ingredientsResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Inventory/ingredients");
-        //    if (ingredientsResponse?.Success == true)
-        //    {
-        //        ingredients = JsonConvert.DeserializeObject<List<IngredientModel>>(ingredientsResponse.Data.ToString()) ?? new();
-        //    }
-        //}
+                // Si la respuesta es exitosa y tiene datos, la caja está abierta
+                if (response?.Success == true && response.Data != null)
+                {
+                    isCashRegisterOpen = true;
+                }
+                // Si la respuesta indica que no hay sesión (success=false pero es una respuesta esperada)
+                else if (response != null && !response.Success &&
+                         response.ErrorMessage?.Contains("No hay sesión de caja abierta") == true)
+                {
+                    isCashRegisterOpen = false;
+                    // No mostrar notificación de error, esta es una respuesta normal
+                }
+                // Cualquier otro error
+                else
+                {
+                    isCashRegisterOpen = false;
+                    // Mostrar la notificación solo si es un error inesperado
+                    if (response?.ErrorMessage != null && !response.ErrorMessage.Contains("No hay sesión"))
+                    {
+                        NotificationService.Notify(NotificationSeverity.Warning,
+                            "Advertencia", "No se pudo verificar el estado de la caja.", 4000);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                isCashRegisterOpen = false;
+                NotificationService.Notify(NotificationSeverity.Error,
+                    "Error", $"Error al verificar el estado de la caja: {ex.Message}", 4000);
+            }
+        }
 
         private async Task LoadData()
         {
-            // Cargar la orden (código existente)
+            // Cargar la orden
             var orderResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Order/{OrderId}");
             if (orderResponse?.Success == true)
             {
                 order = JsonConvert.DeserializeObject<OrderModel>(orderResponse.Data.ToString());
 
-                // Calcular el monto pagado y pendiente (código existente)
+                // Calcular el monto pagado y pendiente
                 if (order != null)
                 {
                     paidAmount = order.Payments?.Sum(p => p.Amount) ?? 0;
                     pendingAmount = order.TotalAmount - paidAmount;
-
-                    // Código existente para actualizar estado...
                 }
             }
 
@@ -117,7 +125,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 combos = JsonConvert.DeserializeObject<List<ComboModel>>(combosResponse.Data.ToString()) ?? new();
             }
 
-            // Cargar ingredientes (código existente)
+            // Cargar ingredientes
             var ingredientsResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Inventory/ingredients");
             if (ingredientsResponse?.Success == true)
             {
@@ -148,6 +156,15 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             {
                 if (order == null)
                     return;
+
+                // Verificar nuevamente si la caja está abierta antes de procesar el pago
+                await CheckCashRegisterStatus();
+                if (!isCashRegisterOpen)
+                {
+                    NotificationService.Notify(NotificationSeverity.Error,
+                        "Error", "No se puede procesar el pago. La caja está cerrada.", 4000);
+                    return;
+                }
 
                 // Mostrar diálogo de pago
                 var paymentResult = await DialogService.OpenAsync<PaymentProcessDialog>("Procesar Pago",
@@ -328,14 +345,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 
         private string GetItemName(OrderDetailModel detail)
         {
-            // En lugar de solo devolver el ID y el tipo, devolver el nombre real
             // Si el detail tiene un nombre, usarlo directamente
-            //if (!string.IsNullOrEmpty(detail.ItemName))
-            //{
-            //    return detail.ItemName;
-            //}
-
-            // Si no tiene nombre, intentar obtenerlo del contexto
             if (detail.ItemType == "Product")
             {
                 // Si ya tenemos productos cargados, buscar en la lista
@@ -377,3 +387,4 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         }
     }
 }
+    
