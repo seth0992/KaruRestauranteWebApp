@@ -3,7 +3,7 @@
     printerConfig: {
         name: 'SAT Q22UB',           // Nombre de la impresora como aparece en Windows
         characterSet: 'SPAIN',        // Juego de caracteres español
-        width: 44                     // Ancho del papel en caracteres (48 para 80mm)
+        width: 48                     // Ancho del papel en caracteres (48 para 80mm)
     },
 
     // Función para formatear el texto al ancho del papel
