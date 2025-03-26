@@ -185,76 +185,17 @@
             ToastService.ShowError($"Error al cargar la sesión actual: {ex.Message}");
         }
     }
-
-    // private async Task LoadTransactions(int sessionId)
-    // {
-    //     loadingTransactions = true;
-    //     try
-    //     {
-    //         var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/CashRegister/transactions/session/{sessionId}");
-    //         if (response != null && response.Success && response.Data != null)
-    //         {
-    //             // El problema está aquí: response.Data no es directamente un array
-    //             // sino un objeto JSON que contiene el array
-
-    //             // Convertir primero a string JSON
-    //             string jsonString = System.Text.Json.JsonSerializer.Serialize(response.Data);
-
-    //             // Ahora deserializar correctamente
-    //             try
-    //             {
-    //                 // Esto debería manejar el caso en que Data es un array directamente
-    //                 transactions = System.Text.Json.JsonSerializer.Deserialize<List<CashRegisterTransactionDTO>>(
-    //                     jsonString,
-    //                     new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-    //             }
-    //             catch
-    //             {
-    //                 // Si falló, puede ser que Data sea un objeto que contiene el array
-    //                 // Por ejemplo, si Data es { items: [...] }, tenemos que extraer la propiedad items
-    //                 // La mejor solución aquí sería imprimir el JSON para ver su estructura exacta
-    //                 Console.WriteLine($"JSON received: {jsonString}");
-
-    //                 // Intenta deserializar como un objeto dinámico para explorar la estructura
-    //                 var dynamicData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(jsonString);
-
-    //                 // Verificar si tiene una propiedad específica que contenga el array
-    //                 if (dynamicData.TryGetProperty("items", out JsonElement itemsElement) &&
-    //                     itemsElement.ValueKind == JsonValueKind.Array)
-    //                 {
-    //                     var itemsJson = System.Text.Json.JsonSerializer.Serialize(itemsElement);
-    //                     transactions = System.Text.Json.JsonSerializer.Deserialize<List<CashRegisterTransactionDTO>>(
-    //                         itemsJson,
-    //                         new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-    //                 }
-    //                 else
-    //                 {
-    //                     // Si todo lo demás falla, muestra el error y vacía la lista
-    //                     ToastService.ShowError("La respuesta no contiene el formato esperado para las transacciones");
-    //                     transactions = new List<CashRegisterTransactionDTO>();
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         ToastService.ShowError($"Error al cargar transacciones: {ex.Message}");
-    //         transactions = new List<CashRegisterTransactionDTO>(); // Asegurar que no quede null
-    //     }
-    //     loadingTransactions = false;
-    // }
-  
     private async Task LoadTransactions(int sessionId)
     {
         loadingTransactions = true;
         try
         {
-            transactions = await ApiClient.GetListAsync<CashRegisterTransactionDTO>($"api/CashRegister/transactions/session/{sessionId}");
-            Console.WriteLine($"Loaded {transactions.Count} transactions successfully");
+            transactions = await ApiClient.GetNestedListAsync<CashRegisterTransactionDTO>($"api/CashRegister/transactions/session/{sessionId}");
+            Console.WriteLine($"Transacciones cargadas: {transactions.Count}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in LoadTransactions: {ex}");
+            Console.WriteLine($"Error en LoadTransactions: {ex}");
             ToastService.ShowError($"Error al cargar transacciones: {ex.Message}");
             transactions = new List<CashRegisterTransactionDTO>();
         }

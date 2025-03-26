@@ -1,12 +1,12 @@
 ﻿using KaruRestauranteWebApp.Models.Entities.Orders;
 using KaruRestauranteWebApp.Models.Entities.Restaurant;
-using KaruRestauranteWebApp.Models.Models.Orders;
 using KaruRestauranteWebApp.Models.Models;
+using KaruRestauranteWebApp.Models.Models.Orders;
+using KaruRestauranteWebApp.Models.Models.Restaurant;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using Newtonsoft.Json;
 using Radzen;
-using Microsoft.JSInterop;
-using KaruRestauranteWebApp.Models.Models.Restaurant;
 
 namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 {
@@ -38,7 +38,30 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         private List<FastFoodItemModel> filteredProducts = new();
         private List<ComboModel> filteredCombos = new();
 
-        private string[] orderTypes = new[] { "DineIn", "TakeOut", "Delivery" };
+        // Mapeos de traducción
+        private Dictionary<string, string> orderStatusMap = new Dictionary<string, string>
+        {
+            { "Pending", "Pendiente" },
+            { "InProgress", "En preparación" },
+            { "Ready", "Listo" },
+            { "Delivered", "Entregado" },
+            { "Cancelled", "Cancelado" }
+        };
+
+        private Dictionary<string, string> customizationTypeMap = new Dictionary<string, string>
+        {
+            { "Add", "Agregar" },
+            { "Remove", "Quitar" },
+            { "Extra", "Extra" }
+        };
+
+        // Tipos de pedido con traducción
+        private object[] orderTypesDisplay = new[]
+        {
+            new { value = "DineIn", text = "En sitio" },
+            new { value = "TakeOut", text = "Para llevar" },
+            new { value = "Delivery", text = "A domicilio" }
+        };
 
         private object[] paymentMethods = new[]
         {
@@ -49,6 +72,18 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             new { value = "SIMPE", name = "SIMPE Movil" },
             new { value = "Other", name = "Otro" }
         };
+
+        // Método para traducir el tipo de personalización
+        private string TranslateCustomizationType(string type)
+        {
+            return customizationTypeMap.TryGetValue(type, out var translation) ? translation : type;
+        }
+
+        // Método para traducir el estado del pedido
+        private string TranslateOrderStatus(string status)
+        {
+            return orderStatusMap.TryGetValue(status, out var translation) ? translation : status;
+        }
 
         protected override async Task OnInitializedAsync()
         {
@@ -357,7 +392,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                         { "ProductName", product.Name },
                         { "ProductIngredients", product.Ingredients ?? new List<ItemIngredientModel>() },
                         { "Customizations", detail.Customizations ?? new List<OrderItemCustomizationDTO>() },
-                        { "AllIngredients", ingredients ?? new List<IngredientModel>() }
+                        { "AllIngredients", ingredients ?? new List<IngredientModel>() },
+                        { "CustomizationTypeMap", customizationTypeMap } // Pasar el diccionario de traducción
                     },
                     new DialogOptions
                     {
@@ -526,16 +562,16 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     return;
                 }
 
-                // Mapear a DTO para enviar a la API
+                // Mapear a DTO para enviar a la API (valores en inglés para la BD)
                 var orderDto = new OrderDTO
                 {
-                    OrderType = model.OrderType,
+                    OrderType = model.OrderType, // Ya tiene el valor en inglés
                     CustomerID = model.CustomerID,
                     TableID = model.TableID,
                     Notes = model.Notes,
                     DiscountAmount = model.DiscountAmount,
                     OrderDetails = model.OrderDetails,
-                    // Por defecto, el estado de pago es Pendiente
+                    // Por defecto, el estado de pago es Pendiente pero guardamos "Pending"
                     PaymentStatus = "Pending"
                 };
 
@@ -599,7 +635,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 orderNumber = order.OrderNumber,
                 customerName = customers.FirstOrDefault(c => c.ID == model.CustomerID)?.Name ?? "Cliente General",
                 table = availableTables.FirstOrDefault(t => t.ID == model.TableID)?.TableNumber.ToString() ?? "",
-                orderType = model.OrderType,
+                orderType = GetOrderTypeDisplayName(model.OrderType),
                 items = model.OrderDetails.Select(d => new
                 {
                     name = d.ItemName,
@@ -608,7 +644,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     notes = d.Notes,
                     customizations = d.Customizations.Select(c => new
                     {
-                        type = c.CustomizationType,
+                        type = TranslateCustomizationType(c.CustomizationType),
                         name = c.IngredientName,
                         quantity = c.Quantity
                     }).ToList()
@@ -618,6 +654,18 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 
             // Imprimir sólo el ticket de cocina
             await JSRuntime.InvokeVoidAsync("printerService.printKitchenTicket", printData);
+        }
+
+        // Método para traducir el tipo de pedido para mostrar
+        private string GetOrderTypeDisplayName(string orderType)
+        {
+            return orderType switch
+            {
+                "DineIn" => "En sitio",
+                "TakeOut" => "Para llevar",
+                "Delivery" => "A domicilio",
+                _ => orderType
+            };
         }
 
         private string GetPaymentMethodName(string method)
@@ -698,5 +746,4 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             public string PaymentMethod { get; set; } = "Cash"; // Valor predeterminado en inglés
         }
     }
-
 }

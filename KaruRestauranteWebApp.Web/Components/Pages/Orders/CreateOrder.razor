@@ -24,7 +24,8 @@
                         <div style="width: 30%;">
                             <RadzenLabel Component="OrderType" Text="Tipo de Pedido" />
                             <RadzenDropDown @bind-Value=@model.OrderType Name="OrderType"
-                                            Data=@orderTypes Style="width: 100%;" class="mb-1"
+                                            Data=@orderTypesDisplay TextProperty="text" ValueProperty="value"
+                                            Style="width: 100%;" class="mb-1"
                                             Change=@OnOrderTypeChanged />
                             <RadzenRequiredValidator Component="OrderType" Text="El tipo de pedido es requerido" />
                         </div>
@@ -57,8 +58,8 @@
                         <div style="width: 200px;">
                             <RadzenLabel Component="PaymentMethod" Text="Forma de Pago" />
                             <RadzenDropDown @bind-Value=@model.PaymentMethod Name="PaymentMethod"
-                                            Data=@paymentMethods Style="width: 100%;" class="mb-1" />
-
+                                            Data=@paymentMethods TextProperty="name" ValueProperty="value"
+                                            Style="width: 100%;" class="mb-1" />
                         </div>
                     </RadzenStack>
                 </RadzenStack>
@@ -228,7 +229,7 @@
                                             {
                                                 <div class="customization-item">
                                                     <RadzenBadge BadgeStyle="@GetCustomizationBadgeStyle(customization.CustomizationType)"
-                                                                 Text="@customization.CustomizationType" />
+                                                                 Text="@TranslateCustomizationType(customization.CustomizationType)" />
                                                     <span>@customization.IngredientName x @customization.Quantity</span>
                                                     @if (customization.ExtraCharge > 0)
                                                     {
@@ -341,4 +342,4 @@
         margin-bottom: 4px;
         font-size: 13px;
     }
-</style>
+</style>    

@@ -307,12 +307,10 @@ public class ApiClient
         }
     }
 
-
-    public async Task<List<T>> GetListAsync<T>(string requestUri) where T : class
+    public async Task<List<T>> GetNestedListAsync<T>(string requestUri) where T : class
     {
         try
         {
-            // Obtener la respuesta HTTP directamente para poder examinar su contenido
             await SetAuthorizationHeader();
             var httpResponse = await _httpClient.GetAsync(requestUri);
 
@@ -325,9 +323,77 @@ public class ApiClient
                 }
             }
 
+            if (!httpResponse.IsSuccessStatusCode)
+            {
+                _toastService.ShowError($"Error en la solicitud: {httpResponse.StatusCode}");
+                return new List<T>();
+            }
+
             // Leer el contenido JSON sin procesar
             string rawJson = await httpResponse.Content.ReadAsStringAsync();
-            Console.WriteLine($"Raw JSON response: {rawJson}");
+            Console.WriteLine($"Raw JSON: {rawJson}");
+
+            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            try
+            {
+                // Deserializar a BaseResponseModel
+                var baseResponse = System.Text.Json.JsonSerializer.Deserialize<BaseResponseModel>(rawJson, options);
+
+                if (baseResponse != null && baseResponse.Success && baseResponse.Data != null)
+                {
+                    // Serializar el objeto data
+                    string dataJson = System.Text.Json.JsonSerializer.Serialize(baseResponse.Data);
+
+                    // Verificar si tiene la propiedad $values
+                    var jsonDocument = System.Text.Json.JsonDocument.Parse(dataJson);
+
+                    if (jsonDocument.RootElement.TryGetProperty("$values", out var valuesElement))
+                    {
+                        // Deserializar desde $values
+                        string valuesJson = valuesElement.GetRawText();
+                        return System.Text.Json.JsonSerializer.Deserialize<List<T>>(valuesJson, options) ?? new List<T>();
+                    }
+                    else
+                    {
+                        // Intentar deserializar directamente
+                        return System.Text.Json.JsonSerializer.Deserialize<List<T>>(dataJson, options) ?? new List<T>();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al deserializar: {ex.Message}");
+            }
+
+            return new List<T>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error general: {ex.Message}");
+            _toastService.ShowError($"Error: {ex.Message}");
+            return new List<T>();
+        }
+    }
+
+    public async Task<List<T>> GetTransactionsListAsync<T>(string requestUri) where T : class
+    {
+        try
+        {
+            await SetAuthorizationHeader();
+            var httpResponse = await _httpClient.GetAsync(requestUri);
+
+            if (httpResponse.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                await HandleUnauthorizedResponse();
+                if (_httpClient.DefaultRequestHeaders.Authorization != null)
+                {
+                    httpResponse = await _httpClient.GetAsync(requestUri);
+                }
+            }
+
+            string rawJson = await httpResponse.Content.ReadAsStringAsync();
+            Console.WriteLine($"JSON de transacciones: {rawJson}");
 
             if (!httpResponse.IsSuccessStatusCode)
             {
@@ -335,7 +401,6 @@ public class ApiClient
                 return new List<T>();
             }
 
-            // Primero intentamos deserializar a BaseResponseModel
             var options = new System.Text.Json.JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
@@ -346,65 +411,27 @@ public class ApiClient
                 var baseResponse = System.Text.Json.JsonSerializer.Deserialize<BaseResponseModel>(rawJson, options);
                 if (baseResponse != null && baseResponse.Success && baseResponse.Data != null)
                 {
-                    // Convertir Data a JSON y luego a List<T>
-                    string dataJson = System.Text.Json.JsonSerializer.Serialize(baseResponse.Data);
-                    Console.WriteLine($"Data JSON: {dataJson}");
+                    var dataJson = System.Text.Json.JsonSerializer.Serialize(baseResponse.Data);
+                    Console.WriteLine($"Data de transacciones: {dataJson}");
 
-                    try
-                    {
-                        var list = System.Text.Json.JsonSerializer.Deserialize<List<T>>(dataJson, options);
-                        return list ?? new List<T>();
-                    }
-                    catch (Exception dataEx)
-                    {
-                        Console.WriteLine($"Error deserializing Data to List<{typeof(T).Name}>: {dataEx.Message}");
-
-                        // Intento alternativo: Podría ser un objeto individual, no una lista
-                        try
-                        {
-                            // Si es un objeto único, lo envolvemos en una lista
-                            var singleItem = System.Text.Json.JsonSerializer.Deserialize<T>(dataJson, options);
-                            if (singleItem != null)
-                            {
-                                return new List<T> { singleItem };
-                            }
-                        }
-                        catch
-                        {
-                            // Ignoramos este error y continuamos
-                        }
-                    }
+                    return System.Text.Json.JsonSerializer.Deserialize<List<T>>(dataJson, options) ?? new List<T>();
                 }
-
-                // Si llegamos aquí, algo falló en la deserialización
-                _toastService.ShowError("No se pudieron procesar los datos recibidos");
-                return new List<T>();
             }
-            catch (Exception baseEx)
+            catch (Exception ex)
             {
-                Console.WriteLine($"Error deserializing to BaseResponseModel: {baseEx.Message}");
-
-                // Intentar deserializar directamente a List<T>
-                try
-                {
-                    var list = System.Text.Json.JsonSerializer.Deserialize<List<T>>(rawJson, options);
-                    return list ?? new List<T>();
-                }
-                catch (Exception listEx)
-                {
-                    Console.WriteLine($"Error deserializing directly to List<{typeof(T).Name}>: {listEx.Message}");
-                    _toastService.ShowError($"Error al procesar los datos: {listEx.Message}");
-                    return new List<T>();
-                }
+                Console.WriteLine($"Error deserializando transacciones: {ex.Message}");
             }
+
+            return new List<T>();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"General error in GetListAsync: {ex.Message}");
+            Console.WriteLine($"Error general en GetTransactionsListAsync: {ex.Message}");
             _toastService.ShowError($"Error: {ex.Message}");
             return new List<T>();
         }
     }
+
     private async Task HandleErrorResponse(HttpResponseMessage response)
     {
         var error = await response.Content.ReadAsStringAsync();
