@@ -184,6 +184,9 @@
     [Parameter]
     public IEnumerable<IngredientModel> AllIngredients { get; set; } = new List<IngredientModel>();
 
+    [Parameter]
+    public Dictionary<string, string> CustomizationTypeMap { get; set; } = new();
+
     // Lista de trabajo, para garantizar que modificamos una copia local
     private List<OrderItemCustomizationDTO> workingCustomizations = new();
 
@@ -286,6 +289,11 @@
             // Forzar la actualización de la UI
             StateHasChanged();
         }
+    }
+
+    private string TranslateCustomizationType(string type)
+    {
+        return CustomizationTypeMap.TryGetValue(type, out var translation) ? translation : type;
     }
 
     private void SaveCustomizations()
