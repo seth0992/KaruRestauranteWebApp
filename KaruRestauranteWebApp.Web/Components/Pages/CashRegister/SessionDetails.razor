@@ -241,15 +241,18 @@
         try
         {
             var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/CashRegister/sessions/{SessionId}");
-            if (response != null && response.Success)
+            if (response != null && response.Success && response.Data != null)
             {
+                // Convertir la respuesta a JSON y luego al objeto CashRegisterSessionDTO
+                string jsonString = System.Text.Json.JsonSerializer.Serialize(response.Data);
                 session = System.Text.Json.JsonSerializer.Deserialize<CashRegisterSessionDTO>(
-                    response.Data.ToString() ?? "",
+                    jsonString,
                     new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             }
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"Error en LoadSession: {ex}");
             ToastService.ShowError($"Error al cargar la sesión: {ex.Message}");
         }
     }
@@ -259,17 +262,15 @@
         loadingTransactions = true;
         try
         {
-            var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/CashRegister/transactions/session/{SessionId}");
-            if (response != null && response.Success)
-            {
-                transactions = System.Text.Json.JsonSerializer.Deserialize<List<CashRegisterTransactionDTO>>(
-                    response.Data.ToString() ?? "",
-                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<CashRegisterTransactionDTO>();
-            }
+            // Utilizar GetNestedListAsync para obtener las transacciones
+            transactions = await ApiClient.GetNestedListAsync<CashRegisterTransactionDTO>($"api/CashRegister/transactions/session/{SessionId}");
+            Console.WriteLine($"Transacciones cargadas: {transactions.Count}");
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"Error en LoadTransactions: {ex}");
             ToastService.ShowError($"Error al cargar las transacciones: {ex.Message}");
+            transactions = new List<CashRegisterTransactionDTO>();
         }
         loadingTransactions = false;
     }

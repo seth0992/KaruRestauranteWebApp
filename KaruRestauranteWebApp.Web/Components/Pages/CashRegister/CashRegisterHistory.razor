@@ -13,11 +13,11 @@
             <RadzenText Text="Historial de Sesiones de Caja" TextStyle="TextStyle.H4" />
         </RadzenColumn>
         <RadzenColumn Size="4" class="rz-text-align-end">
-            <RadzenButton Click="@(() => NavigationManager.NavigateTo("/cash-register"))" Text="Volver a Caja" 
-                           Icon="arrow_back" ButtonStyle="ButtonStyle.Secondary" />
+            <RadzenButton Click="@(() => NavigationManager.NavigateTo("/cash-register"))" Text="Volver a Caja"
+                          Icon="arrow_back" ButtonStyle="ButtonStyle.Secondary" />
         </RadzenColumn>
     </RadzenRow>
-    
+
     <RadzenCard>
         @if (loading)
         {
@@ -25,13 +25,12 @@
         }
         else
         {
-            <RadzenDataGrid Data="@sessions" TItem="CashRegisterSessionDTO" AllowSorting="true" 
-                           AllowFiltering="true" AllowPaging="true" PageSize="10" 
-                           IsLoading="@loading" EmptyText="No hay sesiones registradas">
+            <RadzenDataGrid Data="@sessions" TItem="CashRegisterSessionDTO" AllowSorting="true"
+                            AllowFiltering="true" AllowPaging="true" PageSize="10"
+                            IsLoading="@loading" EmptyText="No hay sesiones registradas">
                 <Columns>
                     <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="OpeningDate" Title="Fecha Apertura" FormatString="{0:dd/MM/yyyy HH:mm}" />
-                    <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="ClosingDate" Title=" Fecha Cierre" FormatString="{0:dd/MM/yyyy HH:mm}"/>
-<RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="ClosingDate" Title="Fecha Cierre" FormatString="{0:dd/MM/yyyy HH:mm}">
+                    <RadzenDataGridColumn TItem="CashRegisterSessionDTO" Property="ClosingDate" Title="Fecha Cierre" FormatString="{0:dd/MM/yyyy HH:mm}">
                         <Template Context="data">
                             @(data.ClosingDate.HasValue ? data.ClosingDate.Value.ToString("dd/MM/yyyy HH:mm") : "Abierta")
                         </Template>
@@ -80,17 +79,17 @@
         loading = true;
         try
         {
-            var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/CashRegister/sessions");
-            if (response != null && response.Success)
-            {
-                sessions = System.Text.Json.JsonSerializer.Deserialize<List<CashRegisterSessionDTO>>(
-                    response.Data.ToString() ?? "",
-                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<CashRegisterSessionDTO>();
-            }
+            // Usar GetNestedListAsync para obtener la lista de sesiones de caja
+            sessions = await ApiClient.GetNestedListAsync<CashRegisterSessionDTO>("api/CashRegister/sessions");
+
+            // Registrar información para depuración
+            Console.WriteLine($"Sesiones cargadas: {sessions.Count}");
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"Error en LoadSessions: {ex}");
             ToastService.ShowError($"Error al cargar sesiones: {ex.Message}");
+            sessions = new List<CashRegisterSessionDTO>();
         }
         loading = false;
     }
