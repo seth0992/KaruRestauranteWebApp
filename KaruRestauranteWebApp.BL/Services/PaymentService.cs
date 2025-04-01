@@ -5,6 +5,7 @@ using KaruRestauranteWebApp.Models.Models.Orders;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
 
 namespace KaruRestauranteWebApp.BL.Services
 {
@@ -85,7 +86,7 @@ namespace KaruRestauranteWebApp.BL.Services
                 }
 
                 // Validar que el método sea válido
-                var validMethods = new[] { "Cash", "CreditCard", "DebitCard", "Transfer","SINPE", "Other" };
+                var validMethods = new[] { "Cash", "CreditCard", "DebitCard", "Transfer", "SINPE", "Other" };
                 if (!validMethods.Contains(paymentDto.PaymentMethod))
                 {
                     throw new ValidationException($"Método de pago no válido. Valores posibles: {string.Join(", ", validMethods)}");
@@ -127,27 +128,58 @@ namespace KaruRestauranteWebApp.BL.Services
                 {
                     try
                     {
-                        // No usar GetCashRegisterTransactionService aquí, mejor inyectar el servicio
                         // Si el servicio ICashRegisterTransactionService está disponible
                         if (_cashRegisterTransactionService != null)
                         {
                             // Obtener la orden para incluir en la descripción
-                            var order1 = await _orderRepository.GetByIdAsync(paymentDto.OrderID);
-                            string orderDescription = order1 != null ? $"Orden #{order1.OrderNumber}" : $"Orden #{paymentDto.OrderID}";
+                            string orderDescription = order != null ? $"Orden #{order.OrderNumber}" : $"Orden #{paymentDto.OrderID}";
+
+                            // Verificar si el pago se realizó en dólares a través de las notas
+                            string notes = paymentDto.Notes ?? "";
+                            bool isDollarPayment = notes.Contains("Pago en dólares");
+                            decimal amountCRC = paymentDto.Amount;
+                            decimal amountUSD = 0;
+                            decimal exchangeRate = 0;
+
+                            if (isDollarPayment)
+                            {
+                                // Intentar extraer el monto en dólares y el tipo de cambio de las notas
+                                var dollarAmountMatch = Regex.Match(notes, @"\$(\d+\.?\d*)");
+                                var exchangeRateMatch = Regex.Match(notes, @"TC: ₡(\d+\.?\d*)");
+
+                                if (dollarAmountMatch.Success && exchangeRateMatch.Success)
+                                {
+                                    // Si se encontraron los valores, extraerlos
+                                    if (decimal.TryParse(dollarAmountMatch.Groups[1].Value, out decimal originalUsdAmount) &&
+                                        decimal.TryParse(exchangeRateMatch.Groups[1].Value, out exchangeRate))
+                                    {
+                                        // El monto del pago ya está en colones (convertido), así que dejamos amountCRC como está
+                                        // y guardamos el monto original en dólares en amountUSD
+                                        amountUSD = originalUsdAmount;
+                                        _logger.LogInformation(
+                                            "Pago en dólares detectado: ${0} (TC: ₡{1}) = ₡{2}",
+                                            amountUSD, exchangeRate, amountCRC);
+                                    }
+                                }
+                            }
 
                             // Registrar ingreso en la caja
                             var transaction = new CashRegisterTransactionDTO
                             {
                                 TransactionType = "Income",
-                                Description = $"Pago en efectivo - {orderDescription}",
-                                AmountCRC = paymentDto.Amount, // Aquí asumimos que el pago es en colones
-                                AmountUSD = 0, // Si necesitas soportar pagos en dólares, modifica este valor
+                                Description = $"Pago en efectivo - {orderDescription}" +
+                                             (isDollarPayment ? $" (USD a TC: ₡{exchangeRate})" : ""),
+                                AmountCRC = amountCRC,
+                                AmountUSD = amountUSD,
                                 PaymentMethod = "Cash",
                                 ReferenceNumber = paymentDto.ReferenceNumber,
                                 RelatedOrderID = paymentDto.OrderID
                             };
 
                             await _cashRegisterTransactionService.CreateTransactionAsync(transaction, userId);
+                            _logger.LogInformation(
+                                "Transacción registrada en caja: CRC={0}, USD={1}, Desc={2}",
+                                transaction.AmountCRC, transaction.AmountUSD, transaction.Description);
                         }
                     }
                     catch (Exception cashEx)
@@ -165,7 +197,6 @@ namespace KaruRestauranteWebApp.BL.Services
                 throw;
             }
         }
-
 
         // Método auxiliar para obtener el servicio de caja chica
         private ICashRegisterTransactionService? GetCashRegisterTransactionService()

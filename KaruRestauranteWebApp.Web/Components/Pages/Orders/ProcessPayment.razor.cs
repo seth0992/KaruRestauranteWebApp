@@ -170,11 +170,11 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 var paymentResult = await DialogService.OpenAsync<PaymentProcessDialog>("Procesar Pago",
                     new Dictionary<string, object>
                     {
-                        { "TotalAmount", pendingAmount }
+                { "TotalAmount", pendingAmount }
                     },
                     new DialogOptions
                     {
-                        Width = "700px",
+                        Width = "900px",
                         Height = "auto",
                         CloseDialogOnOverlayClick = false
                     });
@@ -190,6 +190,12 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 // Registrar pago
                 var paymentDto = paymentInfo.PaymentInfo;
                 paymentDto.OrderID = order.ID;
+
+                // Asegurar que las notas contienen la información de la moneda
+                if (paymentInfo.Currency == "USD" && (string.IsNullOrEmpty(paymentDto.Notes) || !paymentDto.Notes.Contains("Pago en dólares")))
+                {
+                    paymentDto.Notes = $"Pago en dólares: ${paymentInfo.AmountReceivedOriginal:N2} (TC: ₡{paymentInfo.ExchangeRate:N2}). {paymentDto.Notes}";
+                }
 
                 var paymentResponse = await ApiClient.PostAsync<BaseResponseModel, PaymentDTO>(
                     $"api/Order/{order.ID}/payments", paymentDto);
@@ -217,7 +223,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     "Error", $"Error al procesar el pago: {ex.Message}", 4000);
             }
         }
-
         private async Task PrintReceipt()
         {
             if (order == null || order.PaymentStatus != "Paid")

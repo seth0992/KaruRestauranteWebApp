@@ -1,9 +1,9 @@
 ﻿@inject DialogService DialogService
 @using KaruRestauranteWebApp.Models.Models.Orders
 
-<RadzenCard Style="padding: 20px; max-width: 1200px;">
+<RadzenCard Style="padding: 10px; max-width: 1200px;">
     <RadzenStack Gap="1rem">
-        <RadzenText TextStyle="TextStyle.H5" Class="mb-4">Procesar Pago</RadzenText>
+        @* <RadzenText TextStyle="TextStyle.H5" Class="mb-4">Procesar Pago</RadzenText> *@
 
         <div class="row mb-4">
             <div class="col-md-6">
@@ -382,7 +382,7 @@
         decimal amountInCRC = Currency == "CRC" ? AmountReceived : Math.Round(AmountReceived * ExchangeRate, 2);
         decimal changeInCRC = Currency == "CRC" ? Change : Math.Round(Change * ExchangeRate, 2);
 
-        // Guardar los valores originales para impresión
+        // Guardar los valores originales para impresión y registro
         decimal amountOriginal = AmountReceived;
         decimal changeOriginal = Change;
 
@@ -392,8 +392,8 @@
                 Amount = TotalAmount, // Siempre en colones
                 ReferenceNumber = ReferenceNumber,
                 Notes = Currency == "USD"
-                           ? $"Pago en dólares: ${AmountReceived:N2} (TC: ₡{ExchangeRate:N2}). {Notes}"
-                           : Notes
+                        ? $"Pago en dólares: ${AmountReceived:N2} (TC: ₡{ExchangeRate:N2}). {Notes}"
+                        : Notes
             };
 
         var result = new PaymentResult
