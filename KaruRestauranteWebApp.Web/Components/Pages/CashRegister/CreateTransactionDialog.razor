@@ -93,12 +93,14 @@
     };
 
     private List<DropdownItem> paymentMethods = new()
-    {
-        new DropdownItem { Text = "Efectivo", Value = "Cash" },
-        new DropdownItem { Text = "Tarjeta", Value = "Card" },
-        new DropdownItem { Text = "Transferencia", Value = "Transfer" },
-        new DropdownItem { Text = "Otro", Value = "Other" }
-    };
+{
+    new DropdownItem { Text = "Efectivo", Value = "Cash" },
+    new DropdownItem { Text = "Tarjeta de Crédito", Value = "CreditCard" },
+    new DropdownItem { Text = "Tarjeta de Débito", Value = "DebitCard" },
+    new DropdownItem { Text = "Transferencia", Value = "Transfer" },
+    new DropdownItem { Text = "SINPE Móvil", Value = "SINPE" },
+    new DropdownItem { Text = "Otro", Value = "Other" }
+};
 
     protected override async Task OnInitializedAsync()
     {

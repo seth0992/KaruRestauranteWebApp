@@ -70,6 +70,133 @@ namespace KaruRestauranteWebApp.BL.Services
             }
         }
 
+        //public async Task<PaymentModel> RegisterPaymentAsync(PaymentDTO paymentDto, int userId)
+        //{
+        //    try
+        //    {
+        //        // Validar datos
+        //        if (paymentDto.Amount <= 0)
+        //        {
+        //            throw new ValidationException("El monto debe ser mayor a 0");
+        //        }
+
+        //        if (string.IsNullOrWhiteSpace(paymentDto.PaymentMethod))
+        //        {
+        //            throw new ValidationException("El método de pago es requerido");
+        //        }
+
+        //        // Validar que el método sea válido
+        //        var validMethods = new[] { "Cash", "CreditCard", "DebitCard", "Transfer", "SINPE", "Other" };
+        //        if (!validMethods.Contains(paymentDto.PaymentMethod))
+        //        {
+        //            throw new ValidationException($"Método de pago no válido. Valores posibles: {string.Join(", ", validMethods)}");
+        //        }
+
+        //        // Verificar que la orden exista
+        //        var order = await _orderRepository.GetByIdAsync(paymentDto.OrderID);
+        //        if (order == null)
+        //        {
+        //            throw new ValidationException($"No se encontró la orden con ID: {paymentDto.OrderID}");
+        //        }
+
+        //        // No permitir pagos para órdenes canceladas
+        //        if (order.OrderStatus == "Cancelled")
+        //        {
+        //            throw new ValidationException("No se pueden registrar pagos para órdenes canceladas");
+        //        }
+
+        //        // Crear el modelo de pago
+        //        var payment = new PaymentModel
+        //        {
+        //            OrderID = paymentDto.OrderID,
+        //            PaymentMethod = paymentDto.PaymentMethod,
+        //            Amount = paymentDto.Amount,
+        //            ReferenceNumber = paymentDto.ReferenceNumber,
+        //            PaymentDate = DateTime.UtcNow,
+        //            ProcessedBy = userId,
+        //            Notes = paymentDto.Notes
+        //        };
+
+        //        // Guardar el pago
+        //        await _paymentRepository.CreateAsync(payment);
+
+        //        // Actualizar el estado de pago de la orden
+        //        await UpdateOrderPaymentStatusAsync(paymentDto.OrderID);
+
+        //        // Registrar el pago en la caja chica si el método es efectivo
+        //        if (paymentDto.PaymentMethod == "Cash")
+        //        {
+        //            try
+        //            {
+        //                // Si el servicio ICashRegisterTransactionService está disponible
+        //                if (_cashRegisterTransactionService != null)
+        //                {
+        //                    // Obtener la orden para incluir en la descripción
+        //                    string orderDescription = order != null ? $"Orden #{order.OrderNumber}" : $"Orden #{paymentDto.OrderID}";
+
+        //                    // Verificar si el pago se realizó en dólares a través de las notas
+        //                    string notes = paymentDto.Notes ?? "";
+        //                    bool isDollarPayment = notes.Contains("Pago en dólares");
+        //                    decimal amountCRC = paymentDto.Amount;
+        //                    decimal amountUSD = 0;
+        //                    decimal exchangeRate = 0;
+
+        //                    if (isDollarPayment)
+        //                    {
+        //                        // Intentar extraer el monto en dólares y el tipo de cambio de las notas
+        //                        var dollarAmountMatch = Regex.Match(notes, @"\$(\d+\.?\d*)");
+        //                        var exchangeRateMatch = Regex.Match(notes, @"TC: ₡(\d+\.?\d*)");
+
+        //                        if (dollarAmountMatch.Success && exchangeRateMatch.Success)
+        //                        {
+        //                            // Si se encontraron los valores, extraerlos
+        //                            if (decimal.TryParse(dollarAmountMatch.Groups[1].Value, out decimal originalUsdAmount) &&
+        //                                decimal.TryParse(exchangeRateMatch.Groups[1].Value, out exchangeRate))
+        //                            {
+        //                                // El monto del pago ya está en colones (convertido), así que dejamos amountCRC como está
+        //                                // y guardamos el monto original en dólares en amountUSD
+        //                                amountUSD = originalUsdAmount;
+        //                                _logger.LogInformation(
+        //                                    "Pago en dólares detectado: ${0} (TC: ₡{1}) = ₡{2}",
+        //                                    amountUSD, exchangeRate, amountCRC);
+        //                            }
+        //                        }
+        //                    }
+
+        //                    // Registrar ingreso en la caja
+        //                    var transaction = new CashRegisterTransactionDTO
+        //                    {
+        //                        TransactionType = "Income",
+        //                        Description = $"Pago en efectivo - {orderDescription}" +
+        //                                     (isDollarPayment ? $" (USD a TC: ₡{exchangeRate})" : ""),
+        //                        AmountCRC = amountCRC,
+        //                        AmountUSD = amountUSD,
+        //                        PaymentMethod = "Cash",
+        //                        ReferenceNumber = paymentDto.ReferenceNumber,
+        //                        RelatedOrderID = paymentDto.OrderID
+        //                    };
+
+        //                    await _cashRegisterTransactionService.CreateTransactionAsync(transaction, userId);
+        //                    _logger.LogInformation(
+        //                        "Transacción registrada en caja: CRC={0}, USD={1}, Desc={2}",
+        //                        transaction.AmountCRC, transaction.AmountUSD, transaction.Description);
+        //                }
+        //            }
+        //            catch (Exception cashEx)
+        //            {
+        //                _logger.LogWarning(cashEx, "No se pudo registrar el pago en caja chica para la orden {OrderId}", paymentDto.OrderID);
+        //                // Continuamos con el flujo normal aunque falle el registro en caja chica
+        //            }
+        //        }
+
+        //        return payment;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error al registrar pago para la orden: {OrderId}", paymentDto.OrderID);
+        //        throw;
+        //    }
+        //}
         public async Task<PaymentModel> RegisterPaymentAsync(PaymentDTO paymentDto, int userId)
         {
             try
@@ -123,70 +250,62 @@ namespace KaruRestauranteWebApp.BL.Services
                 // Actualizar el estado de pago de la orden
                 await UpdateOrderPaymentStatusAsync(paymentDto.OrderID);
 
-                // Registrar el pago en la caja chica si el método es efectivo
-                if (paymentDto.PaymentMethod == "Cash")
+                // Registrar el pago en la caja chica para TODOS los métodos de pago
+                try
                 {
-                    try
+                    // Si el servicio ICashRegisterTransactionService está disponible
+                    if (_cashRegisterTransactionService != null)
                     {
-                        // Si el servicio ICashRegisterTransactionService está disponible
-                        if (_cashRegisterTransactionService != null)
+                        // Obtener la orden para incluir en la descripción
+                        var orderData = await _orderRepository.GetByIdAsync(paymentDto.OrderID);
+                        string orderDescription = orderData != null ? $"Orden #{orderData.OrderNumber}" : $"Orden #{paymentDto.OrderID}";
+
+                        // Crear descripción específica según método de pago
+                        string paymentDescription;
+                        if (paymentDto.PaymentMethod == "Cash")
                         {
-                            // Obtener la orden para incluir en la descripción
-                            string orderDescription = order != null ? $"Orden #{order.OrderNumber}" : $"Orden #{paymentDto.OrderID}";
-
-                            // Verificar si el pago se realizó en dólares a través de las notas
-                            string notes = paymentDto.Notes ?? "";
-                            bool isDollarPayment = notes.Contains("Pago en dólares");
-                            decimal amountCRC = paymentDto.Amount;
-                            decimal amountUSD = 0;
-                            decimal exchangeRate = 0;
-
-                            if (isDollarPayment)
-                            {
-                                // Intentar extraer el monto en dólares y el tipo de cambio de las notas
-                                var dollarAmountMatch = Regex.Match(notes, @"\$(\d+\.?\d*)");
-                                var exchangeRateMatch = Regex.Match(notes, @"TC: ₡(\d+\.?\d*)");
-
-                                if (dollarAmountMatch.Success && exchangeRateMatch.Success)
-                                {
-                                    // Si se encontraron los valores, extraerlos
-                                    if (decimal.TryParse(dollarAmountMatch.Groups[1].Value, out decimal originalUsdAmount) &&
-                                        decimal.TryParse(exchangeRateMatch.Groups[1].Value, out exchangeRate))
-                                    {
-                                        // El monto del pago ya está en colones (convertido), así que dejamos amountCRC como está
-                                        // y guardamos el monto original en dólares en amountUSD
-                                        amountUSD = originalUsdAmount;
-                                        _logger.LogInformation(
-                                            "Pago en dólares detectado: ${0} (TC: ₡{1}) = ₡{2}",
-                                            amountUSD, exchangeRate, amountCRC);
-                                    }
-                                }
-                            }
-
-                            // Registrar ingreso en la caja
-                            var transaction = new CashRegisterTransactionDTO
-                            {
-                                TransactionType = "Income",
-                                Description = $"Pago en efectivo - {orderDescription}" +
-                                             (isDollarPayment ? $" (USD a TC: ₡{exchangeRate})" : ""),
-                                AmountCRC = amountCRC,
-                                AmountUSD = amountUSD,
-                                PaymentMethod = "Cash",
-                                ReferenceNumber = paymentDto.ReferenceNumber,
-                                RelatedOrderID = paymentDto.OrderID
-                            };
-
-                            await _cashRegisterTransactionService.CreateTransactionAsync(transaction, userId);
-                            _logger.LogInformation(
-                                "Transacción registrada en caja: CRC={0}, USD={1}, Desc={2}",
-                                transaction.AmountCRC, transaction.AmountUSD, transaction.Description);
+                            paymentDescription = $"Pago en efectivo - {orderDescription}";
                         }
+                        else if (paymentDto.PaymentMethod == "CreditCard")
+                        {
+                            paymentDescription = $"Pago con tarjeta de crédito - {orderDescription}";
+                        }
+                        else if (paymentDto.PaymentMethod == "DebitCard")
+                        {
+                            paymentDescription = $"Pago con tarjeta de débito - {orderDescription}";
+                        }
+                        else if (paymentDto.PaymentMethod == "Transfer")
+                        {
+                            paymentDescription = $"Pago por transferencia - {orderDescription}";
+                        }
+                        else if (paymentDto.PaymentMethod == "SINPE")
+                        {
+                            paymentDescription = $"Pago por SINPE - {orderDescription}";
+                        }
+                        else
+                        {
+                            paymentDescription = $"Pago con método {paymentDto.PaymentMethod} - {orderDescription}";
+                        }
+
+                        // Registrar ingreso en la caja
+                        var transaction = new CashRegisterTransactionDTO
+                        {
+                            TransactionType = "Income",
+                            Description = paymentDescription,
+                            AmountCRC = paymentDto.Amount, // Aquí asumimos que el pago es en colones
+                            AmountUSD = 0, // Si necesitas soportar pagos en dólares, modifica este valor
+                            PaymentMethod = paymentDto.PaymentMethod,
+                            ReferenceNumber = paymentDto.ReferenceNumber,
+                            RelatedOrderID = paymentDto.OrderID
+                        };
+
+                        await _cashRegisterTransactionService.CreateTransactionAsync(transaction, userId);
                     }
-                    catch (Exception cashEx)
-                    {
-                        _logger.LogWarning(cashEx, "No se pudo registrar el pago en caja chica para la orden {OrderId}", paymentDto.OrderID);
-                        // Continuamos con el flujo normal aunque falle el registro en caja chica
-                    }
+                }
+                catch (Exception cashEx)
+                {
+                    _logger.LogWarning(cashEx, "No se pudo registrar el pago en caja chica para la orden {OrderId}", paymentDto.OrderID);
+                    // Continuamos con el flujo normal aunque falle el registro en caja chica
                 }
 
                 return payment;
@@ -197,7 +316,6 @@ namespace KaruRestauranteWebApp.BL.Services
                 throw;
             }
         }
-
         // Método auxiliar para obtener el servicio de caja chica
         private ICashRegisterTransactionService? GetCashRegisterTransactionService()
         {

@@ -13,7 +13,7 @@
 <RadzenStack>
     <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start" Gap="0.5rem">
         <RadzenColumn Size="8">
-            <RadzenText Text="Control de Caja Chica" TextStyle="TextStyle.H4" />
+            <RadzenText Text="Control de Caja" TextStyle="TextStyle.H4" />
         </RadzenColumn>
         <RadzenColumn Size="4" class="rz-text-align-end">
             @if (currentSession == null)
@@ -23,12 +23,12 @@
             else
             {
                 <RadzenButton Click="@CloseCashRegisterModal" Text="Cerrar Caja" Icon="close" ButtonStyle="ButtonStyle.Danger" />
-                <RadzenButton Click="@OpenTransactionModal" Text="Registrar Movimiento" Icon="monetization_on" ButtonStyle="ButtonStyle.Primary" 
-                    class="rz-ml-2" />
+                <RadzenButton Click="@OpenTransactionModal" Text="Registrar Movimiento" Icon="monetization_on" ButtonStyle="ButtonStyle.Primary"
+                              class="rz-ml-2" />
             }
         </RadzenColumn>
     </RadzenRow>
-    
+
     <RadzenCard>
         @if (loading)
         {
@@ -45,7 +45,7 @@
             <RadzenStack Gap="1rem">
                 <RadzenRow>
                     <RadzenColumn Size="12" SizeMD="4">
-                        <RadzenCard class="rz-p-4 rz-shadow-2">
+                        <RadzenCard class="rz-p-4 rz-shadow-2 rz-border-radius-4" Style="background: linear-gradient(to right, #f7fbfc, #e2f2f9);">
                             <RadzenStack>
                                 <RadzenText TextStyle="TextStyle.H6">Balance en Colones</RadzenText>
                                 <RadzenText TextStyle="TextStyle.DisplayH6" class="rz-color-success">
@@ -67,7 +67,7 @@
                         </RadzenCard>
                     </RadzenColumn>
                     <RadzenColumn Size="12" SizeMD="4">
-                        <RadzenCard class="rz-p-4 rz-shadow-2">
+                        <RadzenCard class="rz-p-4 rz-shadow-2 rz-border-radius-4" Style="background: linear-gradient(to right, #f7fffc, #e2f9f0);">
                             <RadzenStack>
                                 <RadzenText TextStyle="TextStyle.H6">Balance en Dólares</RadzenText>
                                 <RadzenText TextStyle="TextStyle.DisplayH6" class="rz-color-success">
@@ -89,7 +89,7 @@
                         </RadzenCard>
                     </RadzenColumn>
                     <RadzenColumn Size="12" SizeMD="4">
-                        <RadzenCard class="rz-p-4 rz-shadow-2">
+                        <RadzenCard class="rz-p-4 rz-shadow-2 rz-border-radius-4" Style="background: linear-gradient(to right, #f9f7fc, #eee2f9);">
                             <RadzenStack>
                                 <RadzenText TextStyle="TextStyle.H6">Información de Sesión</RadzenText>
                                 <RadzenText TextStyle="TextStyle.Body1">
@@ -98,58 +98,201 @@
                                 <RadzenText TextStyle="TextStyle.Body1">
                                     <strong>Apertura:</strong> @currentSession.OpeningDate.ToString("dd/MM/yyyy HH:mm")
                                 </RadzenText>
-                                <RadzenButton Click="@RefreshDashboard" Text="Actualizar" ButtonStyle="ButtonStyle.Light" 
-                                    Icon="refresh" Size="ButtonSize.Medium" class="rz-mt-2" />
+                                <RadzenButton Click="@RefreshDashboard" Text="Actualizar" ButtonStyle="ButtonStyle.Light"
+                                              Icon="refresh" Size="ButtonSize.Medium" class="rz-mt-2" />
                             </RadzenStack>
                         </RadzenCard>
                     </RadzenColumn>
                 </RadzenRow>
-                
-                <RadzenText TextStyle="TextStyle.H5" class="rz-mt-4">Movimientos de la sesión actual</RadzenText>
-                
-                <RadzenDataGrid Data="@transactions" TItem="CashRegisterTransactionDTO" AllowSorting="true" 
-                               AllowFiltering="true" AllowPaging="true" PageSize="10" 
-                               IsLoading="@loadingTransactions" EmptyText="No hay movimientos registrados">
-                    <Columns>
-                        <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="TransactionDate" Title="Fecha" FormatString="{0:dd/MM/yyyy HH:mm}" />
-                        <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="TransactionType" Title="Tipo">
-                            <Template Context="data">
-                                @if (data.TransactionType == "Income")
-                                {
-                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Ingreso" />
-                                }
-                                else
-                                {
-                                    <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Gasto" />
-                                }
-                            </Template>
-                        </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="Description" Title="Descripción" />
-                        <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountCRC" Title="Colones" FormatString="₡ {0:N2}" />
-                        <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountUSD" Title="Dólares" FormatString="$ {0:N2}" />
-                        <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="PaymentMethod" Title="Método de Pago" />
-                        <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="UserName" Title="Usuario" />
-                        <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Width="80px" Sortable="false" Filterable="false">
-                            <Template Context="data">
-                                <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Size="ButtonSize.Small"
-                                              Click="@(() => DeleteTransaction(data.ID))" />
-                            </Template>
-                        </RadzenDataGridColumn>
-                    </Columns>
-                </RadzenDataGrid>
+
+                <RadzenRow class="rz-mt-4">
+                    <RadzenColumn Size="12">
+                        <RadzenCard class="rz-p-4 rz-shadow-2">
+                            <RadzenText TextStyle="TextStyle.H6" class="rz-mb-3">Resumen por Método de Pago</RadzenText>
+                            <RadzenDataGrid Data="@paymentMethodSummary" TItem="PaymentMethodSummary"
+                                            AllowSorting="true" Style="height: auto" class="rz-shadow-1">
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="PaymentMethodSummary" Property="PaymentMethod" Title="Método de Pago"
+                                                          Width="180px">
+                                        <Template Context="data">
+                                            <RadzenBadge BadgeStyle="GetPaymentMethodBadgeStyle(data.PaymentMethod)" 
+                                                         Text="@GetPaymentMethodDisplayName(data.PaymentMethod)" />
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="PaymentMethodSummary" Property="IncomeCountCRC" Title="Cant. Ingresos CRC"
+                                                          Width="120px" TextAlign="TextAlign.Center" />
+                                    <RadzenDataGridColumn TItem="PaymentMethodSummary" Property="IncomeCRC" Title="Total Ingresos CRC"
+                                                          FormatString="₡ {0:N2}" Width="140px" TextAlign="TextAlign.Right" />
+                                    <RadzenDataGridColumn TItem="PaymentMethodSummary" Property="ExpenseCountCRC" Title="Cant. Gastos CRC"
+                                                          Width="120px" TextAlign="TextAlign.Center" />
+                                    <RadzenDataGridColumn TItem="PaymentMethodSummary" Property="ExpenseCRC" Title="Total Gastos CRC"
+                                                          FormatString="₡ {0:N2}" Width="140px" TextAlign="TextAlign.Right" />
+                                    <RadzenDataGridColumn TItem="PaymentMethodSummary" Property="BalanceCRC" Title="Balance CRC"
+                                                          FormatString="₡ {0:N2}" Width="140px" TextAlign="TextAlign.Right">
+                                        <Template Context="data">
+                                            <RadzenText class="@GetBalanceColorClass(data.BalanceCRC)" Style="font-weight: bold;">
+                                                ₡ @FormatAmount(data.BalanceCRC)
+                                            </RadzenText>
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="PaymentMethodSummary" Property="IncomeCountUSD" Title="Cant. Ingresos USD"
+                                                          Width="120px" TextAlign="TextAlign.Center" />
+                                    <RadzenDataGridColumn TItem="PaymentMethodSummary" Property="IncomeUSD" Title="Total Ingresos USD"
+                                                          FormatString="$ {0:N2}" Width="140px" TextAlign="TextAlign.Right" />
+                                    <RadzenDataGridColumn TItem="PaymentMethodSummary" Property="ExpenseCountUSD" Title="Cant. Gastos USD"
+                                                          Width="120px" TextAlign="TextAlign.Center" />
+                                    <RadzenDataGridColumn TItem="PaymentMethodSummary" Property="ExpenseUSD" Title="Total Gastos USD"
+                                                          FormatString="$ {0:N2}" Width="140px" TextAlign="TextAlign.Right" />
+                                    <RadzenDataGridColumn TItem="PaymentMethodSummary" Property="BalanceUSD" Title="Balance USD"
+                                                          FormatString="$ {0:N2}" Width="140px" TextAlign="TextAlign.Right">
+                                        <Template Context="data">
+                                            <RadzenText class="@GetBalanceColorClass(data.BalanceUSD)" Style="font-weight: bold;">
+                                                $ @FormatAmount(data.BalanceUSD)
+                                            </RadzenText>
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                </Columns>
+                            </RadzenDataGrid>
+                        </RadzenCard>
+                    </RadzenColumn>
+                </RadzenRow>
+
+                <RadzenRow class="rz-mt-4">
+                    <RadzenColumn Size="12">
+                        <RadzenTabs Class="rz-shadow-1">
+                            <Tabs>
+                                <RadzenTabsItem Text="Todos los Movimientos">
+                                    <RadzenDataGrid Data="@transactions" TItem="CashRegisterTransactionDTO" AllowSorting="true"
+                                                    AllowFiltering="true" AllowPaging="true" PageSize="10"
+                                                    IsLoading="@loadingTransactions" EmptyText="No hay movimientos registrados"
+                                                    class="rz-mt-2">
+                                        <Columns>
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="TransactionDate" Title="Fecha" FormatString="{0:dd/MM/yyyy HH:mm}" Width="150px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="TransactionType" Title="Tipo" Width="100px">
+                                                <Template Context="data">
+                                                    @if (data.TransactionType == "Income")
+                                                    {
+                                                        <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Ingreso" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Gasto" />
+                                                    }
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="PaymentMethod" Title="Método de Pago" Width="140px">
+                                                <Template Context="data">
+                                                    <RadzenBadge BadgeStyle="GetPaymentMethodBadgeStyle(data.PaymentMethod)" Text="@GetPaymentMethodDisplayName(data.PaymentMethod)" />
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="Description" Title="Descripción" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountCRC" Title="Colones" FormatString="₡ {0:N2}" TextAlign="TextAlign.Right" Width="120px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountUSD" Title="Dólares" FormatString="$ {0:N2}" TextAlign="TextAlign.Right" Width="120px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="ReferenceNumber" Title="Referencia" Width="120px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="UserName" Title="Usuario" Width="120px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="RelatedOrderNumber" Title="Orden" Width="120px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Width="70px" Sortable="false" Filterable="false">
+                                                <Template Context="data">
+                                                    <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Size="ButtonSize.Small"
+                                                                  Click="@(() => DeleteTransaction(data.ID))" />
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </RadzenTabsItem>
+                                <RadzenTabsItem Text="Ingresos">
+                                    <RadzenDataGrid Data="@transactions.Where(t => t.TransactionType == "Income")" TItem="CashRegisterTransactionDTO"
+                                                    AllowSorting="true" AllowFiltering="true" AllowPaging="true" PageSize="10"
+                                                    EmptyText="No hay ingresos registrados" class="rz-mt-2">
+                                        <Columns>
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="TransactionDate" Title="Fecha" FormatString="{0:dd/MM/yyyy HH:mm}" Width="150px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="PaymentMethod" Title="Método de Pago" Width="140px">
+                                                <Template Context="data">
+                                                    <RadzenBadge BadgeStyle="GetPaymentMethodBadgeStyle(data.PaymentMethod)" Text="@GetPaymentMethodDisplayName(data.PaymentMethod)" />
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="Description" Title="Descripción" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountCRC" Title="Colones" FormatString="₡ {0:N2}" TextAlign="TextAlign.Right" Width="120px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountUSD" Title="Dólares" FormatString="$ {0:N2}" TextAlign="TextAlign.Right" Width="120px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="ReferenceNumber" Title="Referencia" Width="120px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="RelatedOrderNumber" Title="Orden" Width="120px" />
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </RadzenTabsItem>
+                                <RadzenTabsItem Text="Gastos">
+                                    <RadzenDataGrid Data="@transactions.Where(t => t.TransactionType == "Expense")" TItem="CashRegisterTransactionDTO"
+                                                    AllowSorting="true" AllowFiltering="true" AllowPaging="true" PageSize="10"
+                                                    EmptyText="No hay gastos registrados" class="rz-mt-2">
+                                        <Columns>
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="TransactionDate" Title="Fecha" FormatString="{0:dd/MM/yyyy HH:mm}" Width="150px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="PaymentMethod" Title="Método de Pago" Width="140px">
+                                                <Template Context="data">
+                                                    <RadzenBadge BadgeStyle="GetPaymentMethodBadgeStyle(data.PaymentMethod)" Text="@GetPaymentMethodDisplayName(data.PaymentMethod)" />
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="Description" Title="Descripción" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountCRC" Title="Colones" FormatString="₡ {0:N2}" TextAlign="TextAlign.Right" Width="120px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountUSD" Title="Dólares" FormatString="$ {0:N2}" TextAlign="TextAlign.Right" Width="120px" />
+                                            <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="ReferenceNumber" Title="Referencia" Width="120px" />
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </RadzenTabsItem>
+                                <RadzenTabsItem Text="Gráficos">
+                                    <RadzenRow class="rz-mt-4">
+                                        <RadzenColumn Size="12" SizeMD="6">
+                                            <RadzenText TextStyle="TextStyle.H6">Ingresos y Gastos en Colones (₡)</RadzenText>
+                                            <RadzenChart>
+                                                <RadzenColumnSeries Data="@paymentMethodSummary" CategoryProperty="PaymentMethod"
+                                                                    Title="Ingresos" ValueProperty="IncomeCRC" Fill="var(--rz-success)" />
+                                                <RadzenColumnSeries Data="@paymentMethodSummary" CategoryProperty="PaymentMethod"
+                                                                    Title="Gastos" ValueProperty="ExpenseCRC" Fill="var(--rz-danger)" />
+                                                <RadzenColumnOptions Radius="5" />
+                                                <RadzenValueAxis FormatString="₡ {0:N0}" />
+                                                <RadzenLegend Position="LegendPosition.Bottom" />
+                                            </RadzenChart>
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="12" SizeMD="6">
+                                            <RadzenText TextStyle="TextStyle.H6">Ingresos y Gastos en Dólares ($)</RadzenText>
+                                            <RadzenChart>
+                                                <RadzenColumnSeries Data="@paymentMethodSummary" CategoryProperty="PaymentMethod"
+                                                                    Title="Ingresos" ValueProperty="IncomeUSD" Fill="var(--rz-success)" />
+                                                <RadzenColumnSeries Data="@paymentMethodSummary" CategoryProperty="PaymentMethod"
+                                                                    Title="Gastos" ValueProperty="ExpenseUSD" Fill="var(--rz-danger)" />
+                                                <RadzenColumnOptions Radius="5" />
+                                                <RadzenValueAxis FormatString="$ {0:N0}" />
+                                                <RadzenLegend Position="LegendPosition.Bottom" />
+                                            </RadzenChart>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow class="rz-mt-4">
+                                        <RadzenColumn Size="12">
+                                            <RadzenText TextStyle="TextStyle.H6">Distribución de Métodos de Pago</RadzenText>
+                                            <RadzenChart>
+                                                <RadzenPieSeries Data="@paymentMethodSummary.Where(p => p.PaymentMethod != "TOTAL")" 
+                                                                 CategoryProperty="PaymentMethod" 
+                                                                 ValueProperty="IncomeCRC" 
+                                                                 Title="Distribución" 
+                                                                 FormatString="{0:N0} (₡)" />
+                                                <RadzenLegend Position="LegendPosition.Right" />
+                                            </RadzenChart>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenTabsItem>
+                            </Tabs>
+                        </RadzenTabs>
+                    </RadzenColumn>
+                </RadzenRow>
             </RadzenStack>
         }
     </RadzenCard>
 </RadzenStack>
-
-@* <!-- Modal para Abrir Caja -->
-<RadzenDialog /> *@
 
 @code {
     private bool loading = true;
     private bool loadingTransactions = true;
     private CashRegisterSessionDTO? currentSession;
     private List<CashRegisterTransactionDTO> transactions = new();
+    private List<PaymentMethodSummary> paymentMethodSummary = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -177,6 +320,7 @@
                 if (currentSession != null)
                 {
                     await LoadTransactions(currentSession.ID);
+                    GeneratePaymentMethodSummary();
                 }
             }
         }
@@ -185,22 +329,190 @@
             ToastService.ShowError($"Error al cargar la sesión actual: {ex.Message}");
         }
     }
+
     private async Task LoadTransactions(int sessionId)
     {
         loadingTransactions = true;
         try
         {
-            transactions = await ApiClient.GetNestedListAsync<CashRegisterTransactionDTO>($"api/CashRegister/transactions/session/{sessionId}");
-            Console.WriteLine($"Transacciones cargadas: {transactions.Count}");
+            var requestUri = $"api/CashRegister/transactions/session/{sessionId}";
+            var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>(requestUri);
+
+            if (response?.Success == true && response.Data != null)
+            {
+                // Usa el método específico para transacciones que ya tienes implementado
+                // Este método maneja mejor la estructura anidada específica
+                transactions = await ApiClient.GetTransactionsListAsync<CashRegisterTransactionDTO>(requestUri);
+
+                if (transactions.Count == 0)
+                {
+                    // Si falló, intenta una deserialización alternativa
+                    try
+                    {
+                        var jsonString = System.Text.Json.JsonSerializer.Serialize(response.Data);
+                        var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        transactions = System.Text.Json.JsonSerializer.Deserialize<List<CashRegisterTransactionDTO>>(jsonString, options) ?? new();
+                    }
+                    catch
+                    {
+                        // Si aún falla, inicializar como vacía
+                        transactions = new List<CashRegisterTransactionDTO>();
+                    }
+                }
+            }
+            else
+            {
+                transactions = new List<CashRegisterTransactionDTO>();
+            }
+
+            // Generar el resumen de métodos de pago
+            GeneratePaymentMethodSummary();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error en LoadTransactions: {ex}");
             ToastService.ShowError($"Error al cargar transacciones: {ex.Message}");
             transactions = new List<CashRegisterTransactionDTO>();
+
+            // Generar un resumen vacío
+            paymentMethodSummary = new List<PaymentMethodSummary>
+        {
+            new PaymentMethodSummary { PaymentMethod = "TOTAL" }
+        };
         }
-        loadingTransactions = false;
+        finally
+        {
+            loadingTransactions = false;
+        }
     }
+
+    private void GeneratePaymentMethodSummary()
+    {
+        // Obtener todos los métodos de pago únicos
+        var allPaymentMethods = new List<string>
+    {
+        "Cash",
+        "CreditCard",
+        "DebitCard",
+        "Transfer",
+        "SINPE",
+        "Other"
+    };
+
+        // Agregar métodos de pago que están en las transacciones pero no en la lista predefinida
+        var transactionPaymentMethods = transactions
+            .Select(t => t.PaymentMethod)
+            .Where(p => !string.IsNullOrEmpty(p))  // Filtrar valores nulos o vacíos
+            .Distinct()
+            .Except(allPaymentMethods, StringComparer.OrdinalIgnoreCase)  // Ignorar mayúsculas/minúsculas
+            .OrderBy(p => p);
+
+        allPaymentMethods.AddRange(transactionPaymentMethods);
+
+        paymentMethodSummary = new List<PaymentMethodSummary>();
+
+        // Agregar un resumen total primero
+        paymentMethodSummary.Add(new PaymentMethodSummary
+            {
+                PaymentMethod = "TOTAL",
+                IncomeCRC = transactions.Where(t => t.TransactionType == "Income").Sum(t => t.AmountCRC),
+                ExpenseCRC = transactions.Where(t => t.TransactionType == "Expense").Sum(t => t.AmountCRC),
+                IncomeUSD = transactions.Where(t => t.TransactionType == "Income").Sum(t => t.AmountUSD),
+                ExpenseUSD = transactions.Where(t => t.TransactionType == "Expense").Sum(t => t.AmountUSD),
+                IncomeCountCRC = transactions.Count(t => t.TransactionType == "Income" && t.AmountCRC > 0),
+                ExpenseCountCRC = transactions.Count(t => t.TransactionType == "Expense" && t.AmountCRC > 0),
+                IncomeCountUSD = transactions.Count(t => t.TransactionType == "Income" && t.AmountUSD > 0),
+                ExpenseCountUSD = transactions.Count(t => t.TransactionType == "Expense" && t.AmountUSD > 0)
+            });
+
+        // Generar resumen por método de pago
+        foreach (var method in allPaymentMethods)
+        {
+            // Aquí usamos StringComparison.OrdinalIgnoreCase para que coincidan independientemente de mayúsculas/minúsculas
+            var methodTransactions = transactions
+                .Where(t => string.Equals(t.PaymentMethod, method, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            // Solo agregar el método si hay transacciones o si es uno de los métodos predefinidos principales
+            if (methodTransactions.Any())
+            {
+                paymentMethodSummary.Add(new PaymentMethodSummary
+                    {
+                        PaymentMethod = method,  // Mantener el caso original para mostrar
+                        IncomeCRC = methodTransactions.Where(t => t.TransactionType == "Income").Sum(t => t.AmountCRC),
+                        ExpenseCRC = methodTransactions.Where(t => t.TransactionType == "Expense").Sum(t => t.AmountCRC),
+                        IncomeUSD = methodTransactions.Where(t => t.TransactionType == "Income").Sum(t => t.AmountUSD),
+                        ExpenseUSD = methodTransactions.Where(t => t.TransactionType == "Expense").Sum(t => t.AmountUSD),
+                        IncomeCountCRC = methodTransactions.Count(t => t.TransactionType == "Income" && t.AmountCRC > 0),
+                        ExpenseCountCRC = methodTransactions.Count(t => t.TransactionType == "Expense" && t.AmountCRC > 0),
+                        IncomeCountUSD = methodTransactions.Count(t => t.TransactionType == "Income" && t.AmountUSD > 0),
+                        ExpenseCountUSD = methodTransactions.Count(t => t.TransactionType == "Expense" && t.AmountUSD > 0)
+                    });
+            }
+        }
+    }
+
+    // private void GeneratePaymentMethodSummary()
+    // {
+    //     // Obtener todos los métodos de pago únicos
+    //     var allPaymentMethods = new List<string>
+    //     {
+    //         "Cash",
+    //         "CreditCard",
+    //         "DebitCard",
+    //         "Transfer",
+    //         "SINPE",
+    //         "Other"
+    //     };
+
+    //     // Agregar métodos de pago que están en las transacciones pero no en la lista predefinida
+    //     var transactionPaymentMethods = transactions
+    //         .Select(t => t.PaymentMethod)
+    //         .Distinct()
+    //         .Except(allPaymentMethods)
+    //         .OrderBy(p => p);
+
+    //     allPaymentMethods.AddRange(transactionPaymentMethods);
+
+    //     paymentMethodSummary = new List<PaymentMethodSummary>();
+
+    //     // Agregar un resumen total
+    //     paymentMethodSummary.Add(new PaymentMethodSummary
+    //         {
+    //             PaymentMethod = "TOTAL",
+    //             IncomeCRC = transactions.Where(t => t.TransactionType == "Income").Sum(t => t.AmountCRC),
+    //             ExpenseCRC = transactions.Where(t => t.TransactionType == "Expense").Sum(t => t.AmountCRC),
+    //             IncomeUSD = transactions.Where(t => t.TransactionType == "Income").Sum(t => t.AmountUSD),
+    //             ExpenseUSD = transactions.Where(t => t.TransactionType == "Expense").Sum(t => t.AmountUSD),
+    //             IncomeCountCRC = transactions.Count(t => t.TransactionType == "Income" && t.AmountCRC > 0),
+    //             ExpenseCountCRC = transactions.Count(t => t.TransactionType == "Expense" && t.AmountCRC > 0),
+    //             IncomeCountUSD = transactions.Count(t => t.TransactionType == "Income" && t.AmountUSD > 0),
+    //             ExpenseCountUSD = transactions.Count(t => t.TransactionType == "Expense" && t.AmountUSD > 0)
+    //         });
+
+    //     // Generar resumen por método de pago
+    //     foreach (var method in allPaymentMethods)
+    //     {
+    //         var methodTransactions = transactions.Where(t => t.PaymentMethod == method).ToList();
+
+    //         // Solo agregar el método si hay transacciones o si es uno de los métodos predefinidos
+    //         if (methodTransactions.Any() || new[] { "Cash", "CreditCard", "DebitCard", "Transfer", "SINPE" }.Contains(method))
+    //         {
+    //             paymentMethodSummary.Add(new PaymentMethodSummary
+    //                 {
+    //                     PaymentMethod = method,
+    //                     IncomeCRC = methodTransactions.Where(t => t.TransactionType == "Income").Sum(t => t.AmountCRC),
+    //                     ExpenseCRC = methodTransactions.Where(t => t.TransactionType == "Expense").Sum(t => t.AmountCRC),
+    //                     IncomeUSD = methodTransactions.Where(t => t.TransactionType == "Income").Sum(t => t.AmountUSD),
+    //                     ExpenseUSD = methodTransactions.Where(t => t.TransactionType == "Expense").Sum(t => t.AmountUSD),
+    //                     IncomeCountCRC = methodTransactions.Count(t => t.TransactionType == "Income" && t.AmountCRC > 0),
+    //                     ExpenseCountCRC = methodTransactions.Count(t => t.TransactionType == "Expense" && t.AmountCRC > 0),
+    //                     IncomeCountUSD = methodTransactions.Count(t => t.TransactionType == "Income" && t.AmountUSD > 0),
+    //                     ExpenseCountUSD = methodTransactions.Count(t => t.TransactionType == "Expense" && t.AmountUSD > 0)
+    //                 });
+    //         }
+    //     }
+    // }
 
     private async Task RefreshDashboard()
     {
@@ -218,6 +530,36 @@
         if (difference > 0) return "rz-color-success";
         if (difference < 0) return "rz-color-danger";
         return "";
+    }
+
+    private BadgeStyle GetPaymentMethodBadgeStyle(string paymentMethod)
+    {
+        return paymentMethod switch
+        {
+            "Cash" => BadgeStyle.Success,
+            "CreditCard" => BadgeStyle.Primary,
+            "DebitCard" => BadgeStyle.Info,
+            "Transfer" => BadgeStyle.Secondary,
+            "SINPE" => BadgeStyle.Warning,
+            "TOTAL" => BadgeStyle.Dark,
+            _ => BadgeStyle.Light
+        };
+    }
+
+    private string GetPaymentMethodDisplayName(string paymentMethod)
+    {
+        return paymentMethod switch
+        {
+            "Cash" => "Efectivo",
+            "CreditCard" => "Tarjeta de Crédito",
+            "DebitCard" => "Tarjeta de Débito",
+            "Card" => "Tarjeta", // Para compatibilidad con registros antiguos
+            "Transfer" => "Transferencia",
+            "SINPE" => "SINPE Móvil",
+            "SINPE Móvil" => "SINPE Móvil",
+            "TOTAL" => "TOTAL",
+            _ => paymentMethod // Cualquier otro valor, mostrar tal cual
+        };
     }
 
     private async Task DeleteTransaction(int id)
@@ -293,4 +635,19 @@
 
     [Inject]
     private DialogService DialogService { get; set; } = default!;
+
+    public class PaymentMethodSummary
+    {
+        public string PaymentMethod { get; set; } = "";
+        public int IncomeCountCRC { get; set; } = 0;
+        public decimal IncomeCRC { get; set; } = 0;
+        public int ExpenseCountCRC { get; set; } = 0;
+        public decimal ExpenseCRC { get; set; } = 0;
+        public decimal BalanceCRC => IncomeCRC - ExpenseCRC;
+        public int IncomeCountUSD { get; set; } = 0;
+        public decimal IncomeUSD { get; set; } = 0;
+        public int ExpenseCountUSD { get; set; } = 0;
+        public decimal ExpenseUSD { get; set; } = 0;
+        public decimal BalanceUSD => IncomeUSD - ExpenseUSD;
+    }
 }

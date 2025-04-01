@@ -393,7 +393,6 @@ public class ApiClient
             }
 
             string rawJson = await httpResponse.Content.ReadAsStringAsync();
-            Console.WriteLine($"JSON de transacciones: {rawJson}");
 
             if (!httpResponse.IsSuccessStatusCode)
             {
@@ -408,21 +407,59 @@ public class ApiClient
 
             try
             {
+                // Primero intentemos deserializar como BaseResponseModel
                 var baseResponse = System.Text.Json.JsonSerializer.Deserialize<BaseResponseModel>(rawJson, options);
                 if (baseResponse != null && baseResponse.Success && baseResponse.Data != null)
                 {
-                    var dataJson = System.Text.Json.JsonSerializer.Serialize(baseResponse.Data);
-                    Console.WriteLine($"Data de transacciones: {dataJson}");
+                    try
+                    {
+                        // Intento #1: Data como string JSON a deserializar
+                        var dataJson = System.Text.Json.JsonSerializer.Serialize(baseResponse.Data);
+                        return System.Text.Json.JsonSerializer.Deserialize<List<T>>(dataJson, options) ?? new List<T>();
+                    }
+                    catch
+                    {
+                        try
+                        {
+                            // Intento #2: Data podría tener formato $values
+                            var jsonDocument = System.Text.Json.JsonDocument.Parse(
+                                System.Text.Json.JsonSerializer.Serialize(baseResponse.Data));
 
-                    return System.Text.Json.JsonSerializer.Deserialize<List<T>>(dataJson, options) ?? new List<T>();
+                            if (jsonDocument.RootElement.TryGetProperty("$values", out var valuesElement))
+                            {
+                                string valuesJson = valuesElement.GetRawText();
+                                return System.Text.Json.JsonSerializer.Deserialize<List<T>>(valuesJson, options) ?? new List<T>();
+                            }
+                            else
+                            {
+                                // Intento #3: Data podría ser un arreglo directo
+                                return System.Text.Json.JsonSerializer.Deserialize<List<T>>(
+                                    jsonDocument.RootElement.GetRawText(), options) ?? new List<T>();
+                            }
+                        }
+                        catch
+                        {
+                            // Si todos los intentos fallan, retornar lista vacía
+                            return new List<T>();
+                        }
+                    }
+                }
+
+                // Si no podemos deserializar como BaseResponseModel, intenta directamente
+                try
+                {
+                    return System.Text.Json.JsonSerializer.Deserialize<List<T>>(rawJson, options) ?? new List<T>();
+                }
+                catch
+                {
+                    return new List<T>();
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error deserializando transacciones: {ex.Message}");
+                return new List<T>();
             }
-
-            return new List<T>();
         }
         catch (Exception ex)
         {
