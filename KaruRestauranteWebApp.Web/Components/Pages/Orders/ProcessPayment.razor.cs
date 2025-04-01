@@ -313,7 +313,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 "CreditCard" => "Tarjeta de Crédito",
                 "DebitCard" => "Tarjeta de Débito",
                 "Transfer" => "Transferencia",
-                "SIMPE" => "SIMPE Móvil",
+                "SINPE" => "SINPE Móvil",
                 "Other" => "Otro",
                 _ => method
             };

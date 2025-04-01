@@ -85,7 +85,7 @@ namespace KaruRestauranteWebApp.BL.Services
                 }
 
                 // Validar que el método sea válido
-                var validMethods = new[] { "Cash", "CreditCard", "DebitCard", "Transfer", "Other" };
+                var validMethods = new[] { "Cash", "CreditCard", "DebitCard", "Transfer","SINPE", "Other" };
                 if (!validMethods.Contains(paymentDto.PaymentMethod))
                 {
                     throw new ValidationException($"Método de pago no válido. Valores posibles: {string.Join(", ", validMethods)}");

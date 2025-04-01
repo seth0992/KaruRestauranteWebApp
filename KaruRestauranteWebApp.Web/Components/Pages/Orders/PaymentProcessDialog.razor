@@ -222,7 +222,7 @@
         new PaymentMethodOption { value = "Cash", name = "Efectivo" },
         new PaymentMethodOption { value = "CreditCard", name = "T. Crédito" },
         new PaymentMethodOption { value = "DebitCard", name = "T. Débito" },
-        new PaymentMethodOption { value = "SIMPE", name = "SIMPE" },
+        new PaymentMethodOption { value = "SINPE", name = "SINPE" },
         new PaymentMethodOption { value = "Transfer", name = "Transferencia" },
         new PaymentMethodOption { value = "Other", name = "Otro" }
     };
@@ -368,7 +368,7 @@
             return AmountReceived >= totalInSelectedCurrency;
         }
 
-        if (PaymentMethod == "CreditCard" || PaymentMethod == "DebitCard" || PaymentMethod == "Transfer" || PaymentMethod == "SIMPE")
+        if (PaymentMethod == "CreditCard" || PaymentMethod == "DebitCard" || PaymentMethod == "Transfer" || PaymentMethod == "SINPE")
         {
             return !string.IsNullOrWhiteSpace(ReferenceNumber);
         }
@@ -418,7 +418,7 @@
             "Cash" => "payments",
             "CreditCard" => "credit_card",
             "DebitCard" => "credit_score",
-            "SIMPE" => "smartphone",
+            "SINPE" => "smartphone",
             "Transfer" => "account_balance",
             "Other" => "more_horiz",
             _ => "payments"
@@ -432,7 +432,7 @@
             "Cash" => "Efectivo",
             "CreditCard" => "Tarjeta de Crédito",
             "DebitCard" => "Tarjeta de Débito",
-            "SIMPE" => "SIMPE Móvil",
+            "SINPE" => "SINPE Móvil",
             "Transfer" => "Transferencia Bancaria",
             "Other" => "Otro medio de pago",
             _ => method
