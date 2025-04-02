@@ -705,6 +705,13 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     quantity = d.Quantity,
                     price = d.UnitPrice,
                     notes = d.Notes,
+                    isCombo = d.ItemType == "Combo",
+                    comboItems = (d.ComboItems ?? new List<ComboItemDetail>()).Select(ci => new
+                    {
+                        name = ci.ItemName,
+                        quantity = ci.Quantity,
+                        specialInstructions = ci.SpecialInstructions
+                    }).ToList(),
                     customizations = d.Customizations.Select(c => new
                     {
                         type = TranslateCustomizationType(c.CustomizationType),
@@ -718,7 +725,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             // Imprimir sólo el ticket de cocina
             await JSRuntime.InvokeVoidAsync("printerService.printKitchenTicket", printData);
         }
-
         // Método para traducir el tipo de pedido para mostrar
         private string GetOrderTypeDisplayName(string orderType)
         {
@@ -739,64 +745,12 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 "CreditCard" => "Tarjeta de Crédito",
                 "DebitCard" => "Tarjeta de Débito",
                 "Transfer" => "Transferencia",
-                "SIMPE" => "SIMPE Móvil",
+                "SINPE" => "SINPE Móvil",
                 "Other" => "Otro",
                 _ => method
             };
         }
 
-        //private async Task UpdateInventoryAfterOrder(int orderId)
-        //{
-        //    try
-        //    {
-        //        // Para cada detalle de la orden, actualizar el inventario correspondiente
-        //        foreach (var detail in model.OrderDetails)
-        //        {
-        //            if (detail.ItemType == "Product")
-        //            {
-        //                // Actualizar inventario del producto
-        //                await ApiClient.PostAsync<BaseResponseModel, StockMovementDTO>(
-        //                    "api/ProductInventory/movement",
-        //                    new StockMovementDTO
-        //                    {
-        //                        ProductInventoryID = detail.ItemID,
-        //                        MovementType = "Salida",
-        //                        Quantity = detail.Quantity,
-        //                        Notes = $"Venta en orden #{orderId}"
-        //                    });
-        //            }
-        //            else if (detail.ItemType == "Combo")
-        //            {
-        //                // Para combos, necesitamos obtener sus componentes y actualizar cada uno
-        //                var comboResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Combo/{detail.ItemID}");
-        //                if (comboResponse?.Success == true)
-        //                {
-        //                    var combo = JsonConvert.DeserializeObject<ComboModel>(comboResponse.Data.ToString());
-        //                    if (combo?.Items != null)
-        //                    {
-        //                        foreach (var comboItem in combo.Items)
-        //                        {
-        //                            await ApiClient.PostAsync<BaseResponseModel, StockMovementDTO>(
-        //                                "api/ProductInventory/movement",
-        //                                new StockMovementDTO
-        //                                {
-        //                                    ProductInventoryID = comboItem.FastFoodItemID,
-        //                                    MovementType = "Salida",
-        //                                    Quantity = comboItem.Quantity * detail.Quantity,
-        //                                    Notes = $"Venta en combo #{combo.ID}, orden #{orderId}"
-        //                                });
-        //                        }
-        //                    }
-        //                }
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        NotificationService.Notify(NotificationSeverity.Warning,
-        //            "Advertencia", $"La orden se creó, pero hubo problemas actualizando el inventario: {ex.Message}", 6000);
-        //    }
-        //}
         private async Task UpdateInventoryAfterOrder(int orderId)
         {
             try
