@@ -121,13 +121,8 @@
     {
         try
         {
-            var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Order");
-            if (response != null && response.Success)
-            {
-                orders = System.Text.Json.JsonSerializer.Deserialize<List<OrderModel>>(
-                    response.Data.ToString() ?? "",
-                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<OrderModel>();
-            }
+            var requestUri = "api/Order";
+            orders = await ApiClient.GetNestedListAsync<OrderModel>(requestUri);
         }
         catch (Exception ex)
         {

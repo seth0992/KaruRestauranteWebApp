@@ -56,10 +56,11 @@ namespace KaruRestauranteWebApp.ApiService.Controllers
                 var session = await _sessionService.GetCurrentSessionAsync();
                 if (session == null)
                 {
-                    return NotFound(new BaseResponseModel
+                    return Ok(new BaseResponseModel
                     {
                         Success = false,
-                        ErrorMessage = "No hay sesión de caja abierta"
+                        ErrorMessage = "No hay sesión de caja abierta",
+                        Data = null
                     });
                 }
                 return Ok(new BaseResponseModel { Success = true, Data = session });
