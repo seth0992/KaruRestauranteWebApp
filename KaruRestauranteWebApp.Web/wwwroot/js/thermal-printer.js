@@ -1,9 +1,20 @@
 ﻿window.printerService = {
     // Configuración de la impresora
     printerConfig: {
-        name: 'SAT Q22UB',           // Nombre de la impresora como aparece en Windows
+        name: 'SAT Q22UB',            // Nombre de la impresora como aparece en Windows
         characterSet: 'SPAIN',        // Juego de caracteres español
-        width: 48                     // Ancho del papel en caracteres (48 para 80mm)
+        width: 40                     // Ancho del papel en caracteres (48 para 80mm)
+    },
+
+    // Información de la empresa
+    companyInfo: {
+        name: "KARÚ RESTAURANTE",
+        legalName: "KARÚ BITES SQL",
+        taxId: "CED JUR 3 102 924380",
+        phone: "506 8806 2822",
+        address1: "Puntarenas, Golfito, Rio Claro",
+        address2: "Frente Cabinas Pérez",
+        website: "www.karucr.com"
     },
 
     // Función para formatear el texto al ancho del papel
@@ -34,6 +45,25 @@
         if (!text || text.length >= width) return text;
         const spaces = Math.floor((width - text.length) / 2);
         return ' '.repeat(spaces) + text;
+    },
+
+    // Función para crear una línea horizontal
+    horizontalLine: function (width, char = '=') {
+        return char.repeat(width);
+    },
+
+    // Función para imprimir un texto alineado a la derecha
+    rightAlign: function (text, width) {
+        if (!text || text.length >= width) return text;
+        const spaces = width - text.length;
+        return ' '.repeat(spaces) + text;
+    },
+
+    // Función para imprimir un texto con justificación entre etiqueta y valor
+    justifyText: function (label, value, width) {
+        const spaces = width - label.length - value.length;
+        if (spaces <= 0) return label + value;
+        return label + ' '.repeat(spaces) + value;
     },
 
     // Función para imprimir un ticket de compra
@@ -132,43 +162,55 @@
         const width = this.printerConfig.width;
         let content = "";
 
-        // Encabezado
-        content += this.centerText("KARÚ RESTAURANTE", width) + "\n";
-        content += this.centerText("FACTURA SIMPLIFICADA", width) + "\n";
-        content += "========================================\n";
-        content += `Orden: ${orderData.orderNumber}\n`;
-        content += `Fecha: ${new Date().toLocaleString()}\n`;
+        // Encabezado con información comercial
+        content += this.centerText(this.companyInfo.name, width) + "\n";
+        content += this.centerText(this.companyInfo.taxId, width) + "\n";
+        content += this.centerText(this.companyInfo.phone, width) + "\n";
+        content += this.centerText(this.companyInfo.address1, width) + "\n";
+        content += this.centerText(this.companyInfo.address2, width) + "\n";
+        content += this.horizontalLine(width) + "\n";
+        content += this.centerText("FACTURA", width) + "\n";
+        content += this.horizontalLine(width) + "\n";
+
+        // Información de la orden
+        content += this.justifyText("Orden:", orderData.orderNumber, width) + "\n";
+        content += this.justifyText("Fecha:", new Date().toLocaleString(), width) + "\n";
 
         if (orderData.customerName) {
-            content += `Cliente: ${orderData.customerName}\n`;
+            content += this.justifyText("Cliente:", orderData.customerName, width) + "\n";
         }
 
         if (orderData.table) {
-            content += `Mesa: ${orderData.table}\n`;
+            content += this.justifyText("Mesa:", orderData.table, width) + "\n";
         } else {
-            content += `Tipo: ${this.getOrderTypeName(orderData.orderType)}\n`;
+            content += this.justifyText("Tipo:", this.getOrderTypeName(orderData.orderType), width) + "\n";
         }
 
-        content += "========================================\n\n";
+        content += this.horizontalLine(width) + "\n";
+        content += "CANT  DESCRIPCIÓN                PRECIO\n";
+        content += this.horizontalLine(width) + "\n";
 
         // Detalle de productos - ASEGURARSE QUE MUESTRE NOMBRES CORRECTOS
-        content += "PRODUCTOS:\n";
         orderData.items.forEach(item => {
             // Formatear el nombre del producto para asegurar que sea legible
             let productName = item.name || "Producto sin nombre";
 
             // Limitar longitud para evitar líneas muy largas
-            if (productName.length > 30) {
-                productName = productName.substring(0, 27) + "...";
+            if (productName.length > 25) {
+                productName = productName.substring(0, 22) + "...";
             }
 
-            content += `${item.quantity} x ${productName}\n`;
-            content += `   ${item.price.toFixed(2)} c/u   ${(item.quantity * item.price).toFixed(2)}\n`;
+            // Formato: cantidad [3 chars] | nombre [25 chars] | precio unitario [8 chars]
+            let quantityStr = String(item.quantity).padStart(3, ' ');
+            let priceStr = `${item.price.toFixed(2)}`;
+
+            content += `${quantityStr}  ${productName.padEnd(25, ' ')} ${priceStr}\n`;
+            content += `      ${this.rightAlign(`${(item.quantity * item.price).toFixed(2)}`, width - 6)}\n`;
 
             // Añadir personalizaciones si existen
             if (item.customizations && item.customizations.length > 0) {
                 item.customizations.forEach(custom => {
-                    let customText = `   - ${this.getCustomizationTypeName(custom.type)}: ${custom.name}`;
+                    let customText = `      - ${this.getCustomizationTypeName(custom.type)}: ${custom.name}`;
                     if (custom.quantity > 1) {
                         customText += ` x${custom.quantity}`;
                     }
@@ -177,50 +219,52 @@
             }
 
             if (item.notes && !item.notes.includes(" - ")) { // Evitar imprimir notas que contengan el formato "ID - Nombre"
-                content += `   Nota: ${item.notes}\n`;
+                content += `      Nota: ${item.notes}\n`;
             }
 
             content += "\n";
         });
 
-        content += "========================================\n";
+        content += this.horizontalLine(width) + "\n";
 
-        // Resumen de pago
-        content += `Subtotal: ₡${orderData.subtotal.toFixed(2)}\n`;
-        content += `IVA (13%): ₡${orderData.tax.toFixed(2)}\n`;
+        // Resumen de pago con justificación
+        content += this.justifyText("Subtotal:", `₡${orderData.subtotal.toFixed(2)}`, width) + "\n";
+        content += this.justifyText("IVA (13%):", `₡${orderData.tax.toFixed(2)}`, width) + "\n";
 
         if (orderData.discount > 0) {
-            content += `Descuento: -₡${orderData.discount.toFixed(2)}\n`;
+            content += this.justifyText("Descuento:", `-₡${orderData.discount.toFixed(2)}`, width) + "\n";
         }
 
-        content += `TOTAL: ₡${orderData.total.toFixed(2)}\n\n`;
+        content += this.horizontalLine(width) + "\n";
+        content += this.justifyText("TOTAL:", `₡${orderData.total.toFixed(2)}`, width) + "\n";
+        content += this.horizontalLine(width) + "\n\n";
 
         // Información de pago
-        content += `Forma de pago: ${orderData.paymentMethod}\n`;
+        content += this.justifyText("Forma de pago:", orderData.paymentMethod, width) + "\n";
 
         // Manejo de pago con múltiples monedas
         if (orderData.paymentMethod === "Efectivo") {
             // Verificar si hay información de moneda
             if (orderData.currency && orderData.currency === "USD") {
                 // Pago en dólares
-                content += `Recibido: $${orderData.amountReceivedOriginal ? orderData.amountReceivedOriginal.toFixed(2) : orderData.amountReceived.toFixed(2)}\n`;
-                content += `Cambio: $${orderData.changeOriginal ? orderData.changeOriginal.toFixed(2) : orderData.change.toFixed(2)}\n`;
-                content += `Tipo de cambio: ₡${orderData.exchangeRate.toFixed(2)}\n`;
-                content += `Total en colones: ₡${orderData.amountReceived.toFixed(2)}\n`;
+                content += this.justifyText("Recibido:", `$${orderData.amountReceivedOriginal ? orderData.amountReceivedOriginal.toFixed(2) : orderData.amountReceived.toFixed(2)}`, width) + "\n";
+                content += this.justifyText("Cambio:", `$${orderData.changeOriginal ? orderData.changeOriginal.toFixed(2) : orderData.change.toFixed(2)}`, width) + "\n";
+                content += this.justifyText("Tipo de cambio:", `₡${orderData.exchangeRate.toFixed(2)}`, width) + "\n";
+                content += this.justifyText("Total en colones:", `₡${orderData.amountReceived.toFixed(2)}`, width) + "\n";
             } else {
                 // Pago en colones (moneda predeterminada)
-                content += `Recibido: ₡${orderData.amountReceivedOriginal ? orderData.amountReceivedOriginal.toFixed(2) : orderData.amountReceived.toFixed(2)}\n`;
-                content += `Cambio: ₡${orderData.changeOriginal ? orderData.changeOriginal.toFixed(2) : orderData.change.toFixed(2)}\n`;
+                content += this.justifyText("Recibido:", `₡${orderData.amountReceivedOriginal ? orderData.amountReceivedOriginal.toFixed(2) : orderData.amountReceived.toFixed(2)}`, width) + "\n";
+                content += this.justifyText("Cambio:", `₡${orderData.changeOriginal ? orderData.changeOriginal.toFixed(2) : orderData.change.toFixed(2)}`, width) + "\n";
             }
         }
 
         if (orderData.referenceNumber) {
-            content += `Referencia: ${orderData.referenceNumber}\n`;
+            content += this.justifyText("Referencia:", orderData.referenceNumber, width) + "\n";
         }
 
         content += "\n";
         content += this.centerText("¡GRACIAS POR SU COMPRA!", width) + "\n";
-        content += this.centerText("www.karucr.com", width) + "\n";
+        content += this.centerText(this.companyInfo.website, width) + "\n";
         content += "\n\n\n\n";  // Espacio para corte
 
         return content;
@@ -231,48 +275,58 @@
         const width = this.printerConfig.width;
         let content = "";
 
-        // Encabezado más grande y visible
+        // Encabezado con información básica de la empresa
+        content += this.centerText(this.companyInfo.name, width) + "\n";
+        content += this.horizontalLine(width) + "\n";
         content += this.centerText("*** TICKET DE COCINA ***", width) + "\n";
-        content += "========================================\n";
-        content += `Orden: ${orderData.orderNumber}\n`;
-        content += `Fecha: ${new Date().toLocaleString()}\n`;
+        content += this.horizontalLine(width) + "\n";
+
+        // Información de la orden
+        content += this.justifyText("Orden:", orderData.orderNumber, width) + "\n";
+        content += this.justifyText("Fecha:", new Date().toLocaleString(), width) + "\n";
 
         if (orderData.table) {
-            content += `Mesa: ${orderData.table}\n`;
+            content += this.justifyText("Mesa:", orderData.table, width) + "\n";
         } else {
-            content += `Tipo: ${this.getOrderTypeName(orderData.orderType)}\n`;
+            content += this.justifyText("Tipo:", this.getOrderTypeName(orderData.orderType), width) + "\n";
         }
 
-        content += "========================================\n\n";
+        content += this.horizontalLine(width) + "\n\n";
+        content += "CANT  DESCRIPCIÓN\n";
+        content += this.horizontalLine(width) + "\n";
 
         // Detalle de productos (más enfocado a la cocina)
         orderData.items.forEach(item => {
-            content += `>>> ${item.quantity} x ${item.name}\n`;
+            let productName = item.name || "Producto sin nombre";
+            let quantityStr = String(item.quantity).padStart(3, ' ');
+
+            content += `${quantityStr}  ${productName}\n`;
 
             // Añadir personalizaciones si existen
             if (item.customizations && item.customizations.length > 0) {
                 item.customizations.forEach(custom => {
-                    content += `    ${this.getCustomizationTypeName(custom.type)}: ${custom.name} x${custom.quantity}\n`;
+                    content += `      ${this.getCustomizationTypeName(custom.type)}: ${custom.name} x${custom.quantity}\n`;
                 });
             }
 
             // Añadir notas si existen
             if (item.notes) {
-                content += `    Notas: ${item.notes}\n`;
+                content += `      Notas: ${item.notes}\n`;
             }
 
             content += "\n";
         });
 
-        content += "========================================\n";
+        content += this.horizontalLine(width) + "\n";
 
         // Si hay notas generales para la orden
         if (orderData.notes) {
             content += "NOTAS GENERALES:\n";
             content += this.formatTextToWidth(orderData.notes, width) + "\n";
-            content += "========================================\n";
+            content += this.horizontalLine(width) + "\n";
         }
 
+        content += this.centerText("PREPARAR CON PRONTITUD", width) + "\n";
         content += "\n\n\n\n";  // Espacio para corte
 
         return content;
@@ -344,51 +398,60 @@
         const width = this.printerConfig.width;
         let content = "";
 
-        // Encabezado más grande y visible
+        // Encabezado con información básica de la empresa
+        content += this.centerText(this.companyInfo.name, width) + "\n";
+        content += this.horizontalLine(width) + "\n";
         content += this.centerText("*** TICKET DE COCINA ***", width) + "\n";
-        content += "========================================\n";
-        content += `Orden: ${orderData.orderNumber}\n`;
-        content += `Fecha: ${new Date().toLocaleString()}\n`;
+        content += this.horizontalLine(width) + "\n";
+
+        // Información de la orden
+        content += this.justifyText("Orden:", orderData.orderNumber, width) + "\n";
+        content += this.justifyText("Fecha:", new Date().toLocaleString(), width) + "\n";
 
         if (orderData.table) {
-            content += `Mesa: ${orderData.table}\n`;
+            content += this.justifyText("Mesa:", orderData.table, width) + "\n";
         } else {
-            content += `Tipo: ${this.getOrderTypeName(orderData.orderType)}\n`;
+            content += this.justifyText("Tipo:", this.getOrderTypeName(orderData.orderType), width) + "\n";
         }
 
-        content += "========================================\n\n";
+        content += this.horizontalLine(width) + "\n\n";
+        content += "CANT  DESCRIPCIÓN\n";
+        content += this.horizontalLine(width) + "\n";
 
         // Detalle de productos (más enfocado a la cocina)
         orderData.items.forEach(item => {
-            content += `>>> ${item.quantity} x ${item.name}\n`;
+            let productName = item.name || "Producto sin nombre";
+            let quantityStr = String(item.quantity).padStart(3, ' ');
+
+            content += `${quantityStr}  ${productName}\n`;
 
             // Añadir personalizaciones si existen
             if (item.customizations && item.customizations.length > 0) {
                 item.customizations.forEach(custom => {
-                    content += `    ${this.getCustomizationTypeName(custom.type)}: ${custom.name} x${custom.quantity}\n`;
+                    content += `      ${this.getCustomizationTypeName(custom.type)}: ${custom.name} x${custom.quantity}\n`;
                 });
             }
 
             // Añadir notas si existen
             if (item.notes) {
-                content += `    Notas: ${item.notes}\n`;
+                content += `      Notas: ${item.notes}\n`;
             }
 
             content += "\n";
         });
 
-        content += "========================================\n";
+        content += this.horizontalLine(width) + "\n";
 
         // Si hay notas generales para la orden
         if (orderData.notes) {
             content += "NOTAS GENERALES:\n";
             content += this.formatTextToWidth(orderData.notes, width) + "\n";
-            content += "========================================\n";
+            content += this.horizontalLine(width) + "\n";
         }
 
+        content += this.centerText("PREPARAR CON PRONTITUD", width) + "\n";
         content += "\n\n\n\n";  // Espacio para corte
 
         return content;
     }
-
 };
