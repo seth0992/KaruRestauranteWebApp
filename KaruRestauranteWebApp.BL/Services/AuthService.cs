@@ -33,10 +33,29 @@ namespace KaruRestauranteWebApp.BL.Services
             await _authRepository.AddRefreshTokenModel(refreshTokenModel);
         }
 
-        public Task<RefreshTokenModel> GetRefreshTokenModel(string refreshToken)
+        //public Task<RefreshTokenModel> GetRefreshTokenModel(string refreshToken)
+        //{
+        //    return _authRepository.GetRefreshTokenModel(refreshToken);
+        //}
+        public async Task<RefreshTokenModel> GetRefreshTokenModel(string refreshToken)
         {
-            return _authRepository.GetRefreshTokenModel(refreshToken);
+            try
+            {
+                if (string.IsNullOrEmpty(refreshToken))
+                {
+                    return null;
+                }
+
+                return await _authRepository.GetRefreshTokenModel(refreshToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener modelo de refresh token");
+                return null;
+            }
         }
+
+
 
         public async Task<UserModel> GetUserByLogin(string username, string password)
         {

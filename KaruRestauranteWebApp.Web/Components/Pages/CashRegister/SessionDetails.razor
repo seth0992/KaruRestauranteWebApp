@@ -1,0 +1,289 @@
+﻿@page "/cash-register/session/{SessionId:int}"
+@using KaruRestauranteWebApp.Models.Models
+@using KaruRestauranteWebApp.Models.Models.CashRegister
+@using Microsoft.AspNetCore.Authorization
+@inject ApiClient ApiClient
+@inject IToastService ToastService
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+<RadzenStack>
+    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start" Gap="0.5rem">
+        <RadzenColumn Size="8">
+            <RadzenText Text="Detalles de Sesión de Caja" TextStyle="TextStyle.H4" />
+        </RadzenColumn>
+        <RadzenColumn Size="4" class="rz-text-align-end">
+            <RadzenButton Click="@(() => NavigationManager.NavigateTo("/cash-register/history"))" Text="Volver al Historial" 
+                           Icon="arrow_back" ButtonStyle="ButtonStyle.Secondary" />
+        </RadzenColumn>
+    </RadzenRow>
+    
+    <RadzenCard>
+        @if (loading)
+        {
+            <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+        }
+        else if (session == null)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true">
+                No se encontró la sesión solicitada. Por favor, verifique el ID proporcionado.
+            </RadzenAlert>
+        }
+        else
+        {
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="6" SizeLG="4">
+                    <RadzenStack Gap="1rem">
+                        <RadzenCard class="rz-p-4 rz-shadow-2">
+                            <RadzenText TextStyle="TextStyle.H6">Información General</RadzenText>
+                            <RadzenList Density="Density.Compact">
+                                <RadzenListItem>
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Estado:</RadzenText>
+                                    <RadzenBadge BadgeStyle="@(session.Status == "Open" ? BadgeStyle.Success : BadgeStyle.Light)" 
+                                                Text="@(session.Status == "Open" ? "Abierta" : "Cerrada")" />
+                                </RadzenListItem>
+                                <RadzenListItem>
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Fecha de apertura:</RadzenText>
+                                    <RadzenText>@session.OpeningDate.ToString("dd/MM/yyyy HH:mm:ss")</RadzenText>
+                                </RadzenListItem>
+                                <RadzenListItem>
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Abierta por:</RadzenText>
+                                    <RadzenText>@session.OpeningUserName</RadzenText>
+                                </RadzenListItem>
+                                @if (session.ClosingDate.HasValue)
+                                {
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Fecha de cierre:</RadzenText>
+                                        <RadzenText>@session.ClosingDate.Value.ToString("dd/MM/yyyy HH:mm:ss")</RadzenText>
+                                    </RadzenListItem>
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Cerrada por:</RadzenText>
+                                        <RadzenText>@session.ClosingUserName</RadzenText>
+                                    </RadzenListItem>
+                                }
+                                <RadzenListItem>
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Notas:</RadzenText>
+                                    <RadzenText>@(string.IsNullOrEmpty(session.Notes) ? "Sin notas" : session.Notes)</RadzenText>
+                                </RadzenListItem>
+                            </RadzenList>
+                        </RadzenCard>
+                    </RadzenStack>
+                </RadzenColumn>
+                
+                <RadzenColumn Size="12" SizeMD="6" SizeLG="4">
+                    <RadzenStack Gap="1rem">
+                        <RadzenCard class="rz-p-4 rz-shadow-2">
+                            <RadzenText TextStyle="TextStyle.H6">Colones (₡)</RadzenText>
+                            <RadzenList Density="Density.Compact">
+                                <RadzenListItem>
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Monto inicial:</RadzenText>
+                                    <RadzenText>₡ @FormatAmount(session.InitialAmountCRC)</RadzenText>
+                                </RadzenListItem>
+                                <RadzenListItem>
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Billetes iniciales:</RadzenText>
+                                    <RadzenText>₡ @FormatAmount(session.InitialBillsCRC)</RadzenText>
+                                </RadzenListItem>
+                                <RadzenListItem>
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Monedas iniciales:</RadzenText>
+                                    <RadzenText>₡ @FormatAmount(session.InitialCoinsCRC)</RadzenText>
+                                </RadzenListItem>
+                                @if (session.FinalAmountCRC.HasValue)
+                                {
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Monto final:</RadzenText>
+                                        <RadzenText>₡ @FormatAmount(session.FinalAmountCRC.Value)</RadzenText>
+                                    </RadzenListItem>
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Billetes finales:</RadzenText>
+                                        <RadzenText>₡ @FormatAmount(session.FinalBillsCRC.Value)</RadzenText>
+                                    </RadzenListItem>
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Monedas finales:</RadzenText>
+                                        <RadzenText>₡ @FormatAmount(session.FinalCoinsCRC.Value)</RadzenText>
+                                    </RadzenListItem>
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Diferencia:</RadzenText>
+                                        <RadzenText class="@GetBalanceColorClass(session.FinalAmountCRC.Value - session.InitialAmountCRC)">
+                                            ₡ @FormatAmount(session.FinalAmountCRC.Value - session.InitialAmountCRC)
+                                        </RadzenText>
+                                    </RadzenListItem>
+                                }
+                                else if (session.CurrentBalanceCRC > 0)
+                                {
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Balance actual:</RadzenText>
+                                        <RadzenText>₡ @FormatAmount(session.CurrentBalanceCRC)</RadzenText>
+                                    </RadzenListItem>
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Diferencia:</RadzenText>
+                                        <RadzenText class="@GetBalanceColorClass(session.CurrentBalanceCRC - session.InitialAmountCRC)">
+                                            ₡ @FormatAmount(session.CurrentBalanceCRC - session.InitialAmountCRC)
+                                        </RadzenText>
+                                    </RadzenListItem>
+                                }
+                            </RadzenList>
+                        </RadzenCard>
+                    </RadzenStack>
+                </RadzenColumn>
+                
+                <RadzenColumn Size="12" SizeMD="6" SizeLG="4">
+                    <RadzenStack Gap="1rem">
+                        <RadzenCard class="rz-p-4 rz-shadow-2">
+                            <RadzenText TextStyle="TextStyle.H6">Dólares ($)</RadzenText>
+                            <RadzenList Density="Density.Compact">
+                                <RadzenListItem>
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Monto inicial:</RadzenText>
+                                    <RadzenText>$ @FormatAmount(session.InitialAmountUSD)</RadzenText>
+                                </RadzenListItem>
+                                <RadzenListItem>
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Billetes iniciales:</RadzenText>
+                                    <RadzenText>$ @FormatAmount(session.InitialBillsUSD)</RadzenText>
+                                </RadzenListItem>
+                                <RadzenListItem>
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Monedas iniciales:</RadzenText>
+                                    <RadzenText>$ @FormatAmount(session.InitialCoinsUSD)</RadzenText>
+                                </RadzenListItem>
+                                @if (session.FinalAmountUSD.HasValue)
+                                {
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Monto final:</RadzenText>
+                                        <RadzenText>$ @FormatAmount(session.FinalAmountUSD.Value)</RadzenText>
+                                    </RadzenListItem>
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Billetes finales:</RadzenText>
+                                        <RadzenText>$ @FormatAmount(session.FinalBillsUSD.Value)</RadzenText>
+                                    </RadzenListItem>
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Monedas finales:</RadzenText>
+                                        <RadzenText>$ @FormatAmount(session.FinalCoinsUSD.Value)</RadzenText>
+                                    </RadzenListItem>
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Diferencia:</RadzenText>
+                                        <RadzenText class="@GetBalanceColorClass(session.FinalAmountUSD.Value - session.InitialAmountUSD)">
+                                            $ @FormatAmount(session.FinalAmountUSD.Value - session.InitialAmountUSD)
+                                        </RadzenText>
+                                    </RadzenListItem>
+                                }
+                                else if (session.CurrentBalanceUSD > 0)
+                                {
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Balance actual:</RadzenText>
+                                        <RadzenText>$ @FormatAmount(session.CurrentBalanceUSD)</RadzenText>
+                                    </RadzenListItem>
+                                    <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Diferencia:</RadzenText>
+                                        <RadzenText class="@GetBalanceColorClass(session.CurrentBalanceUSD - session.InitialAmountUSD)">
+                                            $ @FormatAmount(session.CurrentBalanceUSD - session.InitialAmountUSD)
+                                        </RadzenText>
+                                    </RadzenListItem>
+                                }
+                            </RadzenList>
+                        </RadzenCard>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+            
+            <RadzenText TextStyle="TextStyle.H5" class="rz-mt-4">Movimientos de la sesión</RadzenText>
+            
+            <RadzenDataGrid Data="@transactions" TItem="CashRegisterTransactionDTO" AllowSorting="true" 
+                           AllowFiltering="true" AllowPaging="true" PageSize="10" 
+                           IsLoading="@loadingTransactions" EmptyText="No hay movimientos registrados">
+                <Columns>
+                    <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="TransactionDate" Title="Fecha" FormatString="{0:dd/MM/yyyy HH:mm}" />
+                    <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="TransactionType" Title="Tipo">
+                        <Template Context="data">
+                            @if (data.TransactionType == "Income")
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Ingreso" />
+                            }
+                            else
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Gasto" />
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="Description" Title="Descripción" />
+                    <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountCRC" Title="Colones" FormatString="₡ {0:N2}" />
+                    <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountUSD" Title="Dólares" FormatString="$ {0:N2}" />
+                    <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="PaymentMethod" Title="Método de Pago" />
+                    <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="UserName" Title="Usuario" />
+                    <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="RelatedOrderNumber" Title="Orden" />
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    [Parameter]
+    public int SessionId { get; set; }
+
+    private bool loading = true;
+    private bool loadingTransactions = true;
+    private CashRegisterSessionDTO? session;
+    private List<CashRegisterTransactionDTO> transactions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        await LoadSession();
+        await LoadTransactions();
+        loading = false;
+    }
+
+    private async Task LoadSession()
+    {
+        try
+        {
+            var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/CashRegister/sessions/{SessionId}");
+            if (response != null && response.Success && response.Data != null)
+            {
+                // Convertir la respuesta a JSON y luego al objeto CashRegisterSessionDTO
+                string jsonString = System.Text.Json.JsonSerializer.Serialize(response.Data);
+                session = System.Text.Json.JsonSerializer.Deserialize<CashRegisterSessionDTO>(
+                    jsonString,
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error en LoadSession: {ex}");
+            ToastService.ShowError($"Error al cargar la sesión: {ex.Message}");
+        }
+    }
+
+    private async Task LoadTransactions()
+    {
+        loadingTransactions = true;
+        try
+        {
+            // Utilizar GetNestedListAsync para obtener las transacciones
+            transactions = await ApiClient.GetNestedListAsync<CashRegisterTransactionDTO>($"api/CashRegister/transactions/session/{SessionId}");
+            Console.WriteLine($"Transacciones cargadas: {transactions.Count}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error en LoadTransactions: {ex}");
+            ToastService.ShowError($"Error al cargar las transacciones: {ex.Message}");
+            transactions = new List<CashRegisterTransactionDTO>();
+        }
+        loadingTransactions = false;
+    }
+
+    private string FormatAmount(decimal amount)
+    {
+        return amount.ToString("N2");
+    }
+
+    private string GetBalanceColorClass(decimal difference)
+    {
+        if (difference > 0) return "rz-color-success";
+        if (difference < 0) return "rz-color-danger";
+        return "";
+    }
+}

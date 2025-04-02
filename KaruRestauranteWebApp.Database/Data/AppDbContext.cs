@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
+using KaruRestauranteWebApp.Models.Entities.CashRegister;
 using KaruRestauranteWebApp.Models.Entities.Orders;
 using KaruRestauranteWebApp.Models.Entities.Restaurant;
 using KaruRestauranteWebApp.Models.Entities.Users;
@@ -129,10 +130,16 @@ namespace KaruRestauranteWebApp.Database.Data
                        .HasPrecision(5, 2);
 
             modelBuilder.Entity<FastFoodItemModel>()
-    .HasOne(f => f.Category)
-    .WithMany(c => c.Items)
-    .HasForeignKey(f => f.CategoryID)
-    .OnDelete(DeleteBehavior.Restrict);
+                        .HasOne(f => f.Category)
+                        .WithMany(c => c.Items)
+                        .HasForeignKey(f => f.CategoryID)
+                        .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PaymentModel>()
+                       .HasOne(p => p.ProcessedByUser)  // La propiedad de navegación
+                       .WithMany()  // El usuario puede tener muchos pagos procesados
+                       .HasForeignKey(p => p.ProcessedBy);  // La propiedad que es la FK
+        
         }
 
 
@@ -147,7 +154,7 @@ namespace KaruRestauranteWebApp.Database.Data
         public DbSet<FastFoodItemModel> FastFoodItems { get; set; }
         public DbSet<ItemIngredientModel> ItemIngredients { get; set; }
         public DbSet<InventoryTransactionModel> InventoryTransactions { get; set; }
-        public DbSet<ProductInventoryModel> ProductInventory { get; set; }   
+        public DbSet<ProductInventoryModel> ProductInventory { get; set; }
         public DbSet<ComboModel> Combos { get; set; }
         public DbSet<ComboItemModel> ComboItems { get; set; }
         public DbSet<ProductTypeModel> ProductTypes { get; set; }
@@ -161,7 +168,9 @@ namespace KaruRestauranteWebApp.Database.Data
         public DbSet<PaymentModel> Payments { get; set; }
         public DbSet<TableModel> Tables { get; set; }
 
-    
+        //Caja
+        public DbSet<CashRegisterSessionModel> CashRegisterSessions { get; set; }
+        public DbSet<CashRegisterTransactionModel> CashRegisterTransactions { get; set; }
 
 
 

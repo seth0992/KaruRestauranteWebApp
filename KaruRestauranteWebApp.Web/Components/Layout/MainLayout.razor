@@ -8,7 +8,7 @@
             <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
     
               
-                <RadzenLabel Text="Header" />
+                <RadzenLabel Text="MENÚ" />
                 <div class="d-flex align-items-center ms-auto me-3">
                 <RadzenAppearanceToggle class="rz-mx-2" />
                     @* <CultureSelector /> *@
@@ -50,9 +50,14 @@
                 <RadzenPanelMenuItem Text="Inventario" Icon="inventory_2" Path="/inventory/ingredients" />
                 <RadzenPanelMenuItem Text="Inventario de Productos" Icon="assignment" Path="/product-inventory" />
             </RadzenPanelMenuItem>
-            <RadzenPanelMenuItem Text="Gestión" Icon="dashboard">
-                <RadzenPanelMenuItem Text="Clientes" Icon="inventory" Path="/customers" />
-                <RadzenPanelMenuItem Text="Ordenes" Icon="inventory" Path="/orders" />
+            <RadzenPanelMenuItem Text="Ordenes" Icon="list_alt">
+                <RadzenPanelMenuItem Text="Clientes" Icon="user_attributes" Path="/customers" />
+                <RadzenPanelMenuItem Text="Ordenes" Icon="chrome_reader_mode" Path="/orders" />
+                <RadzenPanelMenuItem Text="Cocina" Icon="cooking" Path="/kitchen" />
+            </RadzenPanelMenuItem>
+            <RadzenPanelMenuItem Text="Caja Chica" Icon="payments">
+                <RadzenPanelMenuItem Text="Gestión de Caja" Icon="attach_money" Path="/cash-register" />
+                <RadzenPanelMenuItem Text="Historial" Icon="history" Path="/cash-register/history" />
             </RadzenPanelMenuItem>
             <AuthorizeView Roles="SuperAdmin,Admin" Context="adminContext">
                 <Authorized>
@@ -77,7 +82,7 @@
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center"
                       Style="text-align: center" AlignItems="AlignItems.Center">
             <RadzenText TextStyle="TextStyle.Caption">
-                SISKARÚ © @DateTime.Now.Year - Todos los derechos reservados       
+                KARÚ © @DateTime.Now.Year - Todos los derechos reservados       
             </RadzenText>
         </RadzenStack>
     </RadzenFooter>

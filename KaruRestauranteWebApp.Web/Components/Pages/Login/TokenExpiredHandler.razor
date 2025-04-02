@@ -1,0 +1,25 @@
+﻿@page "/tokenexpired"
+@inject NavigationManager NavigationManager
+@inject IToastService ToastService
+
+<PageTitle>Sesión expirada</PageTitle>
+
+<div class="d-flex justify-content-center align-items-center" style="height:70vh;">
+    <div class="text-center">
+        <h3>Su sesión ha expirado</h3>
+        <p>Por favor, inicie sesión nuevamente para continuar.</p>
+        <RadzenButton Text="Iniciar sesión" ButtonStyle="ButtonStyle.Primary" Click="@RedirectToLogin" />
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        ToastService.ShowWarning("Su sesión ha expirado. Por favor, inicie sesión nuevamente.");
+    }
+
+    private void RedirectToLogin()
+    {
+        NavigationManager.NavigateTo("/login", true);
+    }
+}

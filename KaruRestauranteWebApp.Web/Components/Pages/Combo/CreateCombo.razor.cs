@@ -45,9 +45,31 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Combo
             }
         }
 
-        private void AddComboItem()
+        private async Task AddComboItem()
         {
-            model.Items.Add(new ComboItemDetailModel());
+         
+                var itemCombo = new ComboItemDetailModel
+                {
+                    FastFoodItemID = 1,
+     Quantity = 1,
+     AllowCustomization = false,
+       SpecialInstructions = string.Empty
+
+                };
+
+                // Creamos una nueva lista con todos los elementos existentes más el nuevo
+                var newList = new List<ComboItemDetailModel>(model.Items);
+
+                newList.Add(itemCombo);
+
+                // Reemplazamos la lista completa
+                model.Items = newList;
+
+
+                await InvokeAsync(StateHasChanged); // Forzar actualización de la UI          
+
+
+           
         }
 
         private void RemoveComboItem(ComboItemDetailModel item)

@@ -49,6 +49,50 @@ public class ApiClient
         }
     }
 
+    //private async Task<bool> RefreshTokenAsync()
+    //{
+    //    try
+    //    {
+    //        await _semaphore.WaitAsync();
+    //        if (_isRefreshing) return true;
+
+    //        _isRefreshing = true;
+    //        var sessionState = (await _localStorage.GetAsync<LoginResponseModel>("sessionState")).Value;
+
+    //        if (sessionState == null || string.IsNullOrEmpty(sessionState.RefreshToken))
+    //        {
+    //            return false;
+    //        }
+
+    //        // Quitar el header de autorización para la llamada de refresh
+    //        _httpClient.DefaultRequestHeaders.Authorization = null;
+
+    //        var response = await _httpClient.GetAsync($"api/Auth/loginByRefreshToken?refreshToken={sessionState.RefreshToken}");
+
+    //        if (response.IsSuccessStatusCode)
+    //        {
+    //            var newSession = await response.Content.ReadFromJsonAsync<LoginResponseModel>();
+    //            if (newSession != null)
+    //            {
+    //                await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(newSession);
+    //                return true;
+    //            }
+    //        }
+
+    //        return false;
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _toastService.ShowError($"Error al refrescar el token: {ex.Message}");
+    //        return false;
+    //    }
+    //    finally
+    //    {
+    //        _isRefreshing = false;
+    //        _semaphore.Release();
+    //    }
+    //}
+
     private async Task<bool> RefreshTokenAsync()
     {
         try
@@ -61,29 +105,46 @@ public class ApiClient
 
             if (sessionState == null || string.IsNullOrEmpty(sessionState.RefreshToken))
             {
+                await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
+                _navigationManager.NavigateTo("/login", true);
                 return false;
             }
 
             // Quitar el header de autorización para la llamada de refresh
             _httpClient.DefaultRequestHeaders.Authorization = null;
 
-            var response = await _httpClient.GetAsync($"api/Auth/loginByRefreshToken?refreshToken={sessionState.RefreshToken}");
-
-            if (response.IsSuccessStatusCode)
+            try
             {
-                var newSession = await response.Content.ReadFromJsonAsync<LoginResponseModel>();
-                if (newSession != null)
-                {
-                    await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(newSession);
-                    return true;
-                }
-            }
+                var response = await _httpClient.GetAsync($"api/Auth/loginByRefreshToken?refreshToken={sessionState.RefreshToken}");
 
-            return false;
+                if (response.IsSuccessStatusCode)
+                {
+                    var newSession = await response.Content.ReadFromJsonAsync<LoginResponseModel>();
+                    if (newSession != null)
+                    {
+                        await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(newSession);
+                        return true;
+                    }
+                }
+
+                // Si no se pudo refrescar, cerrar sesión
+                await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
+                _navigationManager.NavigateTo("/login", true);
+                return false;
+            }
+            catch
+            {
+                // Si ocurre cualquier error en el proceso de refresh, cerrar sesión
+                await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
+                _navigationManager.NavigateTo("/login", true);
+                return false;
+            }
         }
         catch (Exception ex)
         {
             _toastService.ShowError($"Error al refrescar el token: {ex.Message}");
+            await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
+            _navigationManager.NavigateTo("/login", true);
             return false;
         }
         finally
@@ -95,9 +156,18 @@ public class ApiClient
 
     private async Task HandleUnauthorizedResponse()
     {
-        var refreshSuccess = await RefreshTokenAsync();
-        if (!refreshSuccess)
+        try
         {
+            var refreshSuccess = await RefreshTokenAsync();
+            if (!refreshSuccess)
+            {
+                await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
+                _navigationManager.NavigateTo("/login", true);
+            }
+        }
+        catch (Exception)
+        {
+            // Si ocurre cualquier error, asegurar el logout
             await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
             _navigationManager.NavigateTo("/login", true);
         }
@@ -234,6 +304,168 @@ public class ApiClient
         {
             HandleException(ex);
             return default;
+        }
+    }
+
+    public async Task<List<T>> GetNestedListAsync<T>(string requestUri) where T : class
+    {
+        try
+        {
+            await SetAuthorizationHeader();
+            var httpResponse = await _httpClient.GetAsync(requestUri);
+
+            if (httpResponse.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                await HandleUnauthorizedResponse();
+                if (_httpClient.DefaultRequestHeaders.Authorization != null)
+                {
+                    httpResponse = await _httpClient.GetAsync(requestUri);
+                }
+            }
+
+            if (!httpResponse.IsSuccessStatusCode)
+            {
+                _toastService.ShowError($"Error en la solicitud: {httpResponse.StatusCode}");
+                return new List<T>();
+            }
+
+            // Leer el contenido JSON sin procesar
+            string rawJson = await httpResponse.Content.ReadAsStringAsync();
+            Console.WriteLine($"Raw JSON: {rawJson}");
+
+            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            try
+            {
+                // Deserializar a BaseResponseModel
+                var baseResponse = System.Text.Json.JsonSerializer.Deserialize<BaseResponseModel>(rawJson, options);
+
+                if (baseResponse != null && baseResponse.Success && baseResponse.Data != null)
+                {
+                    // Serializar el objeto data
+                    string dataJson = System.Text.Json.JsonSerializer.Serialize(baseResponse.Data);
+
+                    // Verificar si tiene la propiedad $values
+                    var jsonDocument = System.Text.Json.JsonDocument.Parse(dataJson);
+
+                    if (jsonDocument.RootElement.TryGetProperty("$values", out var valuesElement))
+                    {
+                        // Deserializar desde $values
+                        string valuesJson = valuesElement.GetRawText();
+                        return System.Text.Json.JsonSerializer.Deserialize<List<T>>(valuesJson, options) ?? new List<T>();
+                    }
+                    else
+                    {
+                        // Intentar deserializar directamente
+                        return System.Text.Json.JsonSerializer.Deserialize<List<T>>(dataJson, options) ?? new List<T>();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al deserializar: {ex.Message}");
+            }
+
+            return new List<T>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error general: {ex.Message}");
+            _toastService.ShowError($"Error: {ex.Message}");
+            return new List<T>();
+        }
+    }
+
+    public async Task<List<T>> GetTransactionsListAsync<T>(string requestUri) where T : class
+    {
+        try
+        {
+            await SetAuthorizationHeader();
+            var httpResponse = await _httpClient.GetAsync(requestUri);
+
+            if (httpResponse.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                await HandleUnauthorizedResponse();
+                if (_httpClient.DefaultRequestHeaders.Authorization != null)
+                {
+                    httpResponse = await _httpClient.GetAsync(requestUri);
+                }
+            }
+
+            string rawJson = await httpResponse.Content.ReadAsStringAsync();
+
+            if (!httpResponse.IsSuccessStatusCode)
+            {
+                _toastService.ShowError($"Error en la solicitud: {httpResponse.StatusCode}");
+                return new List<T>();
+            }
+
+            var options = new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+
+            try
+            {
+                // Primero intentemos deserializar como BaseResponseModel
+                var baseResponse = System.Text.Json.JsonSerializer.Deserialize<BaseResponseModel>(rawJson, options);
+                if (baseResponse != null && baseResponse.Success && baseResponse.Data != null)
+                {
+                    try
+                    {
+                        // Intento #1: Data como string JSON a deserializar
+                        var dataJson = System.Text.Json.JsonSerializer.Serialize(baseResponse.Data);
+                        return System.Text.Json.JsonSerializer.Deserialize<List<T>>(dataJson, options) ?? new List<T>();
+                    }
+                    catch
+                    {
+                        try
+                        {
+                            // Intento #2: Data podría tener formato $values
+                            var jsonDocument = System.Text.Json.JsonDocument.Parse(
+                                System.Text.Json.JsonSerializer.Serialize(baseResponse.Data));
+
+                            if (jsonDocument.RootElement.TryGetProperty("$values", out var valuesElement))
+                            {
+                                string valuesJson = valuesElement.GetRawText();
+                                return System.Text.Json.JsonSerializer.Deserialize<List<T>>(valuesJson, options) ?? new List<T>();
+                            }
+                            else
+                            {
+                                // Intento #3: Data podría ser un arreglo directo
+                                return System.Text.Json.JsonSerializer.Deserialize<List<T>>(
+                                    jsonDocument.RootElement.GetRawText(), options) ?? new List<T>();
+                            }
+                        }
+                        catch
+                        {
+                            // Si todos los intentos fallan, retornar lista vacía
+                            return new List<T>();
+                        }
+                    }
+                }
+
+                // Si no podemos deserializar como BaseResponseModel, intenta directamente
+                try
+                {
+                    return System.Text.Json.JsonSerializer.Deserialize<List<T>>(rawJson, options) ?? new List<T>();
+                }
+                catch
+                {
+                    return new List<T>();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deserializando transacciones: {ex.Message}");
+                return new List<T>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error general en GetTransactionsListAsync: {ex.Message}");
+            _toastService.ShowError($"Error: {ex.Message}");
+            return new List<T>();
         }
     }
 

@@ -8,6 +8,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Blazored.Toast" Version="4.2.1" />
+		<PackageReference Include="ESCPOS" Version="1.3.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.2" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 		<PackageReference Include="Radzen.Blazor" Version="6.0.6" />
@@ -18,6 +19,11 @@
     <ProjectReference Include="..\KaruRestauranteWebApp.Common\KaruRestauranteWebApp.Common.csproj" />
     <ProjectReference Include="..\KaruRestauranteWebApp.Models\KaruRestauranteWebApp.Models.csproj" />
     <ProjectReference Include="..\KaruRestauranteWebApp.ServiceDefaults\KaruRestauranteWebApp.ServiceDefaults.csproj" />
+  </ItemGroup>
+	
+	
+  <ItemGroup>
+    <Folder Include="wwwroot\sounds\" />
   </ItemGroup>
 
 </Project>

@@ -29,5 +29,8 @@ namespace KaruRestauranteWebApp.Models.Models.Orders
         public string Status { get; set; } = "Pending";
 
         public List<OrderItemCustomizationDTO> Customizations { get; set; } = new();
+        public List<ComboItemDetail> ComboItems { get; set; } = new();
     }
+
+
 }

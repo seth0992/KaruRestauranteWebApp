@@ -180,44 +180,44 @@ CREATE INDEX IX_UserRoles_RoleID ON UserRoles(RoleID);
 
 -- Triggers para UpdatedAt
 GO
-CREATE TRIGGER TR_Categories_UpdatedAt ON Categories
-AFTER UPDATE AS
-BEGIN
-    UPDATE Categories
-    SET UpdatedAt = GETDATE()
-    FROM Categories c
-    INNER JOIN inserted i ON c.ID = i.ID;
-END
+--CREATE TRIGGER TR_Categories_UpdatedAt ON Categories
+--AFTER UPDATE AS
+--BEGIN
+--    UPDATE Categories
+--    SET UpdatedAt = GETDATE()
+--    FROM Categories c
+--    INNER JOIN inserted i ON c.ID = i.ID;
+--END
 
-GO
-CREATE TRIGGER TR_FastFoodItems_UpdatedAt ON FastFoodItems
-AFTER UPDATE AS
-BEGIN
-    UPDATE FastFoodItems
-    SET UpdatedAt = GETDATE()
-    FROM FastFoodItems f
-    INNER JOIN inserted i ON f.ID = i.ID;
-END
+--GO
+--CREATE TRIGGER TR_FastFoodItems_UpdatedAt ON FastFoodItems
+--AFTER UPDATE AS
+--BEGIN
+--    UPDATE FastFoodItems
+--    SET UpdatedAt = GETDATE()
+--    FROM FastFoodItems f
+--    INNER JOIN inserted i ON f.ID = i.ID;
+--END
 
-GO
-CREATE TRIGGER TR_Ingredients_UpdatedAt ON Ingredients
-AFTER UPDATE AS
-BEGIN
-    UPDATE Ingredients
-    SET UpdatedAt = GETDATE()
-    FROM Ingredients ing
-    INNER JOIN inserted i ON ing.ID = i.ID;
-END
+--GO
+--CREATE TRIGGER TR_Ingredients_UpdatedAt ON Ingredients
+--AFTER UPDATE AS
+--BEGIN
+--    UPDATE Ingredients
+--    SET UpdatedAt = GETDATE()
+--    FROM Ingredients ing
+--    INNER JOIN inserted i ON ing.ID = i.ID;
+--END
 
-GO
-CREATE TRIGGER TR_Combos_UpdatedAt ON Combos
-AFTER UPDATE AS
-BEGIN
-    UPDATE Combos
-    SET UpdatedAt = GETDATE()
-    FROM Combos c
-    INNER JOIN inserted i ON c.ID = i.ID;
-END
+--GO
+--CREATE TRIGGER TR_Combos_UpdatedAt ON Combos
+--AFTER UPDATE AS
+--BEGIN
+--    UPDATE Combos
+--    SET UpdatedAt = GETDATE()
+--    FROM Combos c
+--    INNER JOIN inserted i ON c.ID = i.ID;
+--END
 
 -- Datos iniciales
 INSERT INTO Roles (RoleName) VALUES 
@@ -359,24 +359,72 @@ CREATE INDEX IX_ElectronicInvoices_CustomerID ON ElectronicInvoices(CustomerID);
 
 -- Triggers para UpdatedAt
 GO
-CREATE TRIGGER TR_Customers_UpdatedAt ON Customers
-AFTER UPDATE AS
-BEGIN
-    UPDATE Customers
-    SET UpdatedAt = GETDATE()
-    FROM Customers c
-    INNER JOIN inserted i ON c.ID = i.ID;
-END
+--CREATE TRIGGER TR_Customers_UpdatedAt ON Customers
+--AFTER UPDATE AS
+--BEGIN
+--    UPDATE Customers
+--    SET UpdatedAt = GETDATE()
+--    FROM Customers c
+--    INNER JOIN inserted i ON c.ID = i.ID;
+--END
 
-GO
-CREATE TRIGGER TR_Orders_UpdatedAt ON Orders
-AFTER UPDATE AS
-BEGIN
-    UPDATE Orders
-    SET UpdatedAt = GETDATE()
-    FROM Orders o
-    INNER JOIN inserted i ON o.ID = i.ID;
-END
+--GO
+--CREATE TRIGGER TR_Orders_UpdatedAt ON Orders
+--AFTER UPDATE AS
+--BEGIN
+--    UPDATE Orders
+--    SET UpdatedAt = GETDATE()
+--    FROM Orders o
+--    INNER JOIN inserted i ON o.ID = i.ID;
+--END
+
+-- Tabla para registros de apertura y cierre de caja
+CREATE TABLE CashRegisterSessions (
+    ID INT IDENTITY(1,1) PRIMARY KEY,
+    OpeningDate DATETIME NOT NULL,
+    ClosingDate DATETIME NULL,
+    OpeningUserID INT NOT NULL,
+    ClosingUserID INT NULL,
+    InitialAmountCRC DECIMAL(10,2) NOT NULL DEFAULT 0, -- Monto inicial en colones
+    InitialAmountUSD DECIMAL(10,2) NOT NULL DEFAULT 0, -- Monto inicial en dólares
+    FinalAmountCRC DECIMAL(10,2) NULL, -- Monto final en colones
+    FinalAmountUSD DECIMAL(10,2) NULL, -- Monto final en dólares
+    InitialBillsCRC DECIMAL(10,2) NOT NULL DEFAULT 0, -- Monto inicial en billetes colones
+    InitialCoinsCRC DECIMAL(10,2) NOT NULL DEFAULT 0, -- Monto inicial en monedas colones
+    InitialBillsUSD DECIMAL(10,2) NOT NULL DEFAULT 0, -- Monto inicial en billetes dólares
+    InitialCoinsUSD DECIMAL(10,2) NOT NULL DEFAULT 0, -- Monto inicial en monedas dólares
+    FinalBillsCRC DECIMAL(10,2) NULL, -- Monto final en billetes colones
+    FinalCoinsCRC DECIMAL(10,2) NULL, -- Monto final en monedas colones
+    FinalBillsUSD DECIMAL(10,2) NULL, -- Monto final en billetes dólares
+    FinalCoinsUSD DECIMAL(10,2) NULL, -- Monto final en monedas dólares
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Open', -- Open, Closed
+    Notes NVARCHAR(500) NULL,
+    FOREIGN KEY (OpeningUserID) REFERENCES Users(ID),
+    FOREIGN KEY (ClosingUserID) REFERENCES Users(ID)
+);
+
+-- Tabla para movimientos de caja
+CREATE TABLE CashRegisterTransactions (
+    ID INT IDENTITY(1,1) PRIMARY KEY,
+    SessionID INT NOT NULL,
+    UserID INT NOT NULL,
+    TransactionDate DATETIME NOT NULL DEFAULT GETDATE(),
+    TransactionType NVARCHAR(20) NOT NULL, -- Income, Expense
+    Description NVARCHAR(200) NOT NULL,
+    AmountCRC DECIMAL(10,2) NOT NULL DEFAULT 0, -- Monto en colones
+    AmountUSD DECIMAL(10,2) NOT NULL DEFAULT 0, -- Monto en dólares
+    PaymentMethod NVARCHAR(20) NOT NULL, -- Cash, Card, Transfer
+    ReferenceNumber NVARCHAR(50) NULL,
+    RelatedOrderID INT NULL,
+    FOREIGN KEY (SessionID) REFERENCES CashRegisterSessions(ID),
+    FOREIGN KEY (UserID) REFERENCES Users(ID),
+    FOREIGN KEY (RelatedOrderID) REFERENCES Orders(ID)
+);
+
+-- Índices
+CREATE INDEX IX_CashRegisterSessions_Status ON CashRegisterSessions(Status);
+CREATE INDEX IX_CashRegisterTransactions_SessionID ON CashRegisterTransactions(SessionID);
+CREATE INDEX IX_CashRegisterTransactions_TransactionType ON CashRegisterTransactions(TransactionType);
 
 DROP TRIGGER IF EXISTS TR_FastFoodItems_UpdatedAt;
 DROP TRIGGER IF EXISTS TR_Categories_UpdatedAt;

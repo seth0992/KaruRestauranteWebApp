@@ -1,0 +1,420 @@
+﻿@page "/orders/payment/{OrderId:int}"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Entities.Orders
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+@using KaruRestauranteWebApp.Models.Models.Orders
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+
+<RadzenStack Style="max-width: 1200px; margin: 0 auto;">
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="mb-4">
+        Procesar Pago de Orden
+    </RadzenText>
+
+    @if (!isLoaded)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" class="mb-4" />
+    }
+    else if (order == null)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true">
+            La orden no existe o no se pudo cargar.
+        </RadzenAlert>
+
+        <RadzenButton Click="@GoBack" Icon="arrow_back" Text="Volver" ButtonStyle="ButtonStyle.Secondary" />
+    }
+    else if (!isCashRegisterOpen)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+            No hay una sesión de caja abierta. Para procesar pagos, primero debe abrir la caja.
+        </RadzenAlert>
+
+        <RadzenCard class="mb-4">
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
+                    <RadzenText TextStyle="TextStyle.Subtitle1">Información de la Orden</RadzenText>
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="2rem">
+                        <div>
+                            <RadzenText TextStyle="TextStyle.Body2">Número</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">@order.OrderNumber</RadzenText>
+                        </div>
+                        <div>
+                            <RadzenText TextStyle="TextStyle.Body2">Fecha</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">@order.CreatedAt.ToString("dd/MM/yyyy HH:mm")</RadzenText>
+                        </div>
+                        <div>
+                            <RadzenText TextStyle="TextStyle.Body2">Tipo</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">@GetOrderTypeName(order.OrderType)</RadzenText>
+                        </div>
+
+                        @if (order.TableID.HasValue)
+                        {
+                            <div>
+                                <RadzenText TextStyle="TextStyle.Body2">Mesa</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1">@(order.Table?.TableNumber.ToString() ?? "-")</RadzenText>
+                            </div>
+                        }
+
+                        @if (order.CustomerID.HasValue)
+                        {
+                            <div>
+                                <RadzenText TextStyle="TextStyle.Body2">Cliente</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1">@(order.Customer?.Name ?? "-")</RadzenText>
+                            </div>
+                        }
+                    </RadzenStack>
+                </RadzenStack>
+
+                <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
+                    <RadzenText TextStyle="TextStyle.Subtitle1">Estado de Pago</RadzenText>
+                    <RadzenBadge BadgeStyle="@GetPaymentStatusBadgeStyle(order.PaymentStatus)"
+                                 Size="BadgeSize.Medium"
+                                 Text="@GetPaymentStatusName(order.PaymentStatus)" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+
+        <div class="d-flex gap-4 mb-4">
+            <!-- Panel izquierdo: Detalle de la orden -->
+            <RadzenCard Style="width: 60%;">
+                <RadzenText TextStyle="TextStyle.H6" class="mb-3">Detalle del Pedido</RadzenText>
+
+                <div class="order-details-container">
+                    @foreach (var detail in order.OrderDetails)
+                    {
+                        <div class="order-item">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <div class="d-flex align-items-center">
+                                    <RadzenBadge BadgeStyle="@(detail.ItemType == "Product" ? BadgeStyle.Info : BadgeStyle.Success)"
+                                                 Text="@(detail.ItemType == "Product" ? "P" : "C")" class="me-2" />
+                                    <RadzenText TextStyle="TextStyle.Body1">
+                                        @detail.Quantity x @GetItemName(detail)
+                                    </RadzenText>
+                                </div>
+                                <RadzenText TextStyle="TextStyle.Body1" Style="min-width: 100px; text-align: right;">
+                                    @detail.SubTotal.ToString("₡#,##0.00")
+                                </RadzenText>
+                            </div>
+
+                            @if (detail.Customizations.Any())
+                            {
+                                <div class="customizations-container">
+                                    @foreach (var customization in detail.Customizations)
+                                    {
+                                        <div class="customization-item">
+                                            <RadzenBadge BadgeStyle="@GetCustomizationBadgeStyle(customization.CustomizationType)"
+                                                         Text="@customization.CustomizationType" />
+                                            <span>@(ingredients.FirstOrDefault(i => i.ID == customization.IngredientID)?.Name ?? $"Ingrediente #{customization.IngredientID}") x @customization.Quantity</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrEmpty(detail.Notes))
+                            {
+                                <RadzenText TextStyle="TextStyle.Caption">Nota: @detail.Notes</RadzenText>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- Resumen de la orden -->
+                <div class="order-summary">
+                    <div class="d-flex justify-content-between mb-2">
+                        <RadzenText TextStyle="TextStyle.Body1">Subtotal:</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">@((order.TotalAmount - order.TaxAmount + order.DiscountAmount).ToString("₡#,##0.00"))</RadzenText>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <RadzenText TextStyle="TextStyle.Body1">IVA (13%):</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">@order.TaxAmount.ToString("₡#,##0.00")</RadzenText>
+                    </div>
+                    @if (order.DiscountAmount > 0)
+                    {
+                        <div class="d-flex justify-content-between mb-2">
+                            <RadzenText TextStyle="TextStyle.Body1">Descuento:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">-@order.DiscountAmount.ToString("₡#,##0.00")</RadzenText>
+                        </div>
+                    }
+                    <hr />
+                    <div class="d-flex justify-content-between">
+                        <RadzenText TextStyle="TextStyle.H6">Total:</RadzenText>
+                        <RadzenText TextStyle="TextStyle.H6">@order.TotalAmount.ToString("₡#,##0.00")</RadzenText>
+                    </div>
+                </div>
+            </RadzenCard>
+
+            <!-- Panel derecho: Con botones de acción específicos para cuando la caja está cerrada -->
+            <RadzenCard Style="width: 40%;">
+                <RadzenText TextStyle="TextStyle.H6" class="mb-3">Pagos Realizados</RadzenText>
+
+                <RadzenAlert Severity="Severity.Warning" AllowClose="false" class="mb-3">
+                    <div class="d-flex align-items-center">
+                        <RadzenIcon Icon="warning" class="me-2" />
+                        <span>No se pueden procesar pagos sin una sesión de caja abierta</span>
+                    </div>
+                </RadzenAlert>
+
+                @if (order.Payments.Any())
+                {
+                    <RadzenDataGrid Data="@order.Payments" TItem="PaymentModel" AllowPaging="false" AllowSorting="true">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="PaymentModel" Property="PaymentMethod" Title="Método" Width="100px" />
+                            <RadzenDataGridColumn TItem="PaymentModel" Property="Amount" Title="Monto" Width="120px">
+                                <Template Context="payment">
+                                    @payment.Amount.ToString("₡#,##0.00")
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="PaymentModel" Property="PaymentDate" Title="Fecha" Width="160px">
+                                <Template Context="payment">
+                                    @payment.PaymentDate.ToString("dd/MM/yyyy HH:mm")
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+
+                    <div class="d-flex justify-content-between mt-3">
+                        <RadzenText TextStyle="TextStyle.Body1">Total pagado:</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">@paidAmount.ToString("₡#,##0.00")</RadzenText>
+                    </div>
+
+                    @if (pendingAmount > 0)
+                    {
+                        <div class="d-flex justify-content-between mt-2">
+                            <RadzenText TextStyle="TextStyle.Body1">Pendiente:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">@pendingAmount.ToString("₡#,##0.00")</RadzenText>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <RadzenAlert Severity="Severity.Info" AllowClose="false" class="mb-3">
+                        <div class="d-flex align-items-center">
+                            <RadzenIcon Icon="info" class="me-2" />
+                            <span>Esta orden no tiene pagos registrados</span>
+                        </div>
+                    </RadzenAlert>
+                }
+
+                <hr class="my-3" />
+
+                <RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+                    <RadzenButton Click="@(() => NavigationManager.NavigateTo("/cash-register"))"
+                                  Text="Abrir Caja" Icon="point_of_sale"
+                                  ButtonStyle="ButtonStyle.Primary" Class="w-100" />
+
+                    <RadzenButton Click="@GoBack" Text="Volver" Icon="arrow_back"
+                                  ButtonStyle="ButtonStyle.Light" Class="w-100" />
+                </RadzenStack>
+            </RadzenCard>
+        </div>
+    }
+    else
+    {
+        <RadzenCard class="mb-4">
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
+                    <RadzenText TextStyle="TextStyle.Subtitle1">Información de la Orden</RadzenText>
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="2rem">
+                        <div>
+                            <RadzenText TextStyle="TextStyle.Body2">Número</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">@order.OrderNumber</RadzenText>
+                        </div>
+                        <div>
+                            <RadzenText TextStyle="TextStyle.Body2">Fecha</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">@order.CreatedAt.ToString("dd/MM/yyyy HH:mm")</RadzenText>
+                        </div>
+                        <div>
+                            <RadzenText TextStyle="TextStyle.Body2">Tipo</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">@GetOrderTypeName(order.OrderType)</RadzenText>
+                        </div>
+
+                        @if (order.TableID.HasValue)
+                        {
+                            <div>
+                                <RadzenText TextStyle="TextStyle.Body2">Mesa</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1">@(order.Table?.TableNumber.ToString() ?? "-")</RadzenText>
+                            </div>
+                        }
+
+                        @if (order.CustomerID.HasValue)
+                        {
+                            <div>
+                                <RadzenText TextStyle="TextStyle.Body2">Cliente</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1">@(order.Customer?.Name ?? "-")</RadzenText>
+                            </div>
+                        }
+                    </RadzenStack>
+                </RadzenStack>
+
+                <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
+                    <RadzenText TextStyle="TextStyle.Subtitle1">Estado de Pago</RadzenText>
+                    <RadzenBadge BadgeStyle="@GetPaymentStatusBadgeStyle(order.PaymentStatus)"
+                                 Size="BadgeSize.Medium"
+                                 Text="@GetPaymentStatusName(order.PaymentStatus)" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+
+        <div class="d-flex gap-4 mb-4">
+            <!-- Panel izquierdo: Detalle de la orden -->
+            <RadzenCard Style="width: 60%;">
+                <RadzenText TextStyle="TextStyle.H6" class="mb-3">Detalle del Pedido</RadzenText>
+
+                <div class="order-details-container">
+                    @foreach (var detail in order.OrderDetails)
+                    {
+                        <div class="order-item">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <div class="d-flex align-items-center">
+                                    <RadzenBadge BadgeStyle="@(detail.ItemType == "Product" ? BadgeStyle.Info : BadgeStyle.Success)"
+                                                 Text="@(detail.ItemType == "Product" ? "P" : "C")" class="me-2" />
+                                    <RadzenText TextStyle="TextStyle.Body1">
+                                        @detail.Quantity x @GetItemName(detail)
+                                    </RadzenText>
+                                </div>
+                                <RadzenText TextStyle="TextStyle.Body1" Style="min-width: 100px; text-align: right;">
+                                    @detail.SubTotal.ToString("₡#,##0.00")
+                                </RadzenText>
+                            </div>
+
+                            @if (detail.Customizations.Any())
+                            {
+                                <div class="customizations-container">
+                                    @foreach (var customization in detail.Customizations)
+                                    {
+                                        <div class="customization-item">
+                                            <RadzenBadge BadgeStyle="@GetCustomizationBadgeStyle(customization.CustomizationType)"
+                                                         Text="@customization.CustomizationType" />
+                                            <span>@(ingredients.FirstOrDefault(i => i.ID == customization.IngredientID)?.Name ?? $"Ingrediente #{customization.IngredientID}") x @customization.Quantity</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrEmpty(detail.Notes))
+                            {
+                                <RadzenText TextStyle="TextStyle.Caption">Nota: @detail.Notes</RadzenText>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- Resumen de la orden -->
+                <div class="order-summary">
+                    <div class="d-flex justify-content-between mb-2">
+                        <RadzenText TextStyle="TextStyle.Body1">Subtotal:</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">@((order.TotalAmount - order.TaxAmount + order.DiscountAmount).ToString("₡#,##0.00"))</RadzenText>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <RadzenText TextStyle="TextStyle.Body1">IVA (13%):</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">@order.TaxAmount.ToString("₡#,##0.00")</RadzenText>
+                    </div>
+                    @if (order.DiscountAmount > 0)
+                    {
+                        <div class="d-flex justify-content-between mb-2">
+                            <RadzenText TextStyle="TextStyle.Body1">Descuento:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">-@order.DiscountAmount.ToString("₡#,##0.00")</RadzenText>
+                        </div>
+                    }
+                    <hr />
+                    <div class="d-flex justify-content-between">
+                        <RadzenText TextStyle="TextStyle.H6">Total:</RadzenText>
+                        <RadzenText TextStyle="TextStyle.H6">@order.TotalAmount.ToString("₡#,##0.00")</RadzenText>
+                    </div>
+                </div>
+            </RadzenCard>
+
+            <!-- Panel derecho: Pagos y acciones -->
+            <RadzenCard Style="width: 40%;">
+                <RadzenText TextStyle="TextStyle.H6" class="mb-3">Pagos Realizados</RadzenText>
+
+                @if (!order.Payments.Any())
+                {
+                    <RadzenAlert Severity="Severity.Info" AllowClose="false" class="mb-3">
+                        <div class="d-flex align-items-center">
+                            <RadzenIcon Icon="info" class="me-2" />
+                            <span>Esta orden no tiene pagos registrados</span>
+                        </div>
+                    </RadzenAlert>
+                }
+                else
+                {
+                    <RadzenDataGrid Data="@order.Payments" TItem="PaymentModel" AllowPaging="false" AllowSorting="true">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="PaymentModel" Property="PaymentMethod" Title="Método" Width="100px" />
+                            <RadzenDataGridColumn TItem="PaymentModel" Property="Amount" Title="Monto" Width="120px">
+                                <Template Context="payment">
+                                    @payment.Amount.ToString("₡#,##0.00")
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="PaymentModel" Property="PaymentDate" Title="Fecha" Width="160px">
+                                <Template Context="payment">
+                                    @payment.PaymentDate.ToString("dd/MM/yyyy HH:mm")
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+
+                    <div class="d-flex justify-content-between mt-3">
+                        <RadzenText TextStyle="TextStyle.Body1">Total pagado:</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">@paidAmount.ToString("₡#,##0.00")</RadzenText>
+                    </div>
+
+                    @if (pendingAmount > 0)
+                    {
+                        <div class="d-flex justify-content-between mt-2">
+                            <RadzenText TextStyle="TextStyle.Body1">Pendiente:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">@pendingAmount.ToString("₡#,##0.00")</RadzenText>
+                        </div>
+                    }
+                }
+
+                <hr class="my-3" />
+
+                <RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+                    @if (order.PaymentStatus != "Paid" && order.PaymentStatus != "Cancelled")
+                    {
+                        <RadzenButton Click="@ProcessPaymentMethods" Text="Procesar Pago" Icon="payment"
+                                      ButtonStyle="ButtonStyle.Primary" Class="w-100" />
+                    }
+
+                    <RadzenButton Click="@PrintReceipt" Text="Imprimir Recibo" Icon="print"
+                                  ButtonStyle="ButtonStyle.Info" Class="w-100"
+                                  Disabled="@(order.PaymentStatus != "Paid")" />
+
+                    <RadzenButton Click="@GoBack" Text="Volver" Icon="arrow_back"
+                                  ButtonStyle="ButtonStyle.Light" Class="w-100" />
+                </RadzenStack>
+            </RadzenCard>
+        </div>
+    }
+</RadzenStack>
+
+<style>
+    .order-details-container {
+        max-height: 400px;
+        overflow-y: auto;
+        margin-bottom: 20px;
+    }
+
+    .order-item {
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .customizations-container {
+        background-color: #f9f9f9;
+        border-radius: 4px;
+        padding: 8px;
+        margin-top: 5px;
+        margin-bottom: 5px;
+    }
+
+    .customization-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+        font-size: 13px;
+    }
+</style>

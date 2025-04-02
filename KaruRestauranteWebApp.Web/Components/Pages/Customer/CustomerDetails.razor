@@ -1,0 +1,101 @@
+﻿@page "/customers/details/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Entities.Orders;
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+
+<RadzenStack Style="max-width: 1200px; margin: 0 auto;">
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="mb-4">
+        Detalles del Cliente
+    </RadzenText>
+
+    @if (isLoading)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else if (customer == null)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true" Variant="Variant.Flat">
+            Cliente no encontrado
+        </RadzenAlert>
+        <RadzenButton Click=@(() => NavigationManager.NavigateTo("/customers"))
+                  Text="Volver a la lista" ButtonStyle="ButtonStyle.Secondary" class="mt-3" />
+    }
+    else
+    {
+        <RadzenCard class="mb-4">
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenStack Gap="1rem">
+                        <RadzenFieldset Text="Información Personal">
+                            <RadzenStack Gap="0.5rem">
+                                <div>
+                                    <RadzenLabel Text="Nombre:" class="font-weight-bold" />
+                                    <RadzenText Text="@customer.Name" />
+                                </div>
+                                <div>
+                                    <RadzenLabel Text="Correo Electrónico:" class="font-weight-bold" />
+                                    <RadzenText Text="@(string.IsNullOrEmpty(customer.Email) ? "-" : customer.Email)" />
+                                </div>
+                                <div>
+                                    <RadzenLabel Text="Teléfono:" class="font-weight-bold" />
+                                    <RadzenText Text="@(string.IsNullOrEmpty(customer.PhoneNumber) ? "-" : customer.PhoneNumber)" />
+                                </div>
+                                <div>
+                                    <RadzenLabel Text="Dirección:" class="font-weight-bold" />
+                                    <RadzenText Text="@(string.IsNullOrEmpty(customer.Address) ? "-" : customer.Address)" />
+                                </div>
+                            </RadzenStack>
+                        </RadzenFieldset>
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenStack Gap="1rem">
+                        <RadzenFieldset Text="Información de Identificación">
+                            <RadzenStack Gap="0.5rem">
+                                <div>
+                                    <RadzenLabel Text="Tipo de Identificación:" class="font-weight-bold" />
+                                    <RadzenText Text="@(string.IsNullOrEmpty(customer.IdentificationType) ? "-" : customer.IdentificationType)" />
+                                </div>
+                                <div>
+                                    <RadzenLabel Text="Número de Identificación:" class="font-weight-bold" />
+                                    <RadzenText Text="@(string.IsNullOrEmpty(customer.IdentificationNumber) ? "-" : customer.IdentificationNumber)" />
+                                </div>
+                            </RadzenStack>
+                        </RadzenFieldset>
+                        <RadzenFieldset Text="Información Adicional">
+                            <RadzenStack Gap="0.5rem">
+                                <div>
+                                    <RadzenLabel Text="Estado:" class="font-weight-bold" />
+                                    <RadzenBadge BadgeStyle="@(customer.IsActive ? BadgeStyle.Success : BadgeStyle.Danger)"
+                                              Text="@(customer.IsActive ? "Activo" : "Inactivo")" />
+                                </div>
+                                <div>
+                                    <RadzenLabel Text="Fecha de Registro:" class="font-weight-bold" />
+                                    <RadzenText Text="@customer.CreatedAt.ToString("dd/MM/yyyy HH:mm")" />
+                                </div>
+                                @if (customer.UpdatedAt.HasValue)
+                                {
+                                    <div>
+                                        <RadzenLabel Text="Última Actualización:" class="font-weight-bold" />
+                                        <RadzenText Text="@customer.UpdatedAt.Value.ToString("dd/MM/yyyy HH:mm")" />
+                                    </div>
+                                }
+                            </RadzenStack>
+                        </RadzenFieldset>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+            <AuthorizeView Roles="SuperAdmin,Admin">
+                <Authorized>
+                    <RadzenButton Icon="edit" Text="Editar" ButtonStyle="ButtonStyle.Primary"
+                              Click=@(() => NavigationManager.NavigateTo($"/customers/edit/{customer.ID}")) />
+                </Authorized>
+            </AuthorizeView>
+            <RadzenButton Icon="arrow_back" Text="Volver" ButtonStyle="ButtonStyle.Light" 
+                      Click=@(() => NavigationManager.NavigateTo("/customers")) />
+        </RadzenStack>
+    }
+</RadzenStack>

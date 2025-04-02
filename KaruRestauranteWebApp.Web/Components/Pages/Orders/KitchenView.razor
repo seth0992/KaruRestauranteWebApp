@@ -1,0 +1,272 @@
+﻿@page "/kitchen"
+@using Microsoft.AspNetCore.Authorization
+@using KaruRestauranteWebApp.Models.Entities.Orders
+@using KaruRestauranteWebApp.Models.Entities.Restaurant
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+
+<RadzenStack>
+    <RadzenRow class="align-items-center mb-4" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.H3">Vista de Cocina</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="6" class="text-end">
+            <RadzenButton Icon="refresh" Text="Actualizar" ButtonStyle="ButtonStyle.Primary"
+                          Click="@(async () => await LoadPendingOrders())" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenCard class="mb-4">
+        <RadzenText TextStyle="TextStyle.Subtitle1" class="mb-3">Filtros</RadzenText>
+        <RadzenRow>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="Estado" />
+                <RadzenDropDown @bind-Value="selectedStatus" Data="orderStatuses"
+                                Placeholder="Todos" Style="width: 100%;" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="Ordenar por" />
+                <RadzenDropDown @bind-Value="sortBy" Data="sortOptions" TextProperty="Value" ValueProperty="Key"
+                                Style="width: 100%;" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4" class="d-flex align-items-end">
+                <RadzenButton Text="Aplicar" Icon="filter_alt" ButtonStyle="ButtonStyle.Primary"
+                              Click="ApplyFilters" Style="width: 100%; margin-bottom: 1px;" />
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenCard>
+
+    @if (isLoading)
+    {
+        <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else if (filteredOrders == null || !filteredOrders.Any())
+    {
+        <RadzenCard>
+            <div class="text-center p-5">
+                <RadzenIcon Icon="restaurant" Style="font-size: 64px; color: #ccc;" />
+                <RadzenText TextStyle="TextStyle.H5" class="mt-3">No hay pedidos pendientes</RadzenText>
+                <RadzenText TextStyle="TextStyle.Body1" class="mt-2">La cocina está al día con todos los pedidos.</RadzenText>
+            </div>
+        </RadzenCard>
+    }
+    else
+    {
+        <div class="kitchen-orders-container">
+            @foreach (var order in filteredOrders)
+            {
+                <div id="order-@order.ID">
+                    @if (order.OrderDetails.All(d => d.Status == "Ready"))
+                    {
+                        <RadzenCard class="kitchen-order-card all-ready mb-4">
+                            @KitchenOrderContent(order)
+                        </RadzenCard>
+                    }
+                    else if (order.OrderDetails.Any(d => d.Status == "InPreparation"))
+                    {
+                        <RadzenCard class="kitchen-order-card in-progress mb-4">
+                            @KitchenOrderContent(order)
+                        </RadzenCard>
+                    }
+                    else if ((DateTime.Now - order.CreatedAt).TotalMinutes > 15)
+                    {
+                        <RadzenCard class="kitchen-order-card attention-needed mb-4">
+                            @KitchenOrderContent(order)
+                        </RadzenCard>
+                    }
+                    else
+                    {
+                        <RadzenCard class="kitchen-order-card mb-4">
+                            @KitchenOrderContent(order)
+                        </RadzenCard>
+                    }
+                </div>
+            }
+        </div>
+
+        @if (needsAttentionOrders.Any())
+        {
+            <RadzenCard class="mb-4 bg-warning-subtle">
+                <RadzenText TextStyle="TextStyle.H6">
+                    <RadzenIcon Icon="warning" Style="color: var(--rz-warning);" /> Pedidos con espera prolongada
+                </RadzenText>
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    @foreach (var order in needsAttentionOrders)
+                    {
+                        <RadzenButton Text="@order.OrderNumber" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small"
+                                      Click="() => ScrollToOrder(order.ID)"
+                                      Title="@($"Esperando {GetTimeSinceCreated(order.CreatedAt)}")" />
+                    }
+                </div>
+            </RadzenCard>
+        }
+    }
+</RadzenStack>
+
+<style>
+    .kitchen-orders-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .kitchen-order-card {
+        position: relative;
+        transition: all 0.3s ease;
+    }
+
+        .kitchen-order-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+    .kitchen-order-header {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+    }
+
+    .kitchen-order-footer {
+        border-top: 1px solid #eee;
+        padding-top: 10px;
+    }
+
+    .attention-needed {
+        border-left: 4px solid var(--rz-warning);
+    }
+
+    .in-progress {
+        border-left: 4px solid var(--rz-info);
+    }
+
+    .all-ready {
+        border-left: 4px solid var(--rz-success);
+    }
+
+    .kitchen-order-items :deep(table) {
+        border: none;
+    }
+
+    .kitchen-order-items :deep(th) {
+        background-color: #f8f9fa;
+    }
+
+    .highlight-element {
+        box-shadow: 0 0 15px var(--rz-warning) !important;
+        transform: scale(1.01);
+        transition: all 0.5s ease;
+    }
+</style>
+
+@code {
+    // Método para renderizar el contenido de la tarjeta de pedido
+    // Esto ayuda a evitar duplicar el mismo contenido en las 4 variaciones de la tarjeta
+    RenderFragment KitchenOrderContent(OrderModel order) => __builder =>
+    {
+        <div class="kitchen-order-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="@order.OrderNumber" />
+                    <RadzenText TextStyle="TextStyle.H6">
+                        @(order.OrderType == "DineIn" ? $"Mesa {order.Table?.TableNumber}" : GetOrderTypeName(order.OrderType))
+                    </RadzenText>
+                    <RadzenText TextStyle="TextStyle.Caption">
+                        @GetTimeSinceCreated(order.CreatedAt)
+                    </RadzenText>
+                </RadzenStack>
+
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenButton Icon="print" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                  Click="() => PrintKitchenTicket(order)" Title="Imprimir ticket" />
+                    <RadzenBadge BadgeStyle="@GetOrderStatusBadgeStyle(order.OrderStatus)" Text="@GetOrderStatusName(order.OrderStatus)" />
+                    <RadzenButton Icon="check_circle" Text="Marcar Todo Listo"
+                                  ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+                                  Click="() => MarkOrderReady(order)"
+                                  Disabled="@(!CanMarkOrderReady(order))" />
+                </RadzenStack>
+            </div>
+        </div>
+
+        <div class="kitchen-order-details">
+            <RadzenDataGrid Data="@order.OrderDetails.Where(d => d.Status != "Cancelled")" TItem="OrderDetailModel"
+                            AllowSorting="false" AllowPaging="false" AllowFiltering="false"
+                            class="kitchen-order-items">
+                <Columns>
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Property="ItemType" Title="Tipo" Width="80px">
+                        <Template Context="detail">
+                            <RadzenIcon Icon="@GetItemTypeIcon(detail.ItemType)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Title="Producto" Width="200px">
+                        <Template Context="detail">
+                            <div class="d-flex flex-column">
+                                <span>@GetItemName(detail)</span>
+                                @if (!string.IsNullOrEmpty(detail.Notes))
+                                {
+                                    <small class="text-muted">@detail.Notes</small>
+                                }
+                            </div>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Property="Quantity" Title="Cant." Width="70px" />
+
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Title="Personalización" Width="120px">
+                        <Template Context="detail">
+                            @if (detail.Customizations != null && detail.Customizations.Any())
+                            {
+                                <RadzenButton Icon="tune" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                              Click="() => ShowCustomizations(detail.Customizations)"
+                                              Text="Ver" />
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Title="Estado" Width="120px">
+                        <Template Context="detail">
+                            <RadzenBadge BadgeStyle="@GetDetailStatusBadgeStyle(detail.Status)" Text="@GetDetailStatusName(detail.Status)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="OrderDetailModel" Title="Acciones" Width="180px">
+                        <Template Context="detail">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Start" Gap="0.5rem">
+                                @if (detail.Status == "Pending")
+                                {
+                                    <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
+                                                  Text="Iniciar" Click="() => StartPreparation(detail)" />
+                                }
+                                else if (detail.Status == "InPreparation")
+                                {
+                                    <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+                                                  Text="Listo" Click="() => MarkDetailReady(detail)" />
+                                }
+                                else if (detail.Status == "Ready")
+                                {
+                                    <RadzenIcon Icon="check_circle" Style="color: var(--rz-success); font-size: 24px;" />
+                                }
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </div>
+
+        <div class="progress mt-3" style="height: 5px;">
+            @{
+                var progressValue = Math.Min(100, (DateTime.Now - order.CreatedAt).TotalMinutes / 30 * 100);
+                var progressColor = progressValue < 50 ? "bg-success" :
+                progressValue < 80 ? "bg-warning" :
+                "bg-danger";
+            }
+            <div class="progress-bar @progressColor" role="progressbar"
+                 style="width: @progressValue%;" aria-valuenow="@progressValue"
+                 aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+
+        <div class="kitchen-order-footer mt-3">
+            <RadzenText TextStyle="TextStyle.Caption">
+                @($"Creado: {order.CreatedAt:dd/MM/yyyy HH:mm}")
+            </RadzenText>
+        </div>
+    };
+}
