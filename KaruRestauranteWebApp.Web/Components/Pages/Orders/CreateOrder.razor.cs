@@ -508,16 +508,46 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 {
                     if (detail.ItemType == "Product")
                     {
-                        // Verificar stock de producto
-                        var productResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/ProductInventory/product/{detail.ItemID}");
+                        var product = products.FirstOrDefault(p => p.ID == detail.ItemID);
+                        if (product == null) continue;
 
-                        if (productResponse?.Success == true)
+                        if (product.ProductTypeID == 2) // Producto de inventario
                         {
-                            var inventory = JsonConvert.DeserializeObject<ProductInventoryModel>(productResponse.Data.ToString());
-                            if (inventory == null || inventory.CurrentStock < detail.Quantity)
+                            // Verificar stock de producto
+                            var productResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/ProductInventory/product/{detail.ItemID}");
+
+                            if (productResponse?.Success == true)
                             {
-                                inventoryOk = false;
-                                unavailableItems.Add(detail.ItemName);
+                                var inventory = JsonConvert.DeserializeObject<ProductInventoryModel>(productResponse.Data.ToString());
+                                if (inventory == null || inventory.CurrentStock < detail.Quantity)
+                                {
+                                    inventoryOk = false;
+                                    unavailableItems.Add(detail.ItemName);
+                                }
+                            }
+                        }
+                        else if (product.ProductTypeID == 1) // Producto preparado
+                        {
+                            // Verificar stock de ingredientes
+                            if (product.Ingredients != null && product.Ingredients.Any())
+                            {
+                                foreach (var ingredient in product.Ingredients)
+                                {
+                                    // Obtener el estado actual del ingrediente
+                                    var ingredientResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Inventory/ingredients/{ingredient.IngredientID}");
+                                    if (ingredientResponse?.Success == true)
+                                    {
+                                        var ingredientInfo = JsonConvert.DeserializeObject<IngredientModel>(ingredientResponse.Data.ToString());
+                                        decimal requiredQuantity = ingredient.Quantity * detail.Quantity;
+
+                                        if (ingredientInfo == null || ingredientInfo.StockQuantity < requiredQuantity)
+                                        {
+                                            inventoryOk = false;
+                                            unavailableItems.Add($"{detail.ItemName} (falta: {ingredientInfo?.Name ?? "ingrediente"})");
+                                            break; // Basta con un ingrediente faltante para marcar el producto como no disponible
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -532,19 +562,50 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                             {
                                 foreach (var comboItem in combo.Items)
                                 {
-                                    // Verificar stock de cada producto en el combo
-                                    var productResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/ProductInventory/product/{comboItem.FastFoodItemID}");
+                                    var product = products.FirstOrDefault(p => p.ID == comboItem.FastFoodItemID);
+                                    if (product == null) continue;
 
-                                    if (productResponse?.Success == true)
+                                    if (product.ProductTypeID == 2) // Producto de inventario
                                     {
-                                        var inventory = JsonConvert.DeserializeObject<ProductInventoryModel>(productResponse.Data.ToString());
-                                        int requiredQuantity = comboItem.Quantity * detail.Quantity;
+                                        // Verificar stock de cada producto en el combo
+                                        var productResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/ProductInventory/product/{comboItem.FastFoodItemID}");
 
-                                        if (inventory == null || inventory.CurrentStock < requiredQuantity)
+                                        if (productResponse?.Success == true)
                                         {
-                                            inventoryOk = false;
-                                            var productName = comboItem.FastFoodItem?.Name ?? $"Producto #{comboItem.FastFoodItemID}";
-                                            unavailableItems.Add($"{productName} (en combo {combo.Name})");
+                                            var inventory = JsonConvert.DeserializeObject<ProductInventoryModel>(productResponse.Data.ToString());
+                                            int requiredQuantity = comboItem.Quantity * detail.Quantity;
+
+                                            if (inventory == null || inventory.CurrentStock < requiredQuantity)
+                                            {
+                                                inventoryOk = false;
+                                                var productName = product.Name ?? $"Producto #{comboItem.FastFoodItemID}";
+                                                unavailableItems.Add($"{productName} (en combo {combo.Name})");
+                                            }
+                                        }
+                                    }
+                                    else if (product.ProductTypeID == 1) // Producto preparado
+                                    {
+                                        // Verificar stock de ingredientes para productos preparados
+                                        if (product.Ingredients != null && product.Ingredients.Any())
+                                        {
+                                            foreach (var ingredient in product.Ingredients)
+                                            {
+                                                // Obtener el estado actual del ingrediente
+                                                var ingredientResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Inventory/ingredients/{ingredient.IngredientID}");
+                                                if (ingredientResponse?.Success == true)
+                                                {
+                                                    var ingredientInfo = JsonConvert.DeserializeObject<IngredientModel>(ingredientResponse.Data.ToString());
+                                                    decimal requiredQuantity = ingredient.Quantity * comboItem.Quantity * detail.Quantity;
+
+                                                    if (ingredientInfo == null || ingredientInfo.StockQuantity < requiredQuantity)
+                                                    {
+                                                        inventoryOk = false;
+                                                        var productName = product.Name ?? $"Producto #{comboItem.FastFoodItemID}";
+                                                        unavailableItems.Add($"{productName} (en combo {combo.Name}) - falta: {ingredientInfo?.Name ?? "ingrediente"}");
+                                                        break;
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -552,6 +613,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                         }
                     }
                 }
+
+
 
                 if (!inventoryOk)
                 {
@@ -682,6 +745,58 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             };
         }
 
+        //private async Task UpdateInventoryAfterOrder(int orderId)
+        //{
+        //    try
+        //    {
+        //        // Para cada detalle de la orden, actualizar el inventario correspondiente
+        //        foreach (var detail in model.OrderDetails)
+        //        {
+        //            if (detail.ItemType == "Product")
+        //            {
+        //                // Actualizar inventario del producto
+        //                await ApiClient.PostAsync<BaseResponseModel, StockMovementDTO>(
+        //                    "api/ProductInventory/movement",
+        //                    new StockMovementDTO
+        //                    {
+        //                        ProductInventoryID = detail.ItemID,
+        //                        MovementType = "Salida",
+        //                        Quantity = detail.Quantity,
+        //                        Notes = $"Venta en orden #{orderId}"
+        //                    });
+        //            }
+        //            else if (detail.ItemType == "Combo")
+        //            {
+        //                // Para combos, necesitamos obtener sus componentes y actualizar cada uno
+        //                var comboResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Combo/{detail.ItemID}");
+        //                if (comboResponse?.Success == true)
+        //                {
+        //                    var combo = JsonConvert.DeserializeObject<ComboModel>(comboResponse.Data.ToString());
+        //                    if (combo?.Items != null)
+        //                    {
+        //                        foreach (var comboItem in combo.Items)
+        //                        {
+        //                            await ApiClient.PostAsync<BaseResponseModel, StockMovementDTO>(
+        //                                "api/ProductInventory/movement",
+        //                                new StockMovementDTO
+        //                                {
+        //                                    ProductInventoryID = comboItem.FastFoodItemID,
+        //                                    MovementType = "Salida",
+        //                                    Quantity = comboItem.Quantity * detail.Quantity,
+        //                                    Notes = $"Venta en combo #{combo.ID}, orden #{orderId}"
+        //                                });
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        NotificationService.Notify(NotificationSeverity.Warning,
+        //            "Advertencia", $"La orden se creó, pero hubo problemas actualizando el inventario: {ex.Message}", 6000);
+        //    }
+        //}
         private async Task UpdateInventoryAfterOrder(int orderId)
         {
             try
@@ -691,16 +806,57 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 {
                     if (detail.ItemType == "Product")
                     {
-                        // Actualizar inventario del producto
-                        await ApiClient.PostAsync<BaseResponseModel, StockMovementDTO>(
-                            "api/ProductInventory/movement",
-                            new StockMovementDTO
+                        // Primero verificar qué tipo de producto es
+                        var product = products.FirstOrDefault(p => p.ID == detail.ItemID);
+                        if (product == null) continue;
+
+                        if (product.ProductTypeID == 2) // Tipo Inventario
+                        {
+                            // Obtener primero el inventario del producto para verificar su existencia
+                            var productInventoryResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/ProductInventory/product/{detail.ItemID}");
+                            if (productInventoryResponse?.Success == true)
                             {
-                                ProductInventoryID = detail.ItemID,
-                                MovementType = "Salida",
-                                Quantity = detail.Quantity,
-                                Notes = $"Venta en orden #{orderId}"
-                            });
+                                var inventory = JsonConvert.DeserializeObject<ProductInventoryModel>(productInventoryResponse.Data.ToString());
+                                if (inventory != null)
+                                {
+                                    // Actualizar inventario del producto
+                                    await ApiClient.PostAsync<BaseResponseModel, StockMovementDTO>(
+                                        "api/ProductInventory/movement",
+                                        new StockMovementDTO
+                                        {
+                                            ProductInventoryID = inventory.ID, // Usar el ID del inventario, NO el ID del producto
+                                            MovementType = "Salida",
+                                            Quantity = detail.Quantity,
+                                            Notes = $"Venta en orden #{orderId}"
+                                        });
+                                }
+                            }
+                        }
+                        else if (product.ProductTypeID == 1) // Tipo Preparado
+                        {
+                            // Para productos preparados, ajustar el inventario de ingredientes
+                            if (product.Ingredients != null && product.Ingredients.Any())
+                            {
+                                foreach (var ingredient in product.Ingredients)
+                                {
+                                    // Calcular la cantidad total del ingrediente a restar
+                                    decimal totalQuantity = ingredient.Quantity * detail.Quantity;
+
+                                    // Registrar el consumo del ingrediente
+                                    await ApiClient.PostAsync<BaseResponseModel, InventoryTransactionDTO>(
+                                        "api/Inventory/transactions",
+                                        new InventoryTransactionDTO
+                                        {
+                                            IngredientID = ingredient.IngredientID,
+                                            TransactionType = "Consumption",
+                                            Quantity = totalQuantity,
+                                            UnitPrice = 0, // No aplica para consumo
+                                            Notes = $"Consumo en producto #{product.ID}, orden #{orderId}",
+                                            TransactionDate = DateTime.Now
+                                        });
+                                }
+                            }
+                        }
                     }
                     else if (detail.ItemType == "Combo")
                     {
@@ -713,15 +869,57 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                             {
                                 foreach (var comboItem in combo.Items)
                                 {
-                                    await ApiClient.PostAsync<BaseResponseModel, StockMovementDTO>(
-                                        "api/ProductInventory/movement",
-                                        new StockMovementDTO
+                                    // Obtener el producto para saber su tipo
+                                    var product = products.FirstOrDefault(p => p.ID == comboItem.FastFoodItemID);
+                                    if (product == null) continue;
+
+                                    if (product.ProductTypeID == 2) // Tipo Inventario
+                                    {
+                                        // Obtener primero el inventario del producto
+                                        var productInventoryResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/ProductInventory/product/{comboItem.FastFoodItemID}");
+                                        if (productInventoryResponse?.Success == true)
                                         {
-                                            ProductInventoryID = comboItem.FastFoodItemID,
-                                            MovementType = "Salida",
-                                            Quantity = comboItem.Quantity * detail.Quantity,
-                                            Notes = $"Venta en combo #{combo.ID}, orden #{orderId}"
-                                        });
+                                            var inventory = JsonConvert.DeserializeObject<ProductInventoryModel>(productInventoryResponse.Data.ToString());
+                                            if (inventory != null)
+                                            {
+                                                // Actualizar inventario del producto en el combo
+                                                await ApiClient.PostAsync<BaseResponseModel, StockMovementDTO>(
+                                                    "api/ProductInventory/movement",
+                                                    new StockMovementDTO
+                                                    {
+                                                        ProductInventoryID = inventory.ID, // Usar el ID del inventario
+                                                        MovementType = "Salida",
+                                                        Quantity = comboItem.Quantity * detail.Quantity,
+                                                        Notes = $"Venta en combo #{combo.ID}, orden #{orderId}"
+                                                    });
+                                            }
+                                        }
+                                    }
+                                    else if (product.ProductTypeID == 1) // Tipo Preparado
+                                    {
+                                        // Para productos preparados, ajustar el inventario de ingredientes
+                                        if (product.Ingredients != null && product.Ingredients.Any())
+                                        {
+                                            foreach (var ingredient in product.Ingredients)
+                                            {
+                                                // Calcular la cantidad total del ingrediente a restar
+                                                decimal totalQuantity = ingredient.Quantity * comboItem.Quantity * detail.Quantity;
+
+                                                // Registrar el consumo del ingrediente
+                                                await ApiClient.PostAsync<BaseResponseModel, InventoryTransactionDTO>(
+                                                    "api/Inventory/transactions",
+                                                    new InventoryTransactionDTO
+                                                    {
+                                                        IngredientID = ingredient.IngredientID,
+                                                        TransactionType = "Consumption",
+                                                        Quantity = totalQuantity,
+                                                        UnitPrice = 0, // No aplica para consumo
+                                                        Notes = $"Consumo en producto #{product.ID}, combo #{combo.ID}, orden #{orderId}",
+                                                        TransactionDate = DateTime.Now
+                                                    });
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
