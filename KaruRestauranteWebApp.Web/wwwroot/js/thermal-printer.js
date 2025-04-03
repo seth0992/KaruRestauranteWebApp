@@ -362,8 +362,8 @@
     getOrderTypeName: function (type) {
         switch (type) {
             case "DineIn": return "En Sitio";
-            case "TakeOut": return "Para Llevar";
-            case "Delivery": return "Entrega";
+            case "TakeOut": return "Pide y Espera";
+            case "Delivery": return "Express";
             default: return type;
         }
     },
