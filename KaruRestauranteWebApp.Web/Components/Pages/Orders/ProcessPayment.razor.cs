@@ -171,7 +171,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 var paymentResult = await DialogService.OpenAsync<PaymentProcessDialog>("Procesar Pago",
                     new Dictionary<string, object>
                     {
-                { "TotalAmount", pendingAmount }
+                { "TotalAmount", pendingAmount },
+                { "ApiClient", ApiClient } // Pasamos el ApiClient para verificar las referencias
                     },
                     new DialogOptions
                     {
@@ -180,17 +181,41 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                         CloseDialogOnOverlayClick = false
                     });
 
+
                 if (paymentResult == null || !(paymentResult is PaymentProcessDialog.PaymentResult))
                 {
                     // El usuario canceló el pago
                     return;
                 }
 
+
                 var paymentInfo = (PaymentProcessDialog.PaymentResult)paymentResult;
 
                 // Registrar pago
                 var paymentDto = paymentInfo.PaymentInfo;
                 paymentDto.OrderID = order.ID;
+
+                // Verificar nuevamente el número de referencia antes de enviar
+                if (!string.IsNullOrWhiteSpace(paymentDto.ReferenceNumber) &&
+                    paymentDto.PaymentMethod != "Cash")
+                {
+                    var referenceCheck = await ApiClient.GetFromJsonAsync<BaseResponseModel>(
+                        $"api/Order/check-reference?reference={paymentDto.ReferenceNumber}&method={paymentDto.PaymentMethod}");
+
+                    if (referenceCheck?.Success == false &&
+                        referenceCheck?.ErrorMessage?.Contains("ya existe") == true)
+                    {
+                        var confirmDuplicate = await DialogService.Confirm(
+                            "Este número de referencia ya ha sido utilizado. ¿Desea continuar de todas formas?",
+                            "Referencia duplicada",
+                            new ConfirmOptions { OkButtonText = "Sí", CancelButtonText = "No" });
+
+                        if (confirmDuplicate != true)
+                        {
+                            return; // El usuario decidió no continuar con el pago duplicado
+                        }
+                    }
+                }
 
                 // Asegurar que las notas contienen la información de la moneda
                 if (paymentInfo.Currency == "USD" && (string.IsNullOrEmpty(paymentDto.Notes) || !paymentDto.Notes.Contains("Pago en dólares")))

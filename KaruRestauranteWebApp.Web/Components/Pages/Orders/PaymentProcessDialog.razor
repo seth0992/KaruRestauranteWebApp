@@ -1,4 +1,5 @@
 ﻿@inject DialogService DialogService
+@using KaruRestauranteWebApp.Models.Models
 @using KaruRestauranteWebApp.Models.Models.Orders
 
 <RadzenCard Style="padding: 10px; max-width: 1200px;">
@@ -55,8 +56,26 @@
                     <div class="mt-3">
                         <RadzenText TextStyle="TextStyle.Subtitle2" class="mb-2">Información adicional</RadzenText>
                         <RadzenLabel Text="Referencia" />
-                        <RadzenTextBox @bind-Value="@ReferenceNumber" Style="width: 100%"
-                                       Placeholder="Número de referencia o autorización" />
+                        <div class="position-relative">
+                            <RadzenTextBox @bind-Value="@ReferenceNumber"
+                                           Style="width: 100%"
+                                           Change="@(async () => await CheckReferenceNumber(ReferenceNumber))"
+                                           Placeholder="Número de referencia o autorización" />
+
+                            @if (IsCheckingReference)
+                            {
+                                <div class="position-absolute top-0 end-0 mt-2 me-2">
+                                    <RadzenIcon Icon="search" Style="color: var(--rz-primary);" />
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrEmpty(ReferenceError))
+                            {
+                                <div class="text-danger mt-1 small">
+                                    <RadzenIcon Icon="error" Style="font-size: 14px;" /> @ReferenceError
+                                </div>
+                            }
+                        </div>
                         <RadzenLabel Text="Notas" class="mt-2" />
                         <RadzenTextArea @bind-Value="@Notes" Style="width: 100%" Rows="2"
                                         Placeholder="Opcional: información adicional" />
@@ -200,6 +219,8 @@
 @code {
     [Parameter]
     public decimal TotalAmount { get; set; }
+    [Parameter]
+    public ApiClient ApiClient { get; set; }
 
     private string PaymentMethod { get; set; } = "Cash";
     private string Currency { get; set; } = "CRC"; // CRC = Colones, USD = Dólares
@@ -209,6 +230,10 @@
     private decimal Change { get; set; } = 0;
     private string ReferenceNumber { get; set; } = string.Empty;
     private string Notes { get; set; } = string.Empty;
+    private bool IsCheckingReference { get; set; } = false;
+    private bool ReferenceDuplicated { get; set; } = false;
+    private string ReferenceError { get; set; } = string.Empty;
+
 
     // Definir objetos de métodos de pago con una clase específica para evitar problemas con propiedades
     private class PaymentMethodOption
@@ -251,6 +276,7 @@
         PaymentMethod = method;
         StateHasChanged();
     }
+
 
     private void SelectCurrency(string currency)
     {
@@ -370,7 +396,7 @@
 
         if (PaymentMethod == "CreditCard" || PaymentMethod == "DebitCard" || PaymentMethod == "Transfer" || PaymentMethod == "SINPE")
         {
-            return !string.IsNullOrWhiteSpace(ReferenceNumber);
+            return !string.IsNullOrWhiteSpace(ReferenceNumber) && !IsCheckingReference && !ReferenceDuplicated;
         }
 
         return true; // Para otros métodos
@@ -409,6 +435,47 @@
             };
 
         DialogService.Close(result);
+    }
+
+    private async Task CheckReferenceNumber(string referenceNumber)
+    {
+        if (string.IsNullOrWhiteSpace(referenceNumber) || PaymentMethod == "Cash")
+        {
+            ReferenceDuplicated = false;
+            ReferenceError = string.Empty;
+            return;
+        }
+
+        if (referenceNumber.Length < 3)
+        {
+            // No verificar hasta que tenga al menos 3 caracteres
+            return;
+        }
+
+        try
+        {
+            IsCheckingReference = true;
+            StateHasChanged();
+
+            // Llamada al API para verificar si la referencia ya existe
+            var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>(
+                $"api/Order/check-reference?reference={referenceNumber}&method={PaymentMethod}");
+
+            if (response != null)
+            {
+                ReferenceDuplicated = !response.Success && response.ErrorMessage != null;
+                ReferenceError = ReferenceDuplicated ? response.ErrorMessage : string.Empty;
+            }
+        }
+        catch (Exception)
+        {
+            ReferenceError = "No se pudo verificar la referencia. Continúe con precaución.";
+        }
+        finally
+        {
+            IsCheckingReference = false;
+            StateHasChanged();
+        }
     }
 
     private string GetPaymentIcon(string method)

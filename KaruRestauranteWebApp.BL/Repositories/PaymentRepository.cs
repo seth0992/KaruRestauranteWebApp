@@ -12,6 +12,8 @@ namespace KaruRestauranteWebApp.BL.Repositories
         Task UpdateAsync(PaymentModel payment);
         Task<bool> DeleteAsync(int id);
         Task<decimal> GetTotalPaidForOrderAsync(int orderId);
+        Task<PaymentModel> GetByReferenceNumberAsync(string referenceNumber, string paymentMethod);
+
     }
 
     public class PaymentRepository : IPaymentRepository
@@ -21,6 +23,14 @@ namespace KaruRestauranteWebApp.BL.Repositories
         public PaymentRepository(AppDbContext context)
         {
             _context = context;
+        }
+
+        public async Task<PaymentModel> GetByReferenceNumberAsync(string referenceNumber, string paymentMethod)
+        {
+            return await _context.Payments
+                .FirstOrDefaultAsync(p =>
+                    p.ReferenceNumber == referenceNumber &&
+                    p.PaymentMethod == paymentMethod);
         }
 
         public async Task<List<PaymentModel>> GetByOrderIdAsync(int orderId)
