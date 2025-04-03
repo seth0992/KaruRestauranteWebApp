@@ -1,5 +1,6 @@
 ﻿@using KaruRestauranteWebApp.Models.Models
 @using KaruRestauranteWebApp.Models.Models.CashRegister
+@using System.Text.Json
 @inject ApiClient ApiClient
 @inject DialogService DialogService
 @inject IToastService ToastService
@@ -27,7 +28,7 @@
                                 <RadzenFormField Text="Total en Colones" Variant="Variant.Outlined">
                                     <RadzenNumeric @bind-Value="@model.FinalAmountCRC" Name="FinalAmountCRC"
                                                    Min="0" Placeholder="Monto total en colones" Disabled="true"
-                                                   class="w-100" />
+                                                   class="w-100" TValue="decimal?" />
                                 </RadzenFormField>
                             </RadzenStack>
                         </RadzenColumn>
@@ -47,7 +48,7 @@
                                 <RadzenFormField Text="Total en Dólares" Variant="Variant.Outlined">
                                     <RadzenNumeric @bind-Value="@model.FinalAmountUSD" Name="FinalAmountUSD"
                                                    Min="0" Placeholder="Monto total en dólares" Disabled="true"
-                                                   class="w-100" />
+                                                   class="w-100" TValue="decimal?" />
                                 </RadzenFormField>
                             </RadzenStack>
                         </RadzenColumn>
@@ -80,83 +81,110 @@
     [Parameter]
     public decimal InitialDataUSD { get; set; }
 
+    [Parameter]
+    public decimal CurrentBalanceCRC { get; set; }
+
+    [Parameter]
+    public decimal CurrentBalanceUSD { get; set; }
+
     private CashRegisterSessionDTO model = new CashRegisterSessionDTO();
     private bool loading = false;
+    private bool initialized = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        initialized = true;
+        await base.OnInitializedAsync();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
-        model = new CashRegisterSessionDTO
-            {
-                ID = SessionId,
-                ClosingDate = DateTime.Now,
-                InitialAmountCRC = InitialDataCRC,
-                InitialAmountUSD = InitialDataUSD,
-                Status = "Closed",
-                FinalAmountCRC = 0,
-                FinalAmountUSD = 0,
-                FinalBillsCRC = 0,
-                FinalCoinsCRC = 0,
-                FinalBillsUSD = 0,
-                FinalCoinsUSD = 0
-            };
-
-        // Opcionalmente cargar el balance actual para sugerir como valor final
-        await LoadCurrentBalance();
-    }
-
-    private async Task LoadCurrentBalance()
-    {
         try
         {
-            var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/CashRegister/balance");
-            if (response != null && response.Success && response.Data != null)
-            {
-                var balanceData = System.Text.Json.JsonSerializer.Deserialize<dynamic>(
-                    response.Data.ToString() ?? "",
-                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                if (balanceData != null)
+            model = new CashRegisterSessionDTO
                 {
-                    decimal balanceCRC = balanceData.GetProperty("balanceCRC").GetDecimal();
-                    decimal balanceUSD = balanceData.GetProperty("balanceUSD").GetDecimal();
+                    ID = SessionId,
+                    ClosingDate = DateTime.Now,
+                    InitialAmountCRC = InitialDataCRC,
+                    InitialAmountUSD = InitialDataUSD,
+                    Status = "Closed",
+                    FinalAmountCRC = CurrentBalanceCRC,
+                    FinalAmountUSD = CurrentBalanceUSD,
+                    FinalBillsCRC = Math.Round(CurrentBalanceCRC * 0.9m, 2),
+                    FinalCoinsCRC = Math.Round(CurrentBalanceCRC * 0.1m, 2),
+                    FinalBillsUSD = Math.Round(CurrentBalanceUSD * 0.9m, 2),
+                    FinalCoinsUSD = Math.Round(CurrentBalanceUSD * 0.1m, 2)
+                };
 
-                    model.FinalAmountCRC = balanceCRC;
-                    model.FinalAmountUSD = balanceUSD;
-
-                    // Proponer una distribución inicial 90% billetes, 10% monedas
-                    model.FinalBillsCRC = Math.Round(balanceCRC * 0.9m, 2);
-                    model.FinalCoinsCRC = Math.Round(balanceCRC * 0.1m, 2);
-                    model.FinalBillsUSD = Math.Round(balanceUSD * 0.9m, 2);
-                    model.FinalCoinsUSD = Math.Round(balanceUSD * 0.1m, 2);
-                }
-            }
+            // Ajustar el modelo para asegurar valores no nulos
+            if (model.FinalAmountCRC == 0) model.FinalAmountCRC = 0;
+            if (model.FinalAmountUSD == 0) model.FinalAmountUSD = 0;
+            if (model.FinalBillsCRC == 0) model.FinalBillsCRC = 0;
+            if (model.FinalCoinsCRC == 0) model.FinalCoinsCRC = 0;
+            if (model.FinalBillsUSD == 0) model.FinalBillsUSD = 0;
+            if (model.FinalCoinsUSD == 0) model.FinalCoinsUSD = 0;
         }
         catch (Exception ex)
         {
-            ToastService.ShowWarning($"No se pudo cargar el balance actual: {ex.Message}");
+            if (initialized)
+            {
+                ToastService.ShowError($"Error al inicializar formulario: {ex.Message}");
+            }
         }
     }
 
     private void OnColonesChange()
     {
-        model.FinalAmountCRC = model.FinalBillsCRC + model.FinalCoinsCRC;
-        StateHasChanged();
+        try
+        {
+            model.FinalAmountCRC = (model.FinalBillsCRC ?? 0) + (model.FinalCoinsCRC ?? 0);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            if (initialized)
+            {
+                ToastService.ShowError($"Error al calcular total en colones: {ex.Message}");
+            }
+        }
     }
 
     private void OnDolaresChange()
     {
-        model.FinalAmountUSD = model.FinalBillsUSD + model.FinalCoinsUSD;
-        StateHasChanged();
+        try
+        {
+            model.FinalAmountUSD = (model.FinalBillsUSD ?? 0) + (model.FinalCoinsUSD ?? 0);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            if (initialized)
+            {
+                ToastService.ShowError($"Error al calcular total en dólares: {ex.Message}");
+            }
+        }
     }
 
     private async Task Submit()
     {
         loading = true;
+        bool closed = false;
+
         try
         {
+            // Validar que los montos no sean nulos
+            model.FinalAmountCRC ??= 0;
+            model.FinalAmountUSD ??= 0;
+            model.FinalBillsCRC ??= 0;
+            model.FinalCoinsCRC ??= 0;
+            model.FinalBillsUSD ??= 0;
+            model.FinalCoinsUSD ??= 0;
+            model.Notes ??= string.Empty;
+
             var response = await ApiClient.PostAsync<BaseResponseModel, CashRegisterSessionDTO>($"api/CashRegister/sessions/{SessionId}/close", model);
             if (response != null && response.Success)
             {
+                closed = true;
                 DialogService.Close(true);
             }
             else
@@ -166,7 +194,10 @@
         }
         catch (Exception ex)
         {
-            ToastService.ShowError($"Error al cerrar la caja: {ex.Message}");
+            if (initialized && !closed)
+            {
+                ToastService.ShowError($"Error al cerrar la caja: {ex.Message}");
+            }
         }
         finally
         {
@@ -176,6 +207,9 @@
 
     private void Cancel()
     {
-        DialogService.Close(false);
+        if (initialized)
+        {
+            DialogService.Close(false);
+        }
     }
 }
