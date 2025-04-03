@@ -59,8 +59,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         private object[] orderTypesDisplay = new[]
         {
             new { value = "DineIn", text = "En sitio" },
-            new { value = "TakeOut", text = "Para llevar" },
-            new { value = "Delivery", text = "A domicilio" }
+            new { value = "TakeOut", text = "Pide y Espera" },
+            new { value = "Delivery", text = "Express" }
         };
 
         private object[] paymentMethods = new[]
@@ -69,7 +69,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             new { value = "CreditCard", name = "Tarjeta de Crédito" },
             new { value = "DebitCard", name = "Tarjeta de Débito" },
             new { value = "Transfer", name = "Transferencia" },
-            new { value = "SIMPE", name = "SIMPE Movil" },
+            new { value = "SIMPE", name = "SINPE Movil" },
             new { value = "Other", name = "Otro" }
         };
 
@@ -731,8 +731,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             return orderType switch
             {
                 "DineIn" => "En sitio",
-                "TakeOut" => "Para llevar",
-                "Delivery" => "A domicilio",
+                "TakeOut" => "Pide y Espera",
+                "Delivery" => "Express",
                 _ => orderType
             };
         }
