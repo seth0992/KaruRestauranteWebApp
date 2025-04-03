@@ -8,13 +8,13 @@
 
     // Información de la empresa
     companyInfo: {
-        name: "KARÚ RESTAURANTE",
-        legalName: "KARÚ BITES SQL",
-        taxId: "CED JUR 3 102 924380",
+        name: "KARU BITES SRL",
+        legalName: "KARU BITES SRL",
+        taxId: "CED.JUR. 3-102-924380",
         phone: "506 8806 2822",
         address1: "Puntarenas, Golfito, Rio Claro",
         address2: "Frente Cabinas Pérez",
-        website: "www.karucr.com"
+        website: "¡Síguenos en nuestras redes sociales!"
     },
 
     // Función para formatear el texto al ancho del papel
