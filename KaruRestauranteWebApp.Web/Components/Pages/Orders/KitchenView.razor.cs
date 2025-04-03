@@ -126,7 +126,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         {
             try
             {
-                // Cargar productos
+                // Cargar productos primero
                 var productsResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/FastFood");
                 if (productsResponse?.Success == true)
                 {
@@ -138,7 +138,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     Debug.WriteLine("Error al cargar productos: " + productsResponse?.ErrorMessage);
                 }
 
-                // Cargar combos
+                // Luego cargar combos
                 var combosResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Combo");
                 if (combosResponse?.Success == true)
                 {
@@ -152,6 +152,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                         {
                             foreach (var item in combo.Items)
                             {
+                                // Asociar el producto si no está ya
                                 if (item.FastFoodItem == null)
                                 {
                                     item.FastFoodItem = products.FirstOrDefault(p => p.ID == item.FastFoodItemID);
@@ -171,6 +172,29 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 NotificationService.Notify(NotificationSeverity.Warning,
                     "Advertencia", "No se pudieron cargar los nombres de algunos productos", 4000);
             }
+        }
+
+        private List<(string Name, int Quantity)> GetComboItems(OrderDetailModel detail)
+        {
+            var result = new List<(string Name, int Quantity)>();
+
+            if (detail.ItemType == "Combo")
+            {
+                var combo = combos.FirstOrDefault(c => c.ID == detail.ItemID);
+                if (combo?.Items != null && combo.Items.Any())
+                {
+                    foreach (var item in combo.Items)
+                    {
+                        string productName = item.FastFoodItem?.Name ??
+                            products.FirstOrDefault(p => p.ID == item.FastFoodItemID)?.Name ??
+                            $"Producto #{item.FastFoodItemID}";
+
+                        result.Add((productName, item.Quantity));
+                    }
+                }
+            }
+
+            return result;
         }
 
         private void ApplyFilters()
@@ -450,12 +474,11 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             else
                 return $"{timeSpan.Minutes}m {timeSpan.Seconds}s";
         }
-
         private async Task PrintKitchenTicket(OrderModel order)
         {
             try
             {
-                // Preparar datos para imprimir - no intentamos asignar a detail.ItemName
+                // Preparar datos para imprimir
                 var ticketData = new
                 {
                     orderNumber = order.OrderNumber,
@@ -463,9 +486,15 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     createdAt = order.CreatedAt.ToString("dd/MM/yyyy HH:mm"),
                     items = order.OrderDetails.Select(d => new
                     {
-                        name = GetItemName(d),  // Usamos el método que ya tienes para obtener el nombre
+                        name = GetItemName(d),
                         quantity = d.Quantity,
                         notes = d.Notes,
+                        isCombo = d.ItemType == "Combo",
+                        comboItems = GetComboItems(d).Select(ci => new
+                        {
+                            name = ci.Name,
+                            quantity = ci.Quantity
+                        }).ToList(),
                         customizations = d.Customizations.Select(c => new
                         {
                             type = c.CustomizationType,
