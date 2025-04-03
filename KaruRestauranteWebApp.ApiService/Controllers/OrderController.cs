@@ -36,11 +36,19 @@ namespace KaruRestauranteWebApp.ApiService.Controllers
         [HttpGet]
         public async Task<ActionResult<BaseResponseModel>> GetOrders(
             [FromQuery] DateTime? fromDate = null,
-            [FromQuery] DateTime? toDate = null)
+            [FromQuery] DateTime? toDate = null,
+            [FromQuery] string? status = null)
         {
             try
             {
                 var orders = await _orderService.GetAllOrdersAsync(fromDate, toDate);
+
+                // Filtrar por estado si se proporciona
+                if (!string.IsNullOrEmpty(status))
+                {
+                    orders = orders.Where(o => o.OrderStatus == status).ToList();
+                }
+
                 return Ok(new BaseResponseModel { Success = true, Data = orders });
             }
             catch (Exception ex)

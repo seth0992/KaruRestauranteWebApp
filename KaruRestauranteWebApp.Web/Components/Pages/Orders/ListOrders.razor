@@ -10,115 +10,261 @@
         </RadzenColumn>
         <RadzenColumn Size="6" class="text-end">
             <RadzenButton Icon="add" Text="Nuevo Pedido" ButtonStyle="ButtonStyle.Primary"
-                        Click=@(() => NavigationManager.NavigateTo("/orders/create")) />
+                          Click=@(() => NavigationManager.NavigateTo("/orders/create")) />
         </RadzenColumn>
     </RadzenRow>
 
     <RadzenCard class="mb-4">
-        <RadzenText TextStyle="TextStyle.Subtitle1" class="mb-3">Filtros</RadzenText>
         <RadzenRow>
-            <RadzenColumn Size="12" SizeMD="3">
-                <RadzenLabel Text="Desde" />
-                <RadzenDatePicker @bind-Value=@fromDate Style="width: 100%;" DateFormat="dd/MM/yyyy" />
+            <RadzenColumn Size="12" SizeMD="10">
+                <RadzenText TextStyle="TextStyle.Subtitle1" class="mb-3">Filtros de búsqueda</RadzenText>
             </RadzenColumn>
-            <RadzenColumn Size="12" SizeMD="3">
-                <RadzenLabel Text="Hasta" />
-                <RadzenDatePicker @bind-Value=@toDate Style="width: 100%;" DateFormat="dd/MM/yyyy" />
-            </RadzenColumn>
-            <RadzenColumn Size="12" SizeMD="3">
-                <RadzenLabel Text="Estado" />
-                <RadzenDropDown @bind-Value=@selectedStatus Data=@orderStatuses 
-                                Placeholder="Todos" Style="width: 100%;" />
-            </RadzenColumn>
-            <RadzenColumn Size="12" SizeMD="3" class="d-flex align-items-end">
-                <RadzenButton Text="Buscar" Icon="search" ButtonStyle="ButtonStyle.Primary" 
-                              Click=@(async () => await LoadOrders()) Style="width: 100%; margin-bottom: 1px;" />
+            <RadzenColumn Size="12" SizeMD="2" class="text-end">
+                <RadzenButton Icon="refresh" Text="Limpiar filtros" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                              Click=@ClearFilters />
             </RadzenColumn>
         </RadzenRow>
+
+        <RadzenStack Gap="1rem">
+            <RadzenRow>
+                <RadzenColumn Size="12" class="mb-3">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Start" Class="filter-quick-buttons">
+                        <RadzenButton ButtonStyle="@(isShowingTodayOnly ? ButtonStyle.Primary : ButtonStyle.Light)"
+                                      Icon="today"
+                                      Text="Pedidos de hoy"
+                                      Click=@ShowTodayOrders
+                                      Size="ButtonSize.Medium" />
+
+                        <RadzenButton ButtonStyle="@(selectedStatus == "Pending" ? ButtonStyle.Primary : ButtonStyle.Light)"
+                                      Icon="pending"
+                                      Text="Pendientes"
+                                      Click=@(() => FilterByStatus("Pending"))
+                                      Size="ButtonSize.Medium" />
+
+                        <RadzenButton ButtonStyle="@(selectedStatus == "InProgress" ? ButtonStyle.Primary : ButtonStyle.Light)"
+                                      Icon="hourglass_top"
+                                      Text="En Proceso"
+                                      Click=@(() => FilterByStatus("InProgress"))
+                                      Size="ButtonSize.Medium" />
+
+                        <RadzenButton ButtonStyle="@(selectedStatus == "Ready" ? ButtonStyle.Primary : ButtonStyle.Light)"
+                                      Icon="check_circle"
+                                      Text="Listos"
+                                      Click=@(() => FilterByStatus("Ready"))
+                                      Size="ButtonSize.Medium" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenLabel Text="Desde" Component="dateFrom" />
+                    <RadzenDatePicker @bind-Value=@fromDate Style="width: 100%;" DateFormat="dd/MM/yyyy" Name="dateFrom" Change=@(async () => await LoadOrders()) />
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenLabel Text="Hasta" Component="dateTo" />
+                    <RadzenDatePicker @bind-Value=@toDate Style="width: 100%;" DateFormat="dd/MM/yyyy" Name="dateTo" Change=@(async () => await LoadOrders()) />
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenLabel Text="Estado" Component="statusDropdown" />
+                    <RadzenDropDown @bind-Value=@selectedStatus Data=@orderStatuses TextProperty="Text" ValueProperty="Value"
+                                    Placeholder="Todos" Style="width: 100%;" Name="statusDropdown" Change=@(async () => await LoadOrders()) />
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenLabel Text="Tipo de pedido" Component="orderTypeDropdown" />
+                    <RadzenDropDown @bind-Value=@selectedOrderType Data=@orderTypes TextProperty="Text" ValueProperty="Value"
+                                    Placeholder="Todos" Style="width: 100%;" Name="orderTypeDropdown" Change=@(async () => await LoadOrders()) />
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="9">
+                    <RadzenLabel Text="Buscar cliente" Component="customerSearch" />
+                    <RadzenTextBox @bind-Value=@customerSearch Placeholder="Nombre del cliente..." Style="width: 100%;" Name="customerSearch" Change=@(async () => await LoadOrders()) />
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="3" class="d-flex align-items-end">
+                    <RadzenButton Text="Buscar" Icon="search" ButtonStyle="ButtonStyle.Primary"
+                                  Click=@(async () => await LoadOrders()) Style="width: 100%; margin-bottom: 1px;" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenStack>
     </RadzenCard>
 
-    @if (orders == null)
+    @if (isLoading)
     {
         <RadzenProgressBar Value="100" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else if (orders == null || !orders.Any())
+    {
+        <RadzenCard class="rz-my-3 rz-p-5 rz-text-align-center">
+            <RadzenStack Gap="1rem" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center">
+                <RadzenIcon Icon="search_off" Size="IconSize.Large" Style="font-size: 3rem; opacity: 0.5" />
+                <RadzenText TextStyle="TextStyle.H5">No se encontraron pedidos</RadzenText>
+                <RadzenText TextStyle="TextStyle.Body1">Intenta con otros filtros o crea un nuevo pedido</RadzenText>
+            </RadzenStack>
+        </RadzenCard>
     }
     else
     {
         <RadzenCard Variant="Variant.Flat">
-            <RadzenDataGrid Data="@orders" TItem="OrderModel"
-                          AllowFiltering="true"
-                          AllowColumnResize="true"
-                          AllowSorting="true"
-                          AllowPaging="true"
-                          PageSize="10"
-                          FilterMode="FilterMode.Advanced"
-                          FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
-                <Columns>
-                    <RadzenDataGridColumn TItem="OrderModel" Property="OrderNumber" Title="Número" Width="120px" />
-                    
-                    <RadzenDataGridColumn TItem="OrderModel" Property="CreatedAt" Title="Fecha" Width="150px">
-                        <Template Context="order">
-                            @order.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
-                        </Template>
-                    </RadzenDataGridColumn>
-                    
-                    <RadzenDataGridColumn TItem="OrderModel" Property="Customer.Name" Title="Cliente" Width="200px">
-                        <Template Context="order">
-                            @(order.Customer?.Name ?? "Cliente no registrado")
-                        </Template>
-                    </RadzenDataGridColumn>
-                    
-                    <RadzenDataGridColumn TItem="OrderModel" Property="OrderType" Title="Tipo" Width="100px">
-                        <Template Context="order">
-                            @GetOrderTypeName(order.OrderType)
-                        </Template>
-                    </RadzenDataGridColumn>
-                    
-                    <RadzenDataGridColumn TItem="OrderModel" Property="TotalAmount" Title="Total" Width="120px">
-                        <Template Context="order">
-                            @order.TotalAmount.ToString("₡#,##0.00")
-                        </Template>
-                    </RadzenDataGridColumn>
-                    
-                    <RadzenDataGridColumn TItem="OrderModel" Property="OrderStatus" Title="Estado" Width="120px">
-                        <Template Context="order">
-                            <RadzenBadge BadgeStyle="@GetOrderStatusBadgeStyle(order.OrderStatus)"
-                                       Text="@GetOrderStatusName(order.OrderStatus)" />
-                        </Template>
-                    </RadzenDataGridColumn>
-                    
-                    <RadzenDataGridColumn TItem="OrderModel" Property="PaymentStatus" Title="Estado Pago" Width="120px">
-                        <Template Context="order">
-                            <RadzenBadge BadgeStyle="@GetPaymentStatusBadgeStyle(order.PaymentStatus)"
-                                       Text="@GetPaymentStatusName(order.PaymentStatus)" />
-                        </Template>
-                    </RadzenDataGridColumn>
+            <RadzenStack Gap="1rem">
+                <RadzenRow>
+                    <RadzenColumn Size="12">
+                        <RadzenText TextStyle="TextStyle.Body2" class="mb-2">
+                            Mostrando @orders.Count() pedidos @(isShowingTodayOnly ? "de hoy" : "")
+                            @(selectedStatus != null ? $" con estado '{GetOrderStatusName(selectedStatus)}'" : "")
+                        </RadzenText>
+                    </RadzenColumn>
+                </RadzenRow>
 
-                    <RadzenDataGridColumn TItem="OrderModel" Title="Acciones" Width="200px" TextAlign="TextAlign.Center">
-                        <Template Context="order">
-                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="0.5rem">
-                                <RadzenButton ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" Icon="visibility"
-                                              Click="@(() => NavigateToOrderDetails(order.ID))" Tooltip="Ver detalles" />
+                <RadzenDataGrid Data="@orders" TItem="OrderModel"
+                                AllowFiltering="true"
+                                AllowColumnResize="true"
+                                AllowSorting="true"
+                                AllowPaging="true"
+                                PageSize="10"
+                                FilterMode="FilterMode.Advanced"
+                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                ShowPagingSummary="true"
+                                RowRender=@RowRender
+                                PagerHorizontalAlign="HorizontalAlign.Left">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="OrderModel" Property="OrderNumber" Title="Número" Width="120px">
+                            <HeaderTemplate>
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="tag" />
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Número</RadzenText>
+                                </RadzenStack>
+                            </HeaderTemplate>
+                            <Template Context="order">
+                                <RadzenText TextStyle="TextStyle.Body1" Style="font-weight: 500;">@order.OrderNumber</RadzenText>
+                            </Template>
+                        </RadzenDataGridColumn>
 
-                               @*  @if (order.PaymentStatus != "Paid" && order.PaymentStatus != "Cancelled")
-                                { *@
+                        <RadzenDataGridColumn TItem="OrderModel" Property="CreatedAt" Title="Fecha" Width="170px">
+                            <HeaderTemplate>
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="event" />
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Fecha</RadzenText>
+                                </RadzenStack>
+                            </HeaderTemplate>
+                            <Template Context="order">
+                                <RadzenStack Orientation="Orientation.Vertical" Gap="0rem">
+                                    <RadzenText TextStyle="TextStyle.Body2">@order.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Caption">@order.CreatedAt.ToLocalTime().ToString("HH:mm")</RadzenText>
+                                </RadzenStack>
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="OrderModel" Property="Customer.Name" Title="Cliente" Width="200px">
+                            <HeaderTemplate>
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="person" />
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Cliente</RadzenText>
+                                </RadzenStack>
+                            </HeaderTemplate>
+                            <Template Context="order">
+                                <RadzenText TextStyle="TextStyle.Body2">@(order.Customer?.Name ?? "Cliente no registrado")</RadzenText>
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="OrderModel" Property="OrderType" Title="Tipo" Width="120px">
+                            <HeaderTemplate>
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="category" />
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Tipo</RadzenText>
+                                </RadzenStack>
+                            </HeaderTemplate>
+                            <Template Context="order">
+                                <RadzenBadge BadgeStyle="@GetOrderTypeBadgeStyle(order.OrderType)"
+                                             Text="@GetOrderTypeName(order.OrderType)" />
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="OrderModel" Property="TotalAmount" Title="Total" Width="120px">
+                            <HeaderTemplate>
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="attach_money" />
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Total</RadzenText>
+                                </RadzenStack>
+                            </HeaderTemplate>
+                            <Template Context="order">
+                                <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: 600;">@order.TotalAmount.ToString("₡#,##0.00")</RadzenText>
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="OrderModel" Property="OrderStatus" Title="Estado" Width="120px">
+                            <HeaderTemplate>
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="published_with_changes" />
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Estado</RadzenText>
+                                </RadzenStack>
+                            </HeaderTemplate>
+                            <Template Context="order">
+                                <RadzenBadge BadgeStyle="@GetOrderStatusBadgeStyle(order.OrderStatus)"
+                                             Text="@GetOrderStatusName(order.OrderStatus)" />
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="OrderModel" Property="PaymentStatus" Title="Estado Pago" Width="120px">
+                            <HeaderTemplate>
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="payments" />
+                                    <RadzenText TextStyle="TextStyle.Subtitle2">Pago</RadzenText>
+                                </RadzenStack>
+                            </HeaderTemplate>
+                            <Template Context="order">
+                                <RadzenBadge BadgeStyle="@GetPaymentStatusBadgeStyle(order.PaymentStatus)"
+                                             Text="@GetPaymentStatusName(order.PaymentStatus)" />
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="OrderModel" Title="Acciones" Width="200px" TextAlign="TextAlign.Center">
+                            <HeaderTemplate>
+                                <RadzenText TextStyle="TextStyle.Subtitle2">Acciones</RadzenText>
+                            </HeaderTemplate>
+                            <Template Context="order">
+                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="0.5rem">
+                                    <RadzenButton ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" Icon="visibility"
+                                                  Click="@(() => NavigateToOrderDetails(order.ID))" Tooltip="Ver detalles" />
+
                                     <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="payment"
                                                   Click="@(() => NavigateToPayment(order.ID))" Variant="Variant.Outlined"
                                                   Tooltip="Procesar pago" />
-                                @* } *@
 
-                                @if (order.OrderStatus != "Delivered" && order.OrderStatus != "Cancelled")
-                                {
-                                    <RadzenButton ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Icon="edit"
-                                                  Click="@(() => NavigateToEditOrder(order.ID))" Variant="Variant.Outlined"
-                                                  Tooltip="Editar orden" />
-                                }
-                            </RadzenStack>
-                        </Template>
-                    </RadzenDataGridColumn>
-                
-                
-                </Columns>
-            </RadzenDataGrid>
+                                    @if (order.OrderStatus != "Delivered" && order.OrderStatus != "Cancelled")
+                                    {
+                                        <RadzenButton ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Icon="edit"
+                                                      Click="@(() => NavigateToEditOrder(order.ID))" Variant="Variant.Outlined"
+                                                      Tooltip="Editar orden" />
+                                    }
+
+                                    @if (order.OrderStatus != "Delivered" && order.OrderStatus != "Cancelled")
+                                    {
+                                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Icon="cancel"
+                                                      Click="@(() => ShowDeleteConfirmation(order))" Variant="Variant.Outlined"
+                                                      Tooltip="Cancelar orden" />
+                                    }
+                                </RadzenStack>
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </RadzenStack>
         </RadzenCard>
     }
 </RadzenStack>
+
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+
+    .filter-quick-buttons .rz-badge {
+        transition: all 0.2s ease;
+    }
+
+        .filter-quick-buttons .rz-badge:hover {
+            transform: scale(1.05);
+        }
+</style>
