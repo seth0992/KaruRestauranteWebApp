@@ -154,6 +154,17 @@
         transform: scale(1.01);
         transition: all 0.5s ease;
     }
+
+    .combo-items {
+        border-left: 2px solid #eee;
+        margin-top: 4px;
+    }
+
+    .combo-item {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 2px;
+    }
 </style>
 
 @code {
@@ -200,6 +211,18 @@
                         <Template Context="detail">
                             <div class="d-flex flex-column">
                                 <span>@GetItemName(detail)</span>
+                                @if (detail.ItemType == "Combo")
+                                {
+                                    <div class="ms-2 mt-1 combo-items">
+                                        @foreach (var comboItem in GetComboItems(detail))
+                                        {
+                                            <div class="combo-item d-flex align-items-center">
+                                                <RadzenIcon Icon="subdirectory_arrow_right" class="me-1" Style="font-size: 14px;" />
+                                                <small>@comboItem.Quantity x @comboItem.Name</small>
+                                            </div>
+                                        }
+                                    </div>
+                                }
                                 @if (!string.IsNullOrEmpty(detail.Notes))
                                 {
                                     <small class="text-muted">@detail.Notes</small>

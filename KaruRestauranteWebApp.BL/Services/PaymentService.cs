@@ -17,6 +17,8 @@ namespace KaruRestauranteWebApp.BL.Services
         Task<bool> DeletePaymentAsync(int id);
         Task<decimal> GetTotalPaidForOrderAsync(int orderId);
         Task UpdateOrderPaymentStatusAsync(int orderId);
+        Task<(bool Exists, DateTime? PaymentDate)> CheckReferenceNumberAsync(string referenceNumber, string paymentMethod);
+
 
     }
 
@@ -42,6 +44,20 @@ namespace KaruRestauranteWebApp.BL.Services
             _cashRegisterTransactionService = cashRegisterTransactionService;
         }
 
+        public async Task<(bool Exists, DateTime? PaymentDate)> CheckReferenceNumberAsync(string referenceNumber, string paymentMethod)
+        {
+            try
+            {
+                var payment = await _paymentRepository.GetByReferenceNumberAsync(referenceNumber, paymentMethod);
+                return (payment != null, payment?.PaymentDate);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al verificar número de referencia: {ReferenceNumber}, Método: {PaymentMethod}",
+                    referenceNumber, paymentMethod);
+                throw;
+            }
+        }
         public async Task<List<PaymentModel>> GetPaymentsByOrderIdAsync(int orderId)
         {
             try

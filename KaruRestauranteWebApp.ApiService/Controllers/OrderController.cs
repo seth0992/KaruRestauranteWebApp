@@ -36,11 +36,19 @@ namespace KaruRestauranteWebApp.ApiService.Controllers
         [HttpGet]
         public async Task<ActionResult<BaseResponseModel>> GetOrders(
             [FromQuery] DateTime? fromDate = null,
-            [FromQuery] DateTime? toDate = null)
+            [FromQuery] DateTime? toDate = null,
+            [FromQuery] string? status = null)
         {
             try
             {
                 var orders = await _orderService.GetAllOrdersAsync(fromDate, toDate);
+
+                // Filtrar por estado si se proporciona
+                if (!string.IsNullOrEmpty(status))
+                {
+                    orders = orders.Where(o => o.OrderStatus == status).ToList();
+                }
+
                 return Ok(new BaseResponseModel { Success = true, Data = orders });
             }
             catch (Exception ex)
@@ -755,6 +763,65 @@ namespace KaruRestauranteWebApp.ApiService.Controllers
                     ErrorMessage = "Error interno del servidor"
                 });
             }
+        }
+
+        [HttpGet("check-reference")]
+        public async Task<ActionResult<BaseResponseModel>> CheckReferenceNumber(
+        [FromQuery] string reference, [FromQuery] string method)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(reference) || string.IsNullOrWhiteSpace(method))
+                {
+                    return BadRequest(new BaseResponseModel
+                    {
+                        Success = false,
+                        ErrorMessage = "Se requiere número de referencia y método de pago"
+                    });
+                }
+
+                var result = await _paymentService.CheckReferenceNumberAsync(reference, method);
+
+                if (result.Exists)
+                {
+                    return new BaseResponseModel
+                    {
+                        Success = false,
+                        ErrorMessage = $"El número de referencia ya existe para un pago con {GetPaymentMethodName(method)} realizado el {result.PaymentDate?.ToString("dd/MM/yyyy HH:mm") ?? "fecha desconocida"}",
+                        Data = new { Exists = true, PaymentDate = result.PaymentDate }
+                    };
+                }
+
+                return new BaseResponseModel
+                {
+                    Success = true,
+                    Data = new { Exists = false }
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al verificar el número de referencia {Reference}", reference);
+                return StatusCode(500, new BaseResponseModel
+                {
+                    Success = false,
+                    ErrorMessage = "Error interno del servidor al verificar el número de referencia"
+                });
+            }
+        }
+
+        // Método auxiliar para obtener nombres amigables de métodos de pago
+        private string GetPaymentMethodName(string method)
+        {
+            return method switch
+            {
+                "Cash" => "Efectivo",
+                "CreditCard" => "Tarjeta de Crédito",
+                "DebitCard" => "Tarjeta de Débito",
+                "Transfer" => "Transferencia",
+                "SINPE" => "SINPE Móvil",
+                "Other" => "Otro método",
+                _ => method
+            };
         }
     }
 }

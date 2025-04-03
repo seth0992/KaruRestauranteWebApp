@@ -3,6 +3,7 @@ using KaruRestauranteWebApp.Models.Models;
 using Microsoft.AspNetCore.Components;
 using Newtonsoft.Json;
 using Radzen;
+using Radzen.Blazor;
 
 namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 {
@@ -24,7 +25,27 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         private DateTime? fromDate;
         private DateTime? toDate;
         private string? selectedStatus;
-        private string[] orderStatuses = { "Pending", "InProgress", "Ready", "Delivered", "Cancelled" };
+        private string? selectedOrderType;
+        private string? customerSearch;
+        private bool isLoading = true;
+        private bool isShowingTodayOnly = false;
+
+        // Opciones para los dropdowns
+        private List<DropDownItem> orderStatuses = new List<DropDownItem>
+        {
+            new DropDownItem { Text = "Pendiente", Value = "Pending" },
+            new DropDownItem { Text = "En Proceso", Value = "InProgress" },
+            new DropDownItem { Text = "Listo", Value = "Ready" },
+            new DropDownItem { Text = "Entregado", Value = "Delivered" },
+            new DropDownItem { Text = "Cancelado", Value = "Cancelled" }
+        };
+
+        private List<DropDownItem> orderTypes = new List<DropDownItem>
+        {
+            new DropDownItem { Text = "En Sitio", Value = "DineIn" },
+            new DropDownItem { Text = "Para Llevar", Value = "TakeOut" },
+            new DropDownItem { Text = "Entrega", Value = "Delivery" }
+        };
 
         protected override async Task OnInitializedAsync()
         {
@@ -35,17 +56,25 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         {
             try
             {
-                string queryParams = "";
+                isLoading = true;
+                StateHasChanged();
+
+                // Construir la URL con todos los filtros aplicables
+                var queryParams = new List<string>();
 
                 if (fromDate.HasValue)
-                    queryParams += $"fromDate={fromDate.Value.ToString("yyyy-MM-dd")}&";
+                    queryParams.Add($"fromDate={fromDate.Value.ToString("yyyy-MM-dd")}");
 
                 if (toDate.HasValue)
-                    queryParams += $"toDate={toDate.Value.ToString("yyyy-MM-dd")}&";
+                    queryParams.Add($"toDate={toDate.Value.ToString("yyyy-MM-dd")}");
+
+                // Incluir el filtro de estado directamente en la solicitud al servidor
+                if (!string.IsNullOrEmpty(selectedStatus))
+                    queryParams.Add($"status={selectedStatus}");
 
                 string url = "api/Order";
-                if (!string.IsNullOrEmpty(queryParams))
-                    url += $"?{queryParams.TrimEnd('&')}";
+                if (queryParams.Any())
+                    url += $"?{string.Join("&", queryParams)}";
 
                 var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>(url);
 
@@ -54,10 +83,24 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     var ordersList = JsonConvert.DeserializeObject<List<OrderModel>>(
                         response.Data.ToString());
 
-                    // Filtrar por estado si se ha seleccionado uno
-                    if (!string.IsNullOrEmpty(selectedStatus))
+                    // Aplicar filtros adicionales que no se pueden enviar directamente al servidor
+                    if (ordersList != null)
                     {
-                        ordersList = ordersList?.Where(o => o.OrderStatus == selectedStatus).ToList();
+                        // Filtro por tipo de orden
+                        if (!string.IsNullOrEmpty(selectedOrderType))
+                        {
+                            ordersList = ordersList.Where(o => o.OrderType == selectedOrderType).ToList();
+                        }
+
+                        // Filtro por búsqueda de cliente
+                        if (!string.IsNullOrEmpty(customerSearch))
+                        {
+                            ordersList = ordersList.Where(o =>
+                                o.Customer != null &&
+                                o.Customer.Name != null &&
+                                o.Customer.Name.Contains(customerSearch, StringComparison.OrdinalIgnoreCase)
+                            ).ToList();
+                        }
                     }
 
                     orders = ordersList?.AsEnumerable();
@@ -73,6 +116,54 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 NotificationService.Notify(NotificationSeverity.Error,
                     "Error", $"Error al cargar pedidos: {ex.Message}", 4000);
             }
+            finally
+            {
+                isLoading = false;
+                StateHasChanged();
+            }
+        }
+        private void ShowTodayOrders()
+        {
+            isShowingTodayOnly = !isShowingTodayOnly;
+
+            if (isShowingTodayOnly)
+            {
+                fromDate = DateTime.Today;
+                toDate = DateTime.Today.AddDays(1).AddTicks(-1);
+            }
+            else
+            {
+                fromDate = null;
+                toDate = null;
+            }
+
+            LoadOrders();
+        }
+
+        private void FilterByStatus(string status)
+        {
+            if (selectedStatus == status)
+            {
+                selectedStatus = null; // Desactivar el filtro si ya estaba seleccionado
+            }
+            else
+            {
+                selectedStatus = status;
+            }
+
+            LoadOrders();
+        }
+
+        private void ClearFilters()
+        {
+            fromDate = null;
+            toDate = null;
+            selectedStatus = null;
+            selectedOrderType = null;
+            customerSearch = null;
+            isShowingTodayOnly = false;
+
+            LoadOrders();
         }
 
         private BadgeStyle GetOrderStatusBadgeStyle(string status)
@@ -96,6 +187,17 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 "Partially Paid" => BadgeStyle.Info,
                 "Paid" => BadgeStyle.Success,
                 "Cancelled" => BadgeStyle.Danger,
+                _ => BadgeStyle.Light
+            };
+        }
+
+        private BadgeStyle GetOrderTypeBadgeStyle(string type)
+        {
+            return type switch
+            {
+                "DineIn" => BadgeStyle.Primary,
+                "TakeOut" => BadgeStyle.Secondary,
+                "Delivery" => BadgeStyle.Info,
                 _ => BadgeStyle.Light
             };
         }
@@ -177,14 +279,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             }
         }
 
-        //private void ViewOrderDetails(DataGridRowMouseEventArgs<OrderModel> args)
-        //{
-        //    //NavigationManager.NavigateTo($"/orders/details/{args.Data.ID}");
-        //}
-        private void ProcessOrderPayment(OrderModel order)
-        {
-            NavigationManager.NavigateTo($"/orders/payment/{order.ID}");
-        }
         private void NavigateToOrderDetails(int orderId)
         {
             NavigationManager.NavigateTo($"/orders/details/{orderId}");
@@ -199,13 +293,37 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         {
             NavigationManager.NavigateTo($"/orders/edit/{orderId}");
         }
-        private bool CanEditOrder(OrderModel order)
+
+        // Método para colorear las filas según el estado
+        private void RowRender(RowRenderEventArgs<OrderModel> args)
         {
-            return order.OrderStatus != "Delivered" && order.OrderStatus != "Cancelled";
+            if (args.Data.OrderStatus == "Cancelled")
+            {
+                args.Attributes.Add("style", "background-color: var(--rz-danger-lighter); opacity: 0.7;");
+            }
+            else if (args.Data.OrderStatus == "Delivered")
+            {
+                args.Attributes.Add("style", "background-color: var(--rz-success-lighter);");
+            }
+            else if (args.Data.OrderStatus == "Ready")
+            {
+                args.Attributes.Add("style", "background-color: var(--rz-success-lighter-alpha);");
+            }
+            else if (args.Data.OrderStatus == "InProgress")
+            {
+                args.Attributes.Add("style", "background-color: var(--rz-info-lighter-alpha);");
+            }
+            else if (args.Data.CreatedAt.Date == DateTime.Today)
+            {
+                args.Attributes.Add("style", "background-color: var(--rz-warning-lighter-alpha);");
+            }
         }
-        private void NavigateToEdit(int orderId)
-        {
-            NavigationManager.NavigateTo($"/orders/edit/{orderId}");
-        }
+    }
+
+    // Clase auxiliar para los dropdowns
+    public class DropDownItem
+    {
+        public string Text { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
     }
 }

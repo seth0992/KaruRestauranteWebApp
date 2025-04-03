@@ -13,12 +13,12 @@
 <PageTitle>Control de Caja - Karu Restaurante</PageTitle>
 
 <!-- Cabecera con información de estado y acciones principales -->
-<RadzenCard class="rz-shadow-5 rz-mb-4 rz-border-radius-6 rz-p-4">
+<RadzenCard class="rz-shadow-5 rz-mb-4 rz-border-radius-6 rz-p-2">
     <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
-        <RadzenColumn Size="12" SizeMD="8">
+        <RadzenColumn Size="12" SizeMD="6">
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
                 <div class="rz-bg-primary rz-p-3 rz-border-radius-circle rz-text-align-center">
-                    <RadzenIcon Icon="account_balance" Style="font-size: 2rem; color: white" />
+                    <RadzenIcon Icon="account_balance" Style="font-size: 2rem; color: darkgray" />
                 </div>
                 <RadzenStack Gap="0">
                     <RadzenText TextStyle="TextStyle.H4">Control de Caja</RadzenText>
@@ -40,7 +40,7 @@
                 </RadzenStack>
             </RadzenStack>
         </RadzenColumn>
-        <RadzenColumn Size="12" SizeMD="4" class="rz-text-align-end rz-mt-4 rz-mt-md-0">
+        <RadzenColumn Size="12" SizeMD="6" class="rz-text-align-end rz-mt-4 rz-mt-md-0">
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End" Gap="0.5rem">
                 @if (currentSession == null)
                 {
@@ -52,7 +52,7 @@
                 {
                     <RadzenButton Click="@RefreshDashboard" Text="Actualizar" Icon="refresh" ButtonStyle="ButtonStyle.Light" 
                                 Variant="Variant.Outlined" Size="ButtonSize.Medium" class="rz-shadow-1"
-                                Style="border-radius: 20px;" />
+                                Style="border-radius: 20px; " />
                     <RadzenButton Click="@OpenTransactionModal" Text="Nuevo Movimiento" Icon="add_circle" 
                                 ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Medium" class="rz-shadow-2"
                                 Style="border-radius: 20px;" />
@@ -888,9 +888,9 @@ else
 
         var result = await DialogService.OpenAsync<CreateTransactionDialog>("Registrar Movimiento",
             new Dictionary<string, object> {
-                { "SessionId", currentSession.ID },
-                { "CurrentBalanceCRC", cashBalanceCRC },
-                { "CurrentBalanceUSD", cashBalanceUSD }
+                { "SessionId", currentSession.ID }
+                // { "CurrentBalanceCRC", cashBalanceCRC },
+                // { "CurrentBalanceUSD", cashBalanceUSD }
                 },
             new DialogOptions
                 {
