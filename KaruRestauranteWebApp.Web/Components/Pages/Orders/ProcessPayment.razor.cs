@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Newtonsoft.Json;
 using Radzen;
+using KaruRestauranteWebApp.Web.Components.Pages.Orders;
 
 namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 {
@@ -243,57 +244,127 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             }
         }
 
-        private async Task PrintReceiptData(PaymentProcessDialog.PaymentResult paymentInfo = null)
+        //private async Task PrintReceiptData(PaymentProcessDialog.PaymentResult paymentInfo = null)
+        //{
+        //    // Encontrar el último pago si no se especifica uno
+        //    PaymentModel lastPayment = null;
+        //    if (paymentInfo == null && order.Payments.Any())
+        //    {
+        //        lastPayment = order.Payments.OrderByDescending(p => p.PaymentDate).First();
+        //    }
+
+        //    // Crear datos para impresión
+        //    var printData = new
+        //    {
+        //        orderNumber = order.OrderNumber,
+        //        customerName = order.Customer?.Name ?? "Cliente General",
+        //        table = order.Table?.TableNumber.ToString() ?? "",
+        //        orderType = order.OrderType,
+        //        items = order.OrderDetails.Select(d => new
+        //        {
+        //            name = GetItemName(d),
+        //            quantity = d.Quantity,
+        //            price = d.UnitPrice,
+        //            notes = d.Notes,
+        //            customizations = d.Customizations.Select(c => new
+        //            {
+        //                type = c.CustomizationType,
+        //                name = ingredients.FirstOrDefault(i => i.ID == c.IngredientID)?.Name ?? $"Ingrediente #{c.IngredientID}",
+        //                quantity = c.Quantity
+        //            }).ToList()
+        //        }).ToList(),
+        //        subtotal = order.TotalAmount - order.TaxAmount + order.DiscountAmount,
+        //        tax = order.TaxAmount,
+        //        discount = order.DiscountAmount,
+        //        total = order.TotalAmount,
+        //        paymentMethod = paymentInfo != null ?
+        //            GetPaymentMethodName(paymentInfo.PaymentInfo.PaymentMethod) :
+        //            (lastPayment != null ? GetPaymentMethodName(lastPayment.PaymentMethod) : "Varios"),
+        //        // Información de pago (si está disponible)
+        //        amountReceived = paymentInfo?.AmountReceived ?? lastPayment?.Amount ?? order.TotalAmount,
+        //        change = paymentInfo?.Change ?? 0,
+        //        currency = paymentInfo?.Currency ?? "CRC",
+        //        exchangeRate = paymentInfo?.ExchangeRate ?? 1,
+        //        amountReceivedOriginal = paymentInfo?.AmountReceivedOriginal ?? 0,
+        //        changeOriginal = paymentInfo?.ChangeOriginal ?? 0,
+        //        referenceNumber = paymentInfo?.PaymentInfo.ReferenceNumber ?? lastPayment?.ReferenceNumber ?? "",
+        //        notes = order.Notes
+        //    };
+
+        //    // Imprimir recibo de pago
+        //    await JSRuntime.InvokeVoidAsync("printerService.printPaymentReceipt", printData);
+        //}
+    private async Task PrintReceiptData(PaymentProcessDialog.PaymentResult paymentInfo = null)
+{
+    // Encontrar el último pago si no se especifica uno
+    PaymentModel lastPayment = null;
+    if (paymentInfo == null && order.Payments.Any())
+    {
+        lastPayment = order.Payments.OrderByDescending(p => p.PaymentDate).First();
+    }
+
+    // Crear datos para impresión
+    var printData = new
+    {
+        orderNumber = order.OrderNumber,
+        customerName = order.Customer?.Name ?? "Cliente General",
+        table = order.Table?.TableNumber.ToString() ?? "",
+        orderType = order.OrderType,
+        items = order.OrderDetails.Select(d => new
         {
-            // Encontrar el último pago si no se especifica uno
-            PaymentModel lastPayment = null;
-            if (paymentInfo == null && order.Payments.Any())
+            name = GetItemName(d),
+            quantity = d.Quantity,
+            price = d.UnitPrice,
+            notes = d.Notes,
+            // Marcar si es un combo
+            isCombo = d.ItemType == "Combo",
+            // Si es un combo, buscar los productos que lo componen
+            comboItems = d.ItemType == "Combo" ? GetComboItems(d.ItemID) : null,
+            customizations = d.Customizations.Select(c => new
             {
-                lastPayment = order.Payments.OrderByDescending(p => p.PaymentDate).First();
+                type = c.CustomizationType,
+                name = ingredients.FirstOrDefault(i => i.ID == c.IngredientID)?.Name ?? $"Ingrediente #{c.IngredientID}",
+                quantity = c.Quantity
+            }).ToList()
+        }).ToList(),
+        subtotal = order.TotalAmount - order.TaxAmount + order.DiscountAmount,
+        tax = order.TaxAmount,
+        discount = order.DiscountAmount,
+        total = order.TotalAmount,
+        paymentMethod = paymentInfo != null ?
+            GetPaymentMethodName(paymentInfo.PaymentInfo.PaymentMethod) :
+            (lastPayment != null ? GetPaymentMethodName(lastPayment.PaymentMethod) : "Varios"),
+        // Información de pago (si está disponible)
+        amountReceived = paymentInfo?.AmountReceived ?? lastPayment?.Amount ?? order.TotalAmount,
+        change = paymentInfo?.Change ?? 0,
+        currency = paymentInfo?.Currency ?? "CRC",
+        exchangeRate = paymentInfo?.ExchangeRate ?? 1,
+        amountReceivedOriginal = paymentInfo?.AmountReceivedOriginal ?? 0,
+        changeOriginal = paymentInfo?.ChangeOriginal ?? 0,
+        referenceNumber = paymentInfo?.PaymentInfo.ReferenceNumber ?? lastPayment?.ReferenceNumber ?? "",
+        notes = order.Notes
+    };
+
+    // Imprimir recibo de pago
+    await JSRuntime.InvokeVoidAsync("printerService.printPaymentReceipt", printData);
+}
+
+        // Método auxiliar para obtener los productos de un combo
+        private List<object> GetComboItems(int comboId)
+        {
+            var combo = combos.FirstOrDefault(c => c.ID == comboId);
+            if (combo == null || combo.Items == null || !combo.Items.Any())
+            {
+                return new List<object>();
             }
 
-            // Crear datos para impresión
-            var printData = new
+            return combo.Items.Select(item => new
             {
-                orderNumber = order.OrderNumber,
-                customerName = order.Customer?.Name ?? "Cliente General",
-                table = order.Table?.TableNumber.ToString() ?? "",
-                orderType = order.OrderType,
-                items = order.OrderDetails.Select(d => new
-                {
-                    name = GetItemName(d),
-                    quantity = d.Quantity,
-                    price = d.UnitPrice,
-                    notes = d.Notes,
-                    customizations = d.Customizations.Select(c => new
-                    {
-                        type = c.CustomizationType,
-                        name = ingredients.FirstOrDefault(i => i.ID == c.IngredientID)?.Name ?? $"Ingrediente #{c.IngredientID}",
-                        quantity = c.Quantity
-                    }).ToList()
-                }).ToList(),
-                subtotal = order.TotalAmount - order.TaxAmount + order.DiscountAmount,
-                tax = order.TaxAmount,
-                discount = order.DiscountAmount,
-                total = order.TotalAmount,
-                paymentMethod = paymentInfo != null ?
-                    GetPaymentMethodName(paymentInfo.PaymentInfo.PaymentMethod) :
-                    (lastPayment != null ? GetPaymentMethodName(lastPayment.PaymentMethod) : "Varios"),
-                // Información de pago (si está disponible)
-                amountReceived = paymentInfo?.AmountReceived ?? lastPayment?.Amount ?? order.TotalAmount,
-                change = paymentInfo?.Change ?? 0,
-                currency = paymentInfo?.Currency ?? "CRC",
-                exchangeRate = paymentInfo?.ExchangeRate ?? 1,
-                amountReceivedOriginal = paymentInfo?.AmountReceivedOriginal ?? 0,
-                changeOriginal = paymentInfo?.ChangeOriginal ?? 0,
-                referenceNumber = paymentInfo?.PaymentInfo.ReferenceNumber ?? lastPayment?.ReferenceNumber ?? "",
-                notes = order.Notes
-            };
-
-            // Imprimir recibo de pago
-            await JSRuntime.InvokeVoidAsync("printerService.printPaymentReceipt", printData);
+                name = products.FirstOrDefault(p => p.ID == item.FastFoodItemID)?.Name ?? $"Producto #{item.FastFoodItemID}",
+                quantity = item.Quantity,
+                specialInstructions = item.SpecialInstructions
+            }).ToList<object>();
         }
-
         private void GoBack()
         {
             NavigationManager.NavigateTo("/orders");

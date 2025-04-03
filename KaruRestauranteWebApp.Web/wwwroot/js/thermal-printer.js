@@ -207,6 +207,19 @@
             content += `${quantityStr}  ${productName.padEnd(25, ' ')} ${priceStr}\n`;
             content += `      ${this.rightAlign(`${(item.quantity * item.price).toFixed(2)}`, width - 6)}\n`;
 
+            // Añadir elementos del combo si es un combo
+            if (item.isCombo && item.comboItems && item.comboItems.length > 0) {
+                content += `      Contiene:\n`;
+                item.comboItems.forEach(comboItem => {
+                    content += `        - ${comboItem.name} x${comboItem.quantity}\n`;
+
+                    // Añadir instrucciones especiales del ítem del combo si existen
+                    if (comboItem.specialInstructions) {
+                        content += `          Nota: ${comboItem.specialInstructions}\n`;
+                    }
+                });
+            }
+
             // Añadir personalizaciones si existen
             if (item.customizations && item.customizations.length > 0) {
                 item.customizations.forEach(custom => {
@@ -302,10 +315,23 @@
 
             content += `${quantityStr}  ${productName}\n`;
 
+            // Añadir elementos del combo si es un combo
+            if (item.isCombo && item.comboItems && item.comboItems.length > 0) {
+                content += `      Contiene:\n`;
+                item.comboItems.forEach(comboItem => {
+                    content += `        - ${comboItem.name} x${comboItem.quantity}\n`;
+
+                    // Añadir instrucciones especiales del ítem del combo si existen
+                    if (comboItem.specialInstructions) {
+                        content += `          Nota: ${comboItem.specialInstructions}\n`;
+                    }
+                });
+            }
+
             // Añadir personalizaciones si existen
             if (item.customizations && item.customizations.length > 0) {
                 item.customizations.forEach(custom => {
-                    content += `      ${this.getCustomizationTypeName(custom.type)}: ${custom.name} x${custom.quantity}\n`;
+                    content += `      ${custom.type}: ${custom.name} x${custom.quantity}\n`;
                 });
             }
 
