@@ -12,6 +12,8 @@ namespace KaruRestauranteWebApp.BL.Repositories
         Task UpdateAsync(OrderDetailModel orderDetail);
         Task<bool> UpdateStatusAsync(int id, string status);
         Task<bool> DeleteAsync(int id);
+        Task<bool> AddCustomizationsAsync(int orderDetailId, List<OrderItemCustomizationModel> customizations);
+
     }
 
     public class OrderDetailRepository : IOrderDetailRepository
@@ -39,7 +41,24 @@ namespace KaruRestauranteWebApp.BL.Repositories
                 .Where(od => od.OrderID == orderId)
                 .ToListAsync();
         }
+        public async Task<bool> AddCustomizationsAsync(int orderDetailId, List<OrderItemCustomizationModel> customizations)
+        {
+            try
+            {
+                foreach (var customization in customizations)
+                {
+                    customization.OrderDetailID = orderDetailId;
+                    _context.OrderItemCustomizations.Add(customization);
+                }
 
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {              
+                return false;
+            }
+        }
         public async Task<OrderDetailModel> CreateAsync(OrderDetailModel orderDetail)
         {
             await _context.OrderDetails.AddAsync(orderDetail);

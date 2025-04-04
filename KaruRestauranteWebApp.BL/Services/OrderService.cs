@@ -777,22 +777,23 @@ namespace KaruRestauranteWebApp.BL.Services
             // Procesar personalizaciones si hay
             if (detailDto.Customizations != null && detailDto.Customizations.Any())
             {
-                foreach (var customizationDto in detailDto.Customizations)
+                // Crear lista de personalizaciones para el detalle
+                var customizations = detailDto.Customizations.Select(c => new OrderItemCustomizationModel
                 {
-                    var customization = new OrderItemCustomizationModel
-                    {
-                        OrderDetailID = createdDetail.ID,
-                        IngredientID = customizationDto.IngredientID,
-                        CustomizationType = customizationDto.CustomizationType,
-                        Quantity = customizationDto.Quantity,
-                        ExtraCharge = customizationDto.ExtraCharge
-                    };
+                    OrderDetailID = createdDetail.ID,
+                    IngredientID = c.IngredientID,
+                    CustomizationType = c.CustomizationType,
+                    Quantity = c.Quantity,
+                    ExtraCharge = c.ExtraCharge
+                }).ToList();
 
-                    createdDetail.Customizations.Add(customization);
-                }
+                // Utilizar el nuevo método para añadir personalizaciones
+                await _orderDetailRepository.AddCustomizationsAsync(createdDetail.ID, customizations);
 
-                await _orderDetailRepository.UpdateAsync(createdDetail);
+                // Cargar las personalizaciones recién creadas en el modelo
+                createdDetail = await _orderDetailRepository.GetByIdAsync(createdDetail.ID);
             }
+
 
             return createdDetail;
         }
@@ -1199,17 +1200,6 @@ namespace KaruRestauranteWebApp.BL.Services
                 // Como es solo para logging, simplemente registramos en el log
                 _logger.LogInformation("Actividad de orden {OrderId}: {Action} por usuario {UserId}",
                     orderId, action, userId);
-
-                // Si tuvieras una tabla de logs en la base de datos, aquí es donde insertarías el registro
-
-                // Ejemplo si hubiera un LogRepository:
-                // await _logRepository.CreateAsync(new LogModel {
-                //     EntityType = "Order",
-                //     EntityId = orderId,
-                //     Action = action,
-                //     UserId = userId,
-                //     Timestamp = DateTime.UtcNow
-                // });
             }
             catch (Exception ex)
             {

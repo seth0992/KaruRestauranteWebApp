@@ -38,15 +38,15 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         private List<FastFoodItemModel> filteredProducts = new();
         private List<ComboModel> filteredCombos = new();
 
-        // Mapeos de traducción
-        private Dictionary<string, string> orderStatusMap = new Dictionary<string, string>
-        {
-            { "Pending", "Pendiente" },
-            { "InProgress", "En preparación" },
-            { "Ready", "Listo" },
-            { "Delivered", "Entregado" },
-            { "Cancelled", "Cancelado" }
-        };
+        //// Mapeos de traducción
+        //private Dictionary<string, string> orderStatusMap = new Dictionary<string, string>
+        //{
+        //    { "Pending", "Pendiente" },
+        //    { "InProgress", "En preparación" },
+        //    { "Ready", "Listo" },
+        //    { "Delivered", "Entregado" },
+        //    { "Cancelled", "Cancelado" }
+        //};
 
         private Dictionary<string, string> customizationTypeMap = new Dictionary<string, string>
         {
@@ -80,10 +80,10 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         }
 
         // Método para traducir el estado del pedido
-        private string TranslateOrderStatus(string status)
-        {
-            return orderStatusMap.TryGetValue(status, out var translation) ? translation : status;
-        }
+        //private string TranslateOrderStatus(string status)
+        //{
+        //    return orderStatusMap.TryGetValue(status, out var translation) ? translation : status;
+        //}
 
         protected override async Task OnInitializedAsync()
         {
@@ -123,7 +123,51 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             var productsResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/FastFood");
             if (productsResponse?.Success == true)
             {
-                products = JsonConvert.DeserializeObject<List<FastFoodItemModel>>(productsResponse.Data.ToString()) ?? new();
+                products = new List<FastFoodItemModel>(); // Lista existente
+                var productDTOs = JsonConvert.DeserializeObject<List<FastFoodItemDTO>>(productsResponse.Data.ToString()) ?? new();
+
+                // Para cada DTO, cargar la versión detallada del producto
+                foreach (var productDTO in productDTOs)
+                {
+                    if (productDTO.IsAvailable)
+                    {
+                        var detailResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/FastFood/{productDTO.ID}");
+                        if (detailResponse?.Success == true)
+                        {
+                            var detailedProduct = JsonConvert.DeserializeObject<FastFoodItemDetailDTO>(detailResponse.Data.ToString());
+                            if (detailedProduct != null)
+                            {
+                                // Crear un modelo a partir del DTO detallado
+                                var product = new FastFoodItemModel
+                                {
+                                    ID = detailedProduct.ID,
+                                    Name = detailedProduct.Name,
+                                    Description = detailedProduct.Description,
+                                    CategoryID = detailedProduct.CategoryID,
+                                    SellingPrice = detailedProduct.SellingPrice,
+                                    EstimatedCost = detailedProduct.EstimatedCost,
+                                    ProductTypeID = detailedProduct.ProductTypeID,
+                                    IsAvailable = detailedProduct.IsAvailable,
+                                    ImageUrl = detailedProduct.ImageUrl,
+                                    EstimatedPreparationTime = detailedProduct.EstimatedPreparationTime,
+                                    // Crear lista de ingredientes a partir del DTO
+                                    Ingredients = detailedProduct.Ingredients?.Select(i => new ItemIngredientModel
+                                    {
+                                        ID = i.ID,
+                                        FastFoodItemID = detailedProduct.ID,
+                                        IngredientID = i.IngredientID,
+                                        Quantity = i.Quantity,
+                                        IsOptional = i.IsOptional,
+                                        CanBeExtra = i.CanBeExtra,
+                                        ExtraPrice = i.ExtraPrice
+                                    }).ToList() ?? new List<ItemIngredientModel>()
+                                };
+
+                                products.Add(product);
+                            }
+                        }
+                    }
+                }
             }
 
             // Cargar categorías
@@ -307,74 +351,20 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             }
         }
 
-        private async Task OpenProductSelectionDialog()
-        {
-            try
-            {
-                // Usando Radzen DialogService para mostrar un diálogo de selección de productos
-                var selectedProduct = await DialogService.OpenAsync<ProductSelectionDialog>("Seleccionar Producto",
-                    new Dictionary<string, object>
-                    {
-                        { "Products", products.Where(p => p.IsAvailable).ToList() }
-                    },
-                    new DialogOptions
-                    {
-                        Width = "700px",
-                        Height = "530px",
-                        CloseDialogOnOverlayClick = false
-                    });
-
-                if (selectedProduct != null)
-                {
-                    var product = (FastFoodItemModel)selectedProduct;
-                    AddProductToOrder(product);
-                }
-            }
-            catch (Exception ex)
-            {
-                NotificationService.Notify(NotificationSeverity.Error,
-                    "Error", $"Error al seleccionar producto: {ex.Message}", 4000);
-            }
-        }
-
-        private async Task OpenComboSelectionDialog()
-        {
-            try
-            {
-                // Usando Radzen DialogService para mostrar un diálogo de selección de combos
-                var selectedCombo = await DialogService.OpenAsync<ComboSelectionDialog>("Seleccionar Combo",
-                    new Dictionary<string, object>
-                    {
-                        { "Combos", combos.Where(c => c.IsAvailable).ToList() }
-                    },
-                    new DialogOptions
-                    {
-                        Width = "700px",
-                        Height = "530px",
-                        CloseDialogOnOverlayClick = false
-                    });
-
-                if (selectedCombo != null)
-                {
-                    var combo = (ComboModel)selectedCombo;
-                    AddComboToOrder(combo);
-                }
-            }
-            catch (Exception ex)
-            {
-                NotificationService.Notify(NotificationSeverity.Error,
-                    "Error", $"Error al seleccionar combo: {ex.Message}", 4000);
-            }
-        }
-
         private bool CanCustomize(OrderDetailDTO detail)
         {
             if (detail.ItemType != "Product")
                 return false;
 
-            // Verificar si el producto tiene ingredientes personalizables
             var product = products.FirstOrDefault(p => p.ID == detail.ItemID);
-            return product?.Ingredients?.Any(i => i.IsOptional || i.CanBeExtra) == true;
+
+            // Verificar que sea de tipo preparado (ID 1) y tenga ingredientes personalizables
+            if (product?.ProductTypeID == 1 && product.Ingredients != null)
+            {
+                return product.Ingredients.Any(i => i.IsOptional || i.CanBeExtra);
+            }
+
+            return false;
         }
 
         private async Task OpenCustomizationDialog(OrderDetailDTO detail)
@@ -389,18 +379,19 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 var customizations = await DialogService.OpenAsync<CustomizationDialog>("Personalizar Producto",
                     new Dictionary<string, object>
                     {
-                        { "ProductName", product.Name },
-                        { "ProductIngredients", product.Ingredients ?? new List<ItemIngredientModel>() },
-                        { "Customizations", detail.Customizations ?? new List<OrderItemCustomizationDTO>() },
-                        { "AllIngredients", ingredients ?? new List<IngredientModel>() },
-                        { "CustomizationTypeMap", customizationTypeMap } // Pasar el diccionario de traducción
+                { "ProductName", product.Name },
+                { "ProductIngredients", product.Ingredients ?? new List<ItemIngredientModel>() },
+                { "Customizations", detail.Customizations ?? new List<OrderItemCustomizationDTO>() },
+                { "AllIngredients", ingredients ?? new List<IngredientModel>() },
+                { "CustomizationTypeMap", customizationTypeMap }
                     },
                     new DialogOptions
                     {
-                        Width = "600px",
-                        Height = "500px",
+                        Width = "700px",
+                        Height = "600px",
                         CloseDialogOnOverlayClick = false
                     });
+
 
                 if (customizations != null)
                 {

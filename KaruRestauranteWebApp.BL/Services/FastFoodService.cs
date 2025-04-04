@@ -29,21 +29,7 @@ namespace KaruRestauranteWebApp.BL.Services
             _logger = logger;
         }
 
-        //public async Task<List<FastFoodItemModel>> GetAllProductsAsync(bool includeInactive = false)
-        //{
-        //    try
-        //    {
-        //        _logger.LogInformation("Obteniendo lista de productos. Incluir inactivos: {IncludeInactive}",
-        //            includeInactive);
-        //        return await _fastFoodRepository.GetAllAsync(includeInactive);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error al obtener productos");
-        //        throw;
-        //    }
-        //}
-        public async Task<List<FastFoodItemDTO>> GetAllProductsAsync(bool includeInactive = false)
+          public async Task<List<FastFoodItemDTO>> GetAllProductsAsync(bool includeInactive = false)
         {
             try
             {
