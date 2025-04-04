@@ -419,6 +419,28 @@ namespace KaruRestauranteWebApp.BL.Services
 
                                     await _orderDetailRepository.UpdateAsync(existingDetail);
 
+                                    // Actualizar personalizaciones si hay cambios
+                                    if (detailDto.Customizations != null && detailDto.Customizations.Any())
+                                    {
+                                        var customizations = detailDto.Customizations.Select(c => new OrderItemCustomizationModel
+                                        {
+                                            OrderDetailID = existingDetail.ID,
+                                            IngredientID = c.IngredientID,
+                                            CustomizationType = c.CustomizationType,
+                                            Quantity = c.Quantity,
+                                            ExtraCharge = c.ExtraCharge
+                                        }).ToList();
+
+                                        // Usar el método específico para guardar personalizaciones
+                                        await _orderDetailRepository.AddCustomizationsAsync(existingDetail.ID, customizations);
+                                    }
+                                    else
+                                    {
+                                        // Si no hay personalizaciones, eliminar las existentes
+                                        await _orderDetailRepository.AddCustomizationsAsync(existingDetail.ID, new List<OrderItemCustomizationModel>());
+                                    }
+
+
                                     // Ajustar inventario si cambió la cantidad
                                     if (previousQuantity != detailDto.Quantity)
                                     {
@@ -777,23 +799,56 @@ namespace KaruRestauranteWebApp.BL.Services
             // Procesar personalizaciones si hay
             if (detailDto.Customizations != null && detailDto.Customizations.Any())
             {
-                // Crear lista de personalizaciones para el detalle
-                var customizations = detailDto.Customizations.Select(c => new OrderItemCustomizationModel
-                {
-                    OrderDetailID = createdDetail.ID,
-                    IngredientID = c.IngredientID,
-                    CustomizationType = c.CustomizationType,
-                    Quantity = c.Quantity,
-                    ExtraCharge = c.ExtraCharge
-                }).ToList();
+                // Mapear las personalizaciones del DTO al modelo
+                var customizations = new List<OrderItemCustomizationModel>();
 
-                // Utilizar el nuevo método para añadir personalizaciones
+                foreach (var customizationDto in detailDto.Customizations)
+                {
+                    // Validar según el tipo de personalización
+                    bool isValid = true;
+
+                    // Para productos, validar que solo se quiten ingredientes del producto
+                    if (detailDto.ItemType == "Product" && customizationDto.CustomizationType == "Remove")
+                    {
+                        var product = await _productRepository.GetByIdAsync(detailDto.ItemID);
+                        isValid = product?.Ingredients?.Any(i => i.IngredientID == customizationDto.IngredientID) ?? false;
+                    }
+
+                    // Para productos, validar que solo se añadan extras permitidos
+                    if (detailDto.ItemType == "Product" && customizationDto.CustomizationType == "Extra")
+                    {
+                        var product = await _productRepository.GetByIdAsync(detailDto.ItemID);
+                        var ingredientItem = product?.Ingredients?.FirstOrDefault(i =>
+                            i.IngredientID == customizationDto.IngredientID && i.CanBeExtra);
+
+                        isValid = ingredientItem != null;
+
+                        // Asegurarse de que el precio extra es correcto
+                        if (isValid && ingredientItem != null)
+                        {
+                            customizationDto.ExtraCharge = ingredientItem.ExtraPrice;
+                        }
+                    }
+
+                    if (isValid)
+                    {
+                        customizations.Add(new OrderItemCustomizationModel
+                        {
+                            OrderDetailID = createdDetail.ID,
+                            IngredientID = customizationDto.IngredientID,
+                            CustomizationType = customizationDto.CustomizationType,
+                            Quantity = customizationDto.Quantity,
+                            ExtraCharge = customizationDto.ExtraCharge
+                        });
+                    }
+                }
+
+                // Importante: usar el método específico para guardar personalizaciones
                 await _orderDetailRepository.AddCustomizationsAsync(createdDetail.ID, customizations);
 
-                // Cargar las personalizaciones recién creadas en el modelo
+                // Recargar el detalle con sus personalizaciones
                 createdDetail = await _orderDetailRepository.GetByIdAsync(createdDetail.ID);
             }
-
 
             return createdDetail;
         }

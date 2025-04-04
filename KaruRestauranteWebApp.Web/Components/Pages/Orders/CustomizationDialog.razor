@@ -10,7 +10,7 @@
 
         <RadzenTabs>
             <Tabs>
-                <RadzenTabsItem Text="Agregar">
+@*                 <RadzenTabsItem Text="Agregar">
                     <div class="customization-list mt-3">
                         @foreach (var ingredient in AllIngredients.Where(i => i.IsActive))
                         {
@@ -47,12 +47,41 @@
                             </div>
                         }
                     </div>
-                </RadzenTabsItem>
+                </RadzenTabsItem> *@
 
                 <RadzenTabsItem Text="Eliminar">
+               @*      <div class="customization-list mt-3">
+                        @foreach (var ingredientItem in GetProductIngredients())
+                        {
+                            var ingredient = AllIngredients.FirstOrDefault(i => i.ID == ingredientItem.IngredientID);
+                            if (ingredient == null) continue;
+
+                            bool isRemoved = workingCustomizations.Any(c => c.IngredientID == ingredient.ID && c.CustomizationType == "Remove");
+
+                            <div class="customization-item @(isRemoved ? "selected removed" : "")">
+                                <div class="d-flex justify-content-between w-100 align-items-center">
+                                    <div>
+                                        <RadzenText TextStyle="TextStyle.Body1">@ingredient.Name</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Body2">@ingredient.UnitOfMeasure</RadzenText>
+                                    </div>
+
+                                    @if (isRemoved)
+                                    {
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Eliminado" />
+                                    }
+                                    else
+                                    {
+                                        <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="remove" Size="ButtonSize.Small"
+                                                      Click="@(() => ToggleIngredient(ingredient, "Remove"))" />
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div> *@
                     <div class="customization-list mt-3">
                         @foreach (var ingredientItem in GetProductIngredients())
                         {
+                            // Solo mostrar ingredientes que forman parte del producto
                             var ingredient = AllIngredients.FirstOrDefault(i => i.ID == ingredientItem.IngredientID);
                             if (ingredient == null) continue;
 
@@ -213,6 +242,19 @@
 
     private void ToggleIngredient(IngredientModel ingredient, string customizationType)
     {
+        // Verificar que el ingrediente pertenece al producto si quieren eliminarlo
+        if (customizationType == "Remove")
+        {
+            bool isProductIngredient = GetProductIngredients()
+                .Any(i => i.IngredientID == ingredient.ID);
+
+            if (!isProductIngredient)
+            {
+                // No permitir eliminar ingredientes que no son parte del producto
+                return;
+            }
+        }
+
         // Verificar si ya existe esta personalización
         var existing = workingCustomizations.FirstOrDefault(c =>
             c.IngredientID == ingredient.ID && c.CustomizationType == customizationType);
@@ -241,6 +283,13 @@
 
     private void ToggleExtraIngredient(IngredientModel ingredient, ItemIngredientModel itemIngredient)
     {
+        // Verificar que el ingrediente permite extras
+        if (!itemIngredient.CanBeExtra)
+        {
+            // No permitir añadir como extra ingredientes no permitidos
+            return;
+        }
+
         // Verificar si ya existe esta personalización
         var existing = workingCustomizations.FirstOrDefault(c =>
             c.IngredientID == ingredient.ID && c.CustomizationType == "Extra");
@@ -266,7 +315,6 @@
         // Forzar la actualización de la UI
         StateHasChanged();
     }
-
     private void AdjustIngredientQuantity(IngredientModel ingredient, int change, string customizationType, decimal extraPrice)
     {
         var customization = workingCustomizations.FirstOrDefault(c =>
