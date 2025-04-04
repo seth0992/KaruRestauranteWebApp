@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace KaruRestauranteWebApp.Models.Entities.Restaurant
 {
@@ -21,6 +22,7 @@ namespace KaruRestauranteWebApp.Models.Entities.Restaurant
         public DateTime? UpdatedAt { get; set; }
 
         // Propiedad de navegación para los productos asociados
+        [JsonIgnore]
         public virtual ICollection<FastFoodItemModel> Items { get; set; } = new List<FastFoodItemModel>();
     }
 }

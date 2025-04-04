@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace KaruRestauranteWebApp.Models.Entities.Restaurant
 {
@@ -24,6 +25,7 @@ namespace KaruRestauranteWebApp.Models.Entities.Restaurant
         public DateTime? UpdatedAt { get; set; }
 
         public virtual CategoryModel Category { get; set; } = null!;
+        [JsonIgnore]
         public virtual List<ItemIngredientModel> Ingredients { get; set; } = new();
         public virtual ProductInventoryModel? Inventory { get; set; }
     }
