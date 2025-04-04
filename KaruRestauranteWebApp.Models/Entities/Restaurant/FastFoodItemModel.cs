@@ -25,7 +25,7 @@ namespace KaruRestauranteWebApp.Models.Entities.Restaurant
         public DateTime? UpdatedAt { get; set; }
 
         public virtual CategoryModel Category { get; set; } = null!;
-        [JsonIgnore]
+        //[JsonIgnore]
         public virtual List<ItemIngredientModel> Ingredients { get; set; } = new();
         public virtual ProductInventoryModel? Inventory { get; set; }
     }
