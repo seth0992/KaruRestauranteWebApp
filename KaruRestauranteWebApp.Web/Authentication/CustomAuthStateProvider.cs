@@ -26,25 +26,37 @@ namespace KaruRestauranteWebApp.Web.Authentication
                     return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
                 }
 
-                // Verificar si el token ha expirado
+                // Verificar si el token ha expirado de forma más robusta
                 var handler = new JwtSecurityTokenHandler();
                 var jwtToken = handler.ReadJwtToken(sessionModel.Token);
 
-                // Comprobar si el token está expirado
-                if (DateTime.UtcNow.Ticks > jwtToken.ValidTo.Ticks)
+                // Compara fechas directamente en lugar de usar Ticks
+                if (DateTime.UtcNow > jwtToken.ValidTo)
                 {
-                    // Si está expirado, intentar refresh automático
+                    // Agregar un log para diagnóstico
+                    Console.WriteLine($"Token expirado: {jwtToken.ValidTo}");
+
+                    // Redirigir a token expirado en lugar de logout directamente
                     await MarkUserAsLoggedOut();
                     return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+                }
+
+                // Agregar validación para tokens que están a punto de expirar (5 minutos)
+                if (jwtToken.ValidTo - DateTime.UtcNow < TimeSpan.FromMinutes(5))
+                {
+                    // Intentar refresh automático con ApiClient
+                    // Esto sería implementado como un servicio extra
                 }
 
                 var identity = GetClaimsIdentity(sessionModel.Token);
                 var user = new ClaimsPrincipal(identity);
                 return new AuthenticationState(user);
             }
-            catch
+            catch (Exception ex)
             {
-                // Si ocurre un error, limpiar estado de autenticación
+                // Agrega un log del error para mejor diagnóstico
+                Console.WriteLine($"Error en autenticación: {ex.Message}");
+
                 await MarkUserAsLoggedOut();
                 return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
             }

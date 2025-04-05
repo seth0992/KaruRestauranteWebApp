@@ -29,10 +29,17 @@
                     <RadzenLogin AllowRegister="false" AllowResetPassword="false"
                                  UserText="Nombre de Usuario"
                                  PasswordText="Contraseña"
-                                 LoginText="Iniciar Sesión                                 "
+                                 LoginText="Iniciar Sesión"
                                  Username="@username"
                                  Password="@password"
                                  Login="@(args => OnLogin(args,"Login"))" />
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger mt-3">
+                            @errorMessage
+                        </div>
+                    }
                 </RadzenTemplateForm>
             </RadzenCard>
         </RadzenColumn>
@@ -47,7 +54,6 @@
     private bool isBusy = false;
     public string username { get; set; } = string.Empty;
     public string password { get; set; } = string.Empty;
-
     private async Task OnLogin(LoginArgs args, string name)
     {
         loginModel.Username = args.Username;
@@ -57,10 +63,11 @@
         {
             isBusy = true;
             errorMessage = string.Empty;
+            StateHasChanged(); // Actualiza la UI para borrar errores anteriores
 
             var res = await apiClient.PostAsync<LoginResponseModel, LoginModel>("api/Auth/login", loginModel);
 
-            if (res != null && res.Token != null)
+            if (res != null && !string.IsNullOrEmpty(res.Token))
             {
                 await ((CustomAuthStateProvider)authStateProvider).MarkUserAsAuthenticated(res);
                 NotificationService.Notify(new NotificationMessage
@@ -75,16 +82,33 @@
             else
             {
                 errorMessage = "Credenciales inválidas. Por favor, verifica tu usuario y contraseña.";
+                NotificationService.Notify(new NotificationMessage
+                    {
+                        Severity = NotificationSeverity.Error,
+                        Summary = "Error de autenticación",
+                        Detail = errorMessage,
+                        Duration = 4000
+                    });
+                StateHasChanged(); // Forzar actualización de UI para mostrar el error
             }
         }
         catch (Exception ex)
         {
             errorMessage = "Ha ocurrido un error al intentar iniciar sesión. Por favor, intenta nuevamente.";
-            NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
+            NotificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Error",
+                    Detail = errorMessage,
+                    Duration = 4000
+                });
+            Console.WriteLine($"Error de login: {ex.Message}");
+            StateHasChanged(); // Forzar actualización de UI
         }
         finally
         {
             isBusy = false;
+            StateHasChanged(); // Asegurar que la UI se actualiza al final
         }
     }
 }

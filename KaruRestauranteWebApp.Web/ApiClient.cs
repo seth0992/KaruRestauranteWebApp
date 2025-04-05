@@ -223,12 +223,23 @@ public class ApiClient
 
             if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
+                if (requestUri.Contains("login")) // Si es un intento de login
+                {
+                    // Es un error de credenciales, no necesitamos refresh
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _toastService.ShowError("Credenciales inválidas");
+                    return default;
+                }
+
                 await HandleUnauthorizedResponse();
                 if (_httpClient.DefaultRequestHeaders.Authorization != null)
                 {
                     response = await _httpClient.PostAsJsonAsync(requestUri, content);
                 }
             }
+
+            // Leer y mostrar respuesta incluso si no es exitosa (para login)
+            var responseContent = await response.Content.ReadAsStringAsync();
 
             if (response.IsSuccessStatusCode)
             {

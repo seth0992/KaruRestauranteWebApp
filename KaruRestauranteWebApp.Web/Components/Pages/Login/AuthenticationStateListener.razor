@@ -1,0 +1,48 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@implements IDisposable
+
+<AuthorizeView>
+    <NotAuthorized>
+        @if (wasAuthenticated)
+        {
+            <Redirect To="/tokenexpired" />
+        }
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private bool wasAuthenticated = false;
+    
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask;
+        wasAuthenticated = authState.User.Identity?.IsAuthenticated ?? false;
+        
+        // Usa la instancia inyectada de AuthStateProvider
+        AuthStateProvider.AuthenticationStateChanged += AuthenticationStateChanged;
+    }
+    
+    private async void AuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        var authState = await task;
+        var isAuthenticated = authState.User.Identity?.IsAuthenticated ?? false;
+        
+        if (wasAuthenticated && !isAuthenticated)
+        {
+            NavigationManager.NavigateTo("/tokenexpired");
+        }
+        
+        wasAuthenticated = isAuthenticated;
+    }
+    
+    public void Dispose()
+    {
+        // También usa la instancia inyectada aquí
+        AuthStateProvider.AuthenticationStateChanged -= AuthenticationStateChanged;
+    }
+}
