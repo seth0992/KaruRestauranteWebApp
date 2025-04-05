@@ -663,58 +663,44 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         {
             try
             {
-                // Calcular el total a pagar
-                decimal total = CalculateTotal();
-
-                // Abrir diálogo de procesamiento de pago
-                var result = await DialogService.OpenAsync<PaymentProcessDialog>("Procesar Pago",
-                    new Dictionary<string, object>
-                    {
-                        { "TotalAmount", total }
-                    },
-                    new DialogOptions
-                    {
-                        Width = "1200px",
-                        Height = "700px",
-                        CloseDialogOnOverlayClick = false,
-                        ShowClose = false
-                    });
-
-                if (result != null)
+                // Verificar si hay una sesión de caja abierta primero
+                var cashRegisterResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/CashRegister/sessions/current");
+                if (cashRegisterResponse?.Success != true)
                 {
-                    // Procesar el pago
-                    var paymentResult = result as PaymentProcessDialog.PaymentResult;
-                    if (paymentResult != null && paymentResult.Success)
+                    NotificationService.Notify(NotificationSeverity.Warning,
+                        "Advertencia", "No hay una sesión de caja abierta. Para procesar pagos, primero debe abrir la caja.", 4000);
+
+                    // Redirigir a la página de pago específica para esta orden
+                    NavigationManager.NavigateTo($"/orders/payment/{model.ID}");
+                    return;
+                }
+
+                // Calcular monto pendiente
+                decimal totalAmount = CalculateTotal();
+                decimal paidAmount = 0;
+
+                // Obtener pagos ya realizados para esta orden
+                var orderResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Order/{model.ID}");
+                if (orderResponse?.Success == true)
+                {
+                    var orderData = JsonConvert.DeserializeObject<OrderModel>(orderResponse.Data.ToString());
+                    if (orderData?.Payments != null && orderData.Payments.Any())
                     {
-                        // Registrar el pago
-                        var paymentResponse = await ApiClient.PostAsync<BaseResponseModel, PaymentDTO>(
-                            $"api/Order/{OrderId}/payments", paymentResult.PaymentInfo);
-
-                        if (paymentResponse?.Success == true)
-                        {
-                            NotificationService.Notify(NotificationSeverity.Success,
-                                "Éxito", "Pago procesado correctamente", 4000);
-
-                            // Imprimir ticket
-                            await PrintReceipt(paymentResult);
-
-                            // Redirigir a la lista de órdenes
-                            NavigationManager.NavigateTo("/orders");
-                        }
-                        else
-                        {
-                            NotificationService.Notify(NotificationSeverity.Error,
-                                "Error", paymentResponse?.ErrorMessage ?? "Error al registrar el pago", 4000);
-                        }
-                    }
-                    else
-                    {
-                        // Solo navegamos a la lista de órdenes ya que el pedido está actualizado
-                        NotificationService.Notify(NotificationSeverity.Success,
-                            "Éxito", "Pedido actualizado exitosamente", 4000);
-                        NavigationManager.NavigateTo("/orders");
+                        paidAmount = orderData.Payments.Sum(p => p.Amount);
                     }
                 }
+
+                decimal pendingAmount = totalAmount - paidAmount;
+
+                if (pendingAmount <= 0)
+                {
+                    NotificationService.Notify(NotificationSeverity.Info,
+                        "Información", "Esta orden ya está completamente pagada", 4000);
+                    return;
+                }
+
+                // Redirigir a la página de pago específica
+                NavigationManager.NavigateTo($"/orders/payment/{model.ID}");
             }
             catch (Exception ex)
             {
