@@ -10,7 +10,23 @@
         <RadzenRow>
             <RadzenColumn Size="12">
                 <RadzenStack>
-                    <RadzenText TextStyle="TextStyle.Subtitle2">Montos Finales</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Subtitle2">Balance Calculado (según transacciones)</RadzenText>
+                    <RadzenCard class="rz-mb-3 rz-shadow-1 rz-p-3" Style="background-color: #f8f9fa;">
+                        <RadzenRow>
+                            <RadzenColumn Size="6">
+                                <RadzenText TextStyle="TextStyle.Body2">
+                                    <strong>Colones (₡):</strong> ₡ @FormatAmount(CurrentBalanceCRC)
+                                </RadzenText>
+                            </RadzenColumn>
+                            <RadzenColumn Size="6">
+                                <RadzenText TextStyle="TextStyle.Body2">
+                                    <strong>Dólares ($):</strong> $ @FormatAmount(CurrentBalanceUSD)
+                                </RadzenText>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenCard>
+                    
+                    <RadzenText TextStyle="TextStyle.Subtitle2">Montos Finales (conteo real en caja)</RadzenText>
                     <RadzenRow>
                         <RadzenColumn Size="12" SizeMD="6">
                             <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H3">Colones (₡)</RadzenText>
@@ -30,41 +46,6 @@
                                                    Min="0" Placeholder="Monto total en colones" Disabled="true"
                                                    class="w-100" TValue="decimal?" />
                                 </RadzenFormField>
-                                <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mt-3">Balance Esperado</RadzenText>
-                                <RadzenRow>
-                                    <RadzenColumn Size="6">
-                                        <RadzenText TextStyle="TextStyle.Body2">Monto Inicial:</RadzenText>
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="6" class="rz-text-align-end">
-                                        <RadzenText TextStyle="TextStyle.Body2">₡ @FormatAmount(InitialDataCRC)</RadzenText>
-                                    </RadzenColumn>
-                                </RadzenRow>
-                                <RadzenRow>
-                                    <RadzenColumn Size="6">
-                                        <RadzenText TextStyle="TextStyle.Body2">Ventas en Efectivo:</RadzenText>
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="6" class="rz-text-align-end">
-                                        <RadzenText TextStyle="TextStyle.Body2">₡ @FormatAmount(CurrentBalanceCRC - InitialDataCRC)</RadzenText>
-                                    </RadzenColumn>
-                                </RadzenRow>
-                                <RadzenRow>
-                                    <RadzenColumn Size="6">
-                                        <RadzenText TextStyle="TextStyle.Body2" style="font-weight: bold;">Balance Esperado:</RadzenText>
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="6" class="rz-text-align-end">
-                                        <RadzenText TextStyle="TextStyle.Body2" style="font-weight: bold;">₡ @FormatAmount(CurrentBalanceCRC)</RadzenText>
-                                    </RadzenColumn>
-                                </RadzenRow>
-                                <RadzenRow>
-                                    <RadzenColumn Size="6">
-                                        <RadzenText TextStyle="TextStyle.Body2">Diferencia:</RadzenText>
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="6" class="rz-text-align-end">
-                                        <RadzenText TextStyle="TextStyle.Body2" class="@GetDifferenceClass(model.FinalAmountCRC, CurrentBalanceCRC)">
-                                            ₡ @FormatAmount(GetDifference(model.FinalAmountCRC, CurrentBalanceCRC))
-                                        </RadzenText>
-                                    </RadzenColumn>
-                                </RadzenRow>
                             </RadzenStack>
                         </RadzenColumn>
                         <RadzenColumn Size="12" SizeMD="6">
@@ -85,44 +66,111 @@
                                                    Min="0" Placeholder="Monto total en dólares" Disabled="true"
                                                    class="w-100" TValue="decimal?" />
                                 </RadzenFormField>
-                                <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mt-3">Balance Esperado</RadzenText>
-                                <RadzenRow>
-                                    <RadzenColumn Size="6">
-                                        <RadzenText TextStyle="TextStyle.Body2">Monto Inicial:</RadzenText>
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="6" class="rz-text-align-end">
-                                        <RadzenText TextStyle="TextStyle.Body2">$ @FormatAmount(InitialDataUSD)</RadzenText>
-                                    </RadzenColumn>
-                                </RadzenRow>
-                                <RadzenRow>
-                                    <RadzenColumn Size="6">
-                                        <RadzenText TextStyle="TextStyle.Body2">Ventas en Efectivo:</RadzenText>
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="6" class="rz-text-align-end">
-                                        <RadzenText TextStyle="TextStyle.Body2">$ @FormatAmount(CurrentBalanceUSD - InitialDataUSD)</RadzenText>
-                                    </RadzenColumn>
-                                </RadzenRow>
-                                <RadzenRow>
-                                    <RadzenColumn Size="6">
-                                        <RadzenText TextStyle="TextStyle.Body2" style="font-weight: bold;">Balance Esperado:</RadzenText>
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="6" class="rz-text-align-end">
-                                        <RadzenText TextStyle="TextStyle.Body2" style="font-weight: bold;">$ @FormatAmount(CurrentBalanceUSD)</RadzenText>
-                                    </RadzenColumn>
-                                </RadzenRow>
-                                <RadzenRow>
-                                    <RadzenColumn Size="6">
-                                        <RadzenText TextStyle="TextStyle.Body2">Diferencia:</RadzenText>
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="6" class="rz-text-align-end">
-                                        <RadzenText TextStyle="TextStyle.Body2" class="@GetDifferenceClass(model.FinalAmountUSD, CurrentBalanceUSD)">
-                                            $ @FormatAmount(GetDifference(model.FinalAmountUSD, CurrentBalanceUSD))
-                                        </RadzenText>
-                                    </RadzenColumn>
-                                </RadzenRow>
                             </RadzenStack>
                         </RadzenColumn>
                     </RadzenRow>
+
+                    <!-- Sección de diferencias -->
+                    <RadzenText TextStyle="TextStyle.Subtitle2">Análisis de Diferencias</RadzenText>
+                    <RadzenCard class="rz-mb-3 rz-p-3" Style="@GetDifferenceBackgroundStyle()">
+                        <RadzenRow>
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenText TextStyle="TextStyle.Body2" class="rz-mb-2">
+                                    <strong>Colones (₡):</strong>
+                                </RadzenText>
+                                <RadzenRow>
+                                    <RadzenColumn Size="8">
+                                        <RadzenText TextStyle="TextStyle.Caption">
+                                            Calculado:
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="4" class="rz-text-align-right">
+                                        <RadzenText TextStyle="TextStyle.Body2">
+                                            ₡ @FormatAmount(CurrentBalanceCRC)
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                </RadzenRow>
+                                <RadzenRow>
+                                    <RadzenColumn Size="8">
+                                        <RadzenText TextStyle="TextStyle.Caption">
+                                            Real (contado):
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="4" class="rz-text-align-right">
+                                        <RadzenText TextStyle="TextStyle.Body2">
+                                            ₡ @FormatAmount(model.FinalAmountCRC ?? 0)
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                </RadzenRow>
+                                <RadzenRow>
+                                    <RadzenColumn Size="8">
+                                        <RadzenText TextStyle="TextStyle.Caption" class="rz-font-weight-bold">
+                                            Diferencia:
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="4" class="rz-text-align-right">
+                                        <RadzenText TextStyle="TextStyle.Body2" class="@GetDifferenceTextClass(GetDifferenceCRC())">
+                                            ₡ @FormatAmount(GetDifferenceCRC())
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                </RadzenRow>
+                                <RadzenRow class="rz-mt-2">
+                                    <RadzenColumn Size="12">
+                                        <RadzenBadge BadgeStyle="@GetDifferenceBadgeStyle(GetDifferenceCRC())"
+                                                     Text="@GetDifferenceText(GetDifferenceCRC())" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenText TextStyle="TextStyle.Body2" class="rz-mb-2">
+                                    <strong>Dólares ($):</strong>
+                                </RadzenText>
+                                <RadzenRow>
+                                    <RadzenColumn Size="8">
+                                        <RadzenText TextStyle="TextStyle.Caption">
+                                            Calculado:
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="4" class="rz-text-align-right">
+                                        <RadzenText TextStyle="TextStyle.Body2">
+                                            $ @FormatAmount(CurrentBalanceUSD)
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                </RadzenRow>
+                                <RadzenRow>
+                                    <RadzenColumn Size="8">
+                                        <RadzenText TextStyle="TextStyle.Caption">
+                                            Real (contado):
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="4" class="rz-text-align-right">
+                                        <RadzenText TextStyle="TextStyle.Body2">
+                                            $ @FormatAmount(model.FinalAmountUSD ?? 0)
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                </RadzenRow>
+                                <RadzenRow>
+                                    <RadzenColumn Size="8">
+                                        <RadzenText TextStyle="TextStyle.Caption" class="rz-font-weight-bold">
+                                            Diferencia:
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="4" class="rz-text-align-right">
+                                        <RadzenText TextStyle="TextStyle.Body2" class="@GetDifferenceTextClass(GetDifferenceUSD())">
+                                            $ @FormatAmount(GetDifferenceUSD())
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                </RadzenRow>
+                                <RadzenRow class="rz-mt-2">
+                                    <RadzenColumn Size="12">
+                                        <RadzenBadge BadgeStyle="@GetDifferenceBadgeStyle(GetDifferenceUSD())"
+                                                     Text="@GetDifferenceText(GetDifferenceUSD())" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenCard>
+
                     <RadzenFormField Text="Notas (Opcional)" Variant="Variant.Outlined">
                         <RadzenTextArea @bind-Value="@model.Notes" Name="Notes" Placeholder="Notas adicionales"
                                         class="w-100" />
@@ -161,6 +209,15 @@
     private bool loading = false;
     private bool initialized = false;
 
+    // Enum para estado de diferencia
+    private enum DifferenceState
+    {
+        None,
+        Excess,   // Sobrante
+        Shortage, // Faltante
+        Balanced  // Cuadrado
+    }
+
     protected override async Task OnInitializedAsync()
     {
         initialized = true;
@@ -178,8 +235,10 @@
                     InitialAmountCRC = InitialDataCRC,
                     InitialAmountUSD = InitialDataUSD,
                     Status = "Closed",
+                // Usar los balances calculados para el monto final
                     FinalAmountCRC = CurrentBalanceCRC,
                     FinalAmountUSD = CurrentBalanceUSD,
+                // Distribuir aproximadamente 90% en billetes y 10% en monedas
                     FinalBillsCRC = Math.Round(CurrentBalanceCRC * 0.9m, 2),
                     FinalCoinsCRC = Math.Round(CurrentBalanceCRC * 0.1m, 2),
                     FinalBillsUSD = Math.Round(CurrentBalanceUSD * 0.9m, 2),
@@ -235,22 +294,91 @@
         }
     }
 
+    // Obtiene la diferencia entre monto real y calculado en CRC
+    private decimal GetDifferenceCRC()
+    {
+        return (model.FinalAmountCRC ?? 0) - CurrentBalanceCRC;
+    }
+
+    // Obtiene la diferencia entre monto real y calculado en USD
+    private decimal GetDifferenceUSD()
+    {
+        return (model.FinalAmountUSD ?? 0) - CurrentBalanceUSD;
+    }
+
+    // Método para determinar el estilo de fondo según las diferencias
+    private string GetDifferenceBackgroundStyle()
+    {
+        if (Math.Abs(GetDifferenceCRC()) > 0.01m || Math.Abs(GetDifferenceUSD()) > 0.01m)
+        {
+            if (GetDifferenceCRC() < 0 || GetDifferenceUSD() < 0)
+            {
+                return "background-color: #fff5f5; border-left: 4px solid var(--rz-danger);";
+            }
+            else if (GetDifferenceCRC() > 0 || GetDifferenceUSD() > 0)
+            {
+                return "background-color: #f0fff4; border-left: 4px solid var(--rz-success);";
+            }
+        }
+
+        return "background-color: #f0f9ff; border-left: 4px solid var(--rz-info);";
+    }
+
+    // Método para obtener el texto de diferencia
+    private string GetDifferenceText(decimal difference)
+    {
+        if (Math.Abs(difference) < 0.01m)
+        {
+            return "Cuadrado";
+        }
+        else if (difference > 0)
+        {
+            return $"Sobrante: {FormatAmount(difference)}";
+        }
+        else
+        {
+            return $"Faltante: {FormatAmount(Math.Abs(difference))}";
+        }
+    }
+
+    // Método para obtener el estilo del badge
+    private BadgeStyle GetDifferenceBadgeStyle(decimal difference)
+    {
+        if (Math.Abs(difference) < 0.01m)
+        {
+            return BadgeStyle.Info;
+        }
+        else if (difference > 0)
+        {
+            return BadgeStyle.Success;
+        }
+        else
+        {
+            return BadgeStyle.Danger;
+        }
+    }
+
+    // Método para obtener la clase de texto según diferencia
+    private string GetDifferenceTextClass(decimal difference)
+    {
+        if (Math.Abs(difference) < 0.01m)
+        {
+            return "rz-color-info";
+        }
+        else if (difference > 0)
+        {
+            return "rz-color-success";
+        }
+        else
+        {
+            return "rz-color-danger";
+        }
+    }
+
+    // Método para formatear cantidades
     private string FormatAmount(decimal amount)
     {
         return amount.ToString("N2");
-    }
-
-    private decimal GetDifference(decimal? actual, decimal expected)
-    {
-        return (actual ?? 0) - expected;
-    }
-
-    private string GetDifferenceClass(decimal? actual, decimal expected)
-    {
-        decimal difference = (actual ?? 0) - expected;
-        if (difference > 0) return "rz-color-success";
-        if (difference < 0) return "rz-color-danger";
-        return "";
     }
 
     private async Task Submit()
@@ -269,27 +397,29 @@
             model.FinalCoinsUSD ??= 0;
             model.Notes ??= string.Empty;
 
-            // Añadir información sobre la diferencia a las notas si existe
-            decimal difCRC = GetDifference(model.FinalAmountCRC, CurrentBalanceCRC);
-            decimal difUSD = GetDifference(model.FinalAmountUSD, CurrentBalanceUSD);
-
-            if (difCRC != 0 || difUSD != 0)
+            // Agregar información sobre diferencias en las notas si no hay notas existentes
+            if (string.IsNullOrWhiteSpace(model.Notes))
             {
-                string notaDiferencia = $"\n[Sistema] Diferencia en cierre: ";
-                if (difCRC != 0)
-                {
-                    notaDiferencia += $"₡ {difCRC:N2} ";
-                }
+                var hasDifference = Math.Abs(GetDifferenceCRC()) > 0.01m || Math.Abs(GetDifferenceUSD()) > 0.01m;
 
-                if (difUSD != 0)
+                if (hasDifference)
                 {
-                    notaDiferencia += $"$ {difUSD:N2}";
-                }
+                    model.Notes = "Diferencias al cierre: ";
 
-                // Añadir la información a las notas
-                model.Notes = string.IsNullOrEmpty(model.Notes)
-                    ? notaDiferencia
-                    : model.Notes + notaDiferencia;
+                    if (Math.Abs(GetDifferenceCRC()) > 0.01m)
+                    {
+                        model.Notes += $"CRC {GetDifferenceText(GetDifferenceCRC())}";
+                    }
+
+                    if (Math.Abs(GetDifferenceUSD()) > 0.01m)
+                    {
+                        if (Math.Abs(GetDifferenceCRC()) > 0.01m)
+                        {
+                            model.Notes += ", ";
+                        }
+                        model.Notes += $"USD {GetDifferenceText(GetDifferenceUSD())}";
+                    }
+                }
             }
 
             var response = await ApiClient.PostAsync<BaseResponseModel, CashRegisterSessionDTO>($"api/CashRegister/sessions/{SessionId}/close", model);

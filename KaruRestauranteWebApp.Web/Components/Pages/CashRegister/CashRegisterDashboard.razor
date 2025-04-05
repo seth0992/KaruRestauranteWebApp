@@ -104,7 +104,7 @@ else if (currentSession == null)
 else
 {
     <RadzenRow>
-        <!-- Panel de Balance Principal con diseño mejorado - SOLO EFECTIVO -->
+        <!-- Panel de Balance Principal con diseño mejorado - EFECTIVO Y POSIBLE DIFERENCIA -->
         <RadzenColumn Size="12" SizeLG="4" SizeMD="5" class="rz-mb-4">
             <RadzenCard class="rz-shadow-5 rz-border-radius-6 rz-p-0" Style="overflow: hidden; height: 100%;">
                 <div class="rz-background-color-primary-dark rz-p-4">
@@ -119,7 +119,7 @@ else
                 </div>
                 
                 <div class="rz-p-4">
-                    <!-- Balance en Colones - SOLO EFECTIVO -->                
+                    <!-- Balance en Colones - EFECTIVO -->                
                     <RadzenCard Style="background: linear-gradient(135deg, #f0f9ff, #e1f5fe); border-left: 4px solid var(--rz-primary);"
                                 Class="rz-shadow-2 rz-border-radius-6 rz-p-4 rz-mb-4 rz-border-primary-light">
                         <RadzenRow>
@@ -128,12 +128,12 @@ else
                                     <RadzenIcon Icon="payments" /> Colones (₡)
                                 </RadzenText>
                                 <RadzenText TextStyle="TextStyle.H4" class="rz-color-primary-dark rz-mb-0 rz-display-flex rz-align-items-center">
-                                    <strong>₡ @FormatAmount(cashBalanceCRC)</strong>
+                                    <strong>₡ @FormatAmount(calculatedBalanceCRC)</strong>
                                 </RadzenText>
                             </RadzenColumn>
                             <RadzenColumn Size="5" class="rz-text-align-end rz-d-flex rz-flex-column rz-justify-content-between">
-                                <RadzenBadge BadgeStyle="@GetBalanceBadgeStyle(cashBalanceCRC - currentSession.InitialAmountCRC)" 
-                                           Text="@GetBalanceText(cashBalanceCRC - currentSession.InitialAmountCRC)" 
+                                <RadzenBadge BadgeStyle="@GetBalanceBadgeStyle(calculatedBalanceCRC - currentSession.InitialAmountCRC)" 
+                                           Text="@GetBalanceText(calculatedBalanceCRC - currentSession.InitialAmountCRC)" 
                                            class="rz-mb-2" Style="font-size: 0.9rem; padding: 0.4rem 0.7rem;" />
                                 <RadzenText TextStyle="TextStyle.Caption" class="rz-mb-0">
                                     Monto inicial: ₡ @FormatAmount(currentSession.InitialAmountCRC)
@@ -142,7 +142,7 @@ else
                         </RadzenRow>
                     </RadzenCard>
                     
-                    <!-- Balance en Dólares - SOLO EFECTIVO -->
+                    <!-- Balance en Dólares - EFECTIVO -->
                     <RadzenCard Style="background: linear-gradient(135deg, #f0fff5, #e3fcef); border-left: 4px solid var(--rz-success);" 
                                Class="rz-shadow-2 rz-border-radius-6 rz-p-4 rz-mb-4 rz-border-success-light">
                         <RadzenRow>
@@ -151,12 +151,12 @@ else
                                     <RadzenIcon Icon="attach_money" /> Dólares ($)
                                 </RadzenText>
                                 <RadzenText TextStyle="TextStyle.H4" class="rz-color-success-dark rz-mb-0 rz-display-flex rz-align-items-center">
-                                    <strong>$ @FormatAmount(cashBalanceUSD)</strong>
+                                    <strong>$ @FormatAmount(calculatedBalanceUSD)</strong>
                                 </RadzenText>
                             </RadzenColumn>
                             <RadzenColumn Size="5" class="rz-text-align-end rz-d-flex rz-flex-column rz-justify-content-between">
-                                <RadzenBadge BadgeStyle="@GetBalanceBadgeStyle(cashBalanceUSD - currentSession.InitialAmountUSD)" 
-                                           Text="@GetBalanceText(cashBalanceUSD - currentSession.InitialAmountUSD)" 
+                                <RadzenBadge BadgeStyle="@GetBalanceBadgeStyle(calculatedBalanceUSD - currentSession.InitialAmountUSD)" 
+                                           Text="@GetBalanceText(calculatedBalanceUSD - currentSession.InitialAmountUSD)" 
                                            class="rz-mb-2" Style="font-size: 0.9rem; padding: 0.4rem 0.7rem;" />
                                 <RadzenText TextStyle="TextStyle.Caption" class="rz-mb-0">
                                     Monto inicial: $ @FormatAmount(currentSession.InitialAmountUSD)
@@ -164,6 +164,47 @@ else
                             </RadzenColumn>
                         </RadzenRow>
                     </RadzenCard>
+
+                    <!-- Tarjeta de estado de diferencia en caja -->
+                    @if (diffStateCRC != DifferenceState.None || diffStateUSD != DifferenceState.None)
+                    {
+                        <RadzenCard Style="background: linear-gradient(135deg, #fffde7, #fff9c4); border-left: 4px solid var(--rz-warning);"
+                                  Class="rz-shadow-2 rz-border-radius-6 rz-p-4 rz-mb-4 rz-border-warning-light">
+                            <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-mb-2" Style="color: var(--rz-warning-dark)">
+                                <RadzenIcon Icon="warning" /> Estado de Caja
+                            </RadzenText>
+                            
+                            @if (diffStateCRC != DifferenceState.None)
+                            {
+                                <RadzenRow class="rz-mb-2">
+                                    <RadzenColumn Size="7">
+                                        <RadzenText TextStyle="TextStyle.Body2">
+                                            Colones (₡):
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="5" class="rz-text-align-end">
+                                        <RadzenBadge BadgeStyle="@GetDifferenceStateBadge(diffStateCRC)" 
+                                                   Text="@GetDifferenceStateText(diffStateCRC, differenceAmountCRC)" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            }
+                            
+                            @if (diffStateUSD != DifferenceState.None)
+                            {
+                                <RadzenRow>
+                                    <RadzenColumn Size="7">
+                                        <RadzenText TextStyle="TextStyle.Body2">
+                                            Dólares ($):
+                                        </RadzenText>
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="5" class="rz-text-align-end">
+                                        <RadzenBadge BadgeStyle="@GetDifferenceStateBadge(diffStateUSD)" 
+                                                   Text="@GetDifferenceStateText(diffStateUSD, differenceAmountUSD)" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            }
+                        </RadzenCard>
+                    }
                     
                     <!-- Detalles adicionales de la sesión -->
                     <RadzenStack Gap="0.5rem" class="rz-pt-2">
@@ -207,7 +248,7 @@ else
                         <RadzenRow class="rz-pt-2">
                             <RadzenColumn Size="12">
                                 <RadzenText TextStyle="TextStyle.Caption" class="rz-text-align-center rz-font-weight-light rz-font-italic">
-                                    Nota: Este balance muestra únicamente el dinero en efectivo disponible en caja
+                                    Nota: Este balance muestra el dinero en efectivo disponible en caja según las operaciones registradas
                                 </RadzenText>
                             </RadzenColumn>
                         </RadzenRow>
@@ -404,14 +445,14 @@ else
                                 <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="Description" Title="Descripción" />
                                 <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="PaymentMethod" Title="Método" Width="120px">
                                     <Template Context="data">
-                                        <RadzenBadge BadgeStyle="GetPaymentMethodBadgeStyle(data.PaymentMethod)" 
-                                                   Text="@GetPaymentMethodShortName(data.PaymentMethod)" />
+                                        <RadzenBadge BadgeStyle="GetPaymentMethodBadgeStyle(data.PaymentMethod)"
+                                                     Text="@GetPaymentMethodShortName(data.PaymentMethod)" />
                                     </Template>
                                 </RadzenDataGridColumn>
-                                <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountCRC" Title="Colones" 
-                                                     FormatString="₡ {0:N0}" TextAlign="TextAlign.Right" Width="120px" />
-                                <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountUSD" Title="Dólares" 
-                                                     FormatString="$ {0:N2}" TextAlign="TextAlign.Right" Width="100px" />
+                                <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountCRC" Title="Colones"
+                                                      FormatString="₡ {0:N0}" TextAlign="TextAlign.Right" Width="120px" />
+                                <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="AmountUSD" Title="Dólares"
+                                                      FormatString="$ {0:N2}" TextAlign="TextAlign.Right" Width="100px" />
                                 <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="UserName" Title="Usuario" Width="120px" />
                             </Columns>
                         </RadzenDataGrid>
@@ -420,21 +461,21 @@ else
                 <RadzenTabsItem Text="Gastos" Icon="trending_down">
                     <div class="rz-mt-3">
                         <RadzenDataGrid Data="@transactions.Where(t => t.TransactionType == "Expense")" TItem="CashRegisterTransactionDTO"
-                                       AllowSorting="true" AllowPaging="true" PageSize="8" AllowFiltering="true"
-                                       EmptyText="No hay gastos registrados" class="rz-shadow-2 rz-border-radius-4">
+                                        AllowSorting="true" AllowPaging="true" PageSize="8" AllowFiltering="true"
+                                        EmptyText="No hay gastos registrados" class="rz-shadow-2 rz-border-radius-4">
                             <EmptyTemplate>
                                 <RadzenStack class="rz-p-4" AlignItems="AlignItems.Center" Gap="1rem">
                                     <RadzenIcon Icon="inbox" Style="font-size: 3rem; color: var(--rz-text-disabled-color)" />
                                     <RadzenText TextStyle="TextStyle.Body1" Style="color: var(--rz-text-disabled-color)">
                                         No hay gastos registrados todavía
                                     </RadzenText>
-                                    <RadzenButton Click="@OpenTransactionModal" Text="Registrar Gasto" Icon="add_circle" 
-                                                ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Medium" />
+                                    <RadzenButton Click="@OpenTransactionModal" Text="Registrar Gasto" Icon="add_circle"
+                                                  ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Medium" />
                                 </RadzenStack>
                             </EmptyTemplate>
                             <Columns>
-                                <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="TransactionDate" Title="Fecha" 
-                                                     FormatString="{0:dd/MM HH:mm}" Width="120px" />
+                                <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="TransactionDate" Title="Fecha"
+                                                      FormatString="{0:dd/MM HH:mm}" Width="120px" />
                                 <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="Description" Title="Descripción" />
                                 <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="PaymentMethod" Title="Método" Width="120px">
                                     <Template Context="data">
@@ -503,14 +544,33 @@ else
     private List<CashRegisterTransactionDTO> transactions = new();
     private List<PaymentMethodSummary> paymentMethodSummary = new();
 
-    // Balance de efectivo - Valores calculados solo para efectivo
-    private decimal cashBalanceCRC => (currentSession?.InitialAmountCRC ?? 0) +
+    // Enumeración para el estado de diferencia de caja
+    private enum DifferenceState
+    {
+        None,
+        Excess,   // Sobrante
+        Shortage, // Faltante
+        Balanced  // Cuadrado
+    }
+
+    // Estado de diferencia para CRC y USD
+    private DifferenceState diffStateCRC = DifferenceState.None;
+    private DifferenceState diffStateUSD = DifferenceState.None;
+    private decimal differenceAmountCRC = 0;
+    private decimal differenceAmountUSD = 0;
+
+    // Balance calculado basado en las transacciones - Valores teóricos
+    private decimal calculatedBalanceCRC => (currentSession?.InitialAmountCRC ?? 0) +
                     transactions.Where(t => t.PaymentMethod?.ToLower() == "cash" && t.TransactionType == "Income").Sum(t => t.AmountCRC) -
                     transactions.Where(t => t.PaymentMethod?.ToLower() == "cash" && t.TransactionType == "Expense").Sum(t => t.AmountCRC);
 
-    private decimal cashBalanceUSD => (currentSession?.InitialAmountUSD ?? 0) +
+    private decimal calculatedBalanceUSD => (currentSession?.InitialAmountUSD ?? 0) +
                     transactions.Where(t => t.PaymentMethod?.ToLower() == "cash" && t.TransactionType == "Income").Sum(t => t.AmountUSD) -
                     transactions.Where(t => t.PaymentMethod?.ToLower() == "cash" && t.TransactionType == "Expense").Sum(t => t.AmountUSD);
+
+    // Balance real (reportado al cierre de caja)
+    private decimal? actualBalanceCRC => currentSession?.FinalAmountCRC;
+    private decimal? actualBalanceUSD => currentSession?.FinalAmountUSD;
 
     // Template para el indicador de carga en la tabla
     RenderFragment LoadingIndicator => builder =>
@@ -567,6 +627,7 @@ else
                 {
                     await LoadTransactions(currentSession.ID);
                     GeneratePaymentMethodSummary();
+                    CalculateDifferences();
                 }
             }
         }
@@ -611,6 +672,7 @@ else
             }
 
             GeneratePaymentMethodSummary();
+            CalculateDifferences();
         }
         catch (Exception ex)
         {
@@ -622,6 +684,58 @@ else
         finally
         {
             loadingTransactions = false;
+        }
+    }
+
+    // Método para calcular diferencias entre balance real y calculado
+    private void CalculateDifferences()
+    {
+        // Reiniciar estados
+        diffStateCRC = DifferenceState.None;
+        diffStateUSD = DifferenceState.None;
+        differenceAmountCRC = 0;
+        differenceAmountUSD = 0;
+
+        // Calcular diferencias solo si hay un valor final reportado (caja cerrada)
+        if (currentSession != null && currentSession.FinalAmountCRC.HasValue)
+        {
+            // Diferencia colones
+            differenceAmountCRC = currentSession.FinalAmountCRC.Value - calculatedBalanceCRC;
+
+            if (Math.Abs(differenceAmountCRC) < 0.01m)
+            {
+                diffStateCRC = DifferenceState.Balanced;
+            }
+            else if (differenceAmountCRC > 0)
+            {
+                diffStateCRC = DifferenceState.Excess;
+            }
+            else if (differenceAmountCRC < 0)
+            {
+                diffStateCRC = DifferenceState.Shortage;
+                differenceAmountCRC = Math.Abs(differenceAmountCRC); // Para mostrar el valor positivo
+            }
+        }
+
+        // Calcular diferencias para dólares
+        if (currentSession != null && currentSession.FinalAmountUSD.HasValue)
+        {
+            // Diferencia dólares
+            differenceAmountUSD = currentSession.FinalAmountUSD.Value - calculatedBalanceUSD;
+
+            if (Math.Abs(differenceAmountUSD) < 0.01m)
+            {
+                diffStateUSD = DifferenceState.Balanced;
+            }
+            else if (differenceAmountUSD > 0)
+            {
+                diffStateUSD = DifferenceState.Excess;
+            }
+            else if (differenceAmountUSD < 0)
+            {
+                diffStateUSD = DifferenceState.Shortage;
+                differenceAmountUSD = Math.Abs(differenceAmountUSD); // Para mostrar el valor positivo
+            }
         }
     }
 
@@ -683,6 +797,29 @@ else
                     });
             }
         }
+    }
+
+    // Métodos para obtener texto y estilo de las diferencias
+    private string GetDifferenceStateText(DifferenceState state, decimal amount)
+    {
+        return state switch
+        {
+            DifferenceState.Excess => $"Sobrante: {FormatAmount(amount)}",
+            DifferenceState.Shortage => $"Faltante: {FormatAmount(amount)}",
+            DifferenceState.Balanced => "Cuadrado",
+            _ => ""
+        };
+    }
+
+    private BadgeStyle GetDifferenceStateBadge(DifferenceState state)
+    {
+        return state switch
+        {
+            DifferenceState.Excess => BadgeStyle.Success,
+            DifferenceState.Shortage => BadgeStyle.Danger,
+            DifferenceState.Balanced => BadgeStyle.Info,
+            _ => BadgeStyle.Light
+        };
     }
 
     private List<ChartDataItem> GetChartData()
@@ -860,9 +997,9 @@ else
                 { "SessionId", currentSession.ID },
                 { "InitialDataCRC", currentSession.InitialAmountCRC },
                 { "InitialDataUSD", currentSession.InitialAmountUSD },
-                { "CurrentBalanceCRC", cashBalanceCRC },
-                { "CurrentBalanceUSD", cashBalanceUSD }
-                },
+                { "CurrentBalanceCRC", calculatedBalanceCRC },
+                { "CurrentBalanceUSD", calculatedBalanceUSD }
+                    },
             new DialogOptions
                 {
                     Width = "600px",
@@ -889,9 +1026,7 @@ else
         var result = await DialogService.OpenAsync<CreateTransactionDialog>("Registrar Movimiento",
             new Dictionary<string, object> {
                 { "SessionId", currentSession.ID }
-                // { "CurrentBalanceCRC", cashBalanceCRC },
-                // { "CurrentBalanceUSD", cashBalanceUSD }
-                },
+                    },
             new DialogOptions
                 {
                     Width = "600px",
