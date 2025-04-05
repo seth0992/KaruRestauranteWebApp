@@ -349,7 +349,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             {
                 type = c.CustomizationType,
                 name = ingredients.FirstOrDefault(i => i.ID == c.IngredientID)?.Name ?? $"Ingrediente #{c.IngredientID}",
-                quantity = c.Quantity
+                quantity = c.Quantity,
+                extraCharge = c.ExtraCharge
             }).ToList()
         }).ToList(),
         subtotal = order.TotalAmount - order.TaxAmount + order.DiscountAmount,
