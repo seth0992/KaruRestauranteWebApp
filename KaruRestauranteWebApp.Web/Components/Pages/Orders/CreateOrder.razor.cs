@@ -459,7 +459,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         {
             decimal subtotal = CalculateSubtotal();
             decimal tax = CalculateTax();
-            return subtotal + tax - model.DiscountAmount;
+            decimal discountAmount = CalculateDiscountAmount();
+            return subtotal + tax - discountAmount;
         }
 
         private BadgeStyle GetCustomizationBadgeStyle(string type)
@@ -623,7 +624,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     CustomerID = model.CustomerID,
                     TableID = model.TableID,
                     Notes = model.Notes,
-                    DiscountAmount = model.DiscountAmount,
+                    DiscountAmount = CalculateDiscountAmount(), // Enviamos el monto calculado, no el porcentaje
                     OrderDetails = model.OrderDetails,
                     // Por defecto, el estado de pago es Pendiente pero guardamos "Pending"
                     PaymentStatus = "Pending"
@@ -679,6 +680,11 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 NotificationService.Notify(NotificationSeverity.Error,
                     "Error", $"Error al crear pedido: {ex.Message}", 4000);
             }
+        }
+        private decimal CalculateDiscountAmount()
+        {
+            decimal subtotal = CalculateSubtotal();
+            return Math.Round(subtotal * (model.DiscountPercentage / 100), 2); // Calcular monto del descuento
         }
 
         private async Task PrintKitchenTicket(OrderModel order)
@@ -884,9 +890,11 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             public int? CustomerID { get; set; }
             public int? TableID { get; set; }
             public string Notes { get; set; } = string.Empty;
-            public decimal DiscountAmount { get; set; } = 0;
+            //public decimal DiscountAmount { get; set; } = 0;
             public List<OrderDetailDTO> OrderDetails { get; set; } = new();
             public string PaymentMethod { get; set; } = "Cash"; // Valor predeterminado en inglés
+            public decimal DiscountPercentage { get; set; } = 0; // Cambiado de DiscountAmount a DiscountPercentage
+
         }
     }
 }
