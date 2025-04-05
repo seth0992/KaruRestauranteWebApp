@@ -205,7 +205,7 @@
             let priceStr = `${item.price.toFixed(2)}`;
 
             content += `${quantityStr}  ${productName.padEnd(25, ' ')} ${priceStr}\n`;
-            content += `      ${this.rightAlign(`${(item.quantity * item.price).toFixed(2)}`, width - 6)}\n`;
+            //content += `      ${this.rightAlign(`${(item.quantity * item.price).toFixed(2)}`, width - 6)}\n`;
 
             // Añadir elementos del combo si es un combo
             if (item.isCombo && item.comboItems && item.comboItems.length > 0) {
@@ -226,6 +226,10 @@
                     let customText = `      - ${this.getCustomizationTypeName(custom.type)}: ${custom.name}`;
                     if (custom.quantity > 1) {
                         customText += ` x${custom.quantity}`;
+                    }
+                    // Añadir cargo extra si existe
+                    if (custom.extraCharge && custom.extraCharge > 0) {
+                        customText += ` +₡${custom.extraCharge.toFixed(2)}`;
                     }
                     content += customText + "\n";
                 });

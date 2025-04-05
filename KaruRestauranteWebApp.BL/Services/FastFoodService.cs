@@ -8,12 +8,13 @@ namespace KaruRestauranteWebApp.BL.Services
 {
     public interface IFastFoodService
     {
-        Task<List<FastFoodItemModel>> GetAllProductsAsync(bool includeInactive = false);
+        Task<List<FastFoodItemDTO>> GetAllProductsAsync(bool includeInactive = false);
         Task<FastFoodItemModel?> GetProductByIdAsync(int id);
         Task<FastFoodItemModel> CreateProductAsync(FastFoodItemDTO productDto);
         Task UpdateProductAsync(int id, FastFoodItemDTO productDto);
         Task<bool> DeleteProductAsync(int id);
         Task<List<FastFoodItemModel>> GetProductsByCategoryAsync(int categoryId);
+        Task<FastFoodItemDetailDTO?> GetProductDetailByIdAsync(int id);
     }
     public class FastFoodService : IFastFoodService
     {
@@ -28,13 +29,32 @@ namespace KaruRestauranteWebApp.BL.Services
             _logger = logger;
         }
 
-        public async Task<List<FastFoodItemModel>> GetAllProductsAsync(bool includeInactive = false)
+          public async Task<List<FastFoodItemDTO>> GetAllProductsAsync(bool includeInactive = false)
         {
             try
             {
                 _logger.LogInformation("Obteniendo lista de productos. Incluir inactivos: {IncludeInactive}",
                     includeInactive);
-                return await _fastFoodRepository.GetAllAsync(includeInactive);
+
+                var products = await _fastFoodRepository.GetAllAsync(includeInactive);
+
+                // Mapear a DTOs sin referencias circulares
+                return products.Select(p => new FastFoodItemDTO
+                {
+                    ID = p.ID,
+                    Name = p.Name,
+                    Description = p.Description,
+                    CategoryID = p.CategoryID,
+                    // Si necesitas nombre de categoría
+                    // CategoryName = p.Category?.Name ?? string.Empty,
+                    SellingPrice = p.SellingPrice,
+                    EstimatedCost = p.EstimatedCost,
+                    ProductTypeID = p.ProductTypeID,
+                    IsAvailable = p.IsAvailable,
+                    ImageUrl = p.ImageUrl,
+                    EstimatedPreparationTime = p.EstimatedPreparationTime
+                    // No incluir ingredientes aquí para evitar referencias circulares
+                }).ToList();
             }
             catch (Exception ex)
             {
@@ -42,6 +62,59 @@ namespace KaruRestauranteWebApp.BL.Services
                 throw;
             }
         }
+
+        public async Task<FastFoodItemDetailDTO?> GetProductDetailByIdAsync(int id)
+        {
+            try
+            {
+                _logger.LogInformation("Obteniendo detalle del producto con ID: {ProductId}", id);
+                var product = await _fastFoodRepository.GetByIdAsync(id);
+
+                if (product == null)
+                    return null;
+
+                // Mapeo manual a DTO para evitar referencias circulares
+                var productDetailDto = new FastFoodItemDetailDTO
+                {
+                    ID = product.ID,
+                    Name = product.Name,
+                    Description = product.Description,
+                    CategoryID = product.CategoryID,
+                    CategoryName = product.Category?.Name ?? string.Empty,
+                    SellingPrice = product.SellingPrice,
+                    EstimatedCost = product.EstimatedCost,
+                    ProductTypeID = product.ProductTypeID,
+                    IsAvailable = product.IsAvailable,
+                    ImageUrl = product.ImageUrl,
+                    EstimatedPreparationTime = product.EstimatedPreparationTime,
+                    Ingredients = product.Ingredients.Select(i => new ItemIngredientDetailExpandedDTO
+                    {
+                        ID = i.ID,
+                        IngredientID = i.IngredientID,
+                        Quantity = i.Quantity,
+                        IsOptional = i.IsOptional,
+                        CanBeExtra = i.CanBeExtra,
+                        ExtraPrice = i.ExtraPrice,
+                        Ingredient = new IngredientDetailDTO
+                        {
+                            ID = i.Ingredient?.ID ?? 0,
+                            Name = i.Ingredient?.Name ?? string.Empty,
+                            Description = i.Ingredient?.Description ?? string.Empty,
+                            StockQuantity = i.Ingredient?.StockQuantity ?? 0,
+                            UnitOfMeasure = i.Ingredient?.UnitOfMeasure ?? string.Empty
+                        }
+                    }).ToList()
+                };
+
+                return productDetailDto;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener detalle del producto con ID: {ProductId}", id);
+                throw;
+            }
+        }
+
 
         public async Task<FastFoodItemModel?> GetProductByIdAsync(int id)
         {

@@ -255,9 +255,13 @@
                                 <RadzenText TextStyle="TextStyle.Body1">@CalculateTax().ToString("₡#,##0.00")</RadzenText>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
-                                <RadzenLabel Component="DiscountAmount" Text="Descuento:" />
-                                <RadzenNumeric @bind-Value=@model.DiscountAmount Min="0" TValue="decimal" Format="₡#,##0.00"
+                                <RadzenLabel Component="DiscountPercentage" Text="Descuento (%):" />
+                                <RadzenNumeric @bind-Value=@model.DiscountPercentage Min="0" Max="100" TValue="decimal" Format="0.##"
                                                Change="@(() => CalculateTotal())" />
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <RadzenText TextStyle="TextStyle.Body1">Monto de Descuento:</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1">@CalculateDiscountAmount().ToString("₡#,##0.00")</RadzenText>
                             </div>
                             <hr />
                             <div class="d-flex justify-content-between">

@@ -87,10 +87,11 @@
                                     <RadzenText TextStyle="TextStyle.Subtitle2">Monedas iniciales:</RadzenText>
                                     <RadzenText>₡ @FormatAmount(session.InitialCoinsCRC)</RadzenText>
                                 </RadzenListItem>
+
                                 @if (session.FinalAmountCRC.HasValue)
                                 {
                                     <RadzenListItem>
-                                        <RadzenText TextStyle="TextStyle.Subtitle2">Monto final:</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Monto final (real):</RadzenText>
                                         <RadzenText>₡ @FormatAmount(session.FinalAmountCRC.Value)</RadzenText>
                                     </RadzenListItem>
                                     <RadzenListItem>
@@ -102,9 +103,14 @@
                                         <RadzenText>₡ @FormatAmount(session.FinalCoinsCRC.Value)</RadzenText>
                                     </RadzenListItem>
                                     <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Monto calculado:</RadzenText>
+                                        <RadzenText>₡ @FormatAmount(calculatedBalanceCRC)</RadzenText>
+                                    </RadzenListItem>
+                                    <RadzenListItem>
                                         <RadzenText TextStyle="TextStyle.Subtitle2">Diferencia:</RadzenText>
-                                        <RadzenText class="@GetBalanceColorClass(session.FinalAmountCRC.Value - session.InitialAmountCRC)">
-                                            ₡ @FormatAmount(session.FinalAmountCRC.Value - session.InitialAmountCRC)
+                                        <RadzenText class="@GetDifferenceColorClass(session.FinalAmountCRC.Value - calculatedBalanceCRC)">
+                                            ₡ @FormatAmount(session.FinalAmountCRC.Value - calculatedBalanceCRC)
+                                            @GetDifferenceLabel(session.FinalAmountCRC.Value - calculatedBalanceCRC)
                                         </RadzenText>
                                     </RadzenListItem>
                                 }
@@ -146,7 +152,7 @@
                                 @if (session.FinalAmountUSD.HasValue)
                                 {
                                     <RadzenListItem>
-                                        <RadzenText TextStyle="TextStyle.Subtitle2">Monto final:</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Monto final (real):</RadzenText>
                                         <RadzenText>$ @FormatAmount(session.FinalAmountUSD.Value)</RadzenText>
                                     </RadzenListItem>
                                     <RadzenListItem>
@@ -158,9 +164,14 @@
                                         <RadzenText>$ @FormatAmount(session.FinalCoinsUSD.Value)</RadzenText>
                                     </RadzenListItem>
                                     <RadzenListItem>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Monto calculado:</RadzenText>
+                                        <RadzenText>$ @FormatAmount(calculatedBalanceUSD)</RadzenText>
+                                    </RadzenListItem>
+                                    <RadzenListItem>
                                         <RadzenText TextStyle="TextStyle.Subtitle2">Diferencia:</RadzenText>
-                                        <RadzenText class="@GetBalanceColorClass(session.FinalAmountUSD.Value - session.InitialAmountUSD)">
-                                            $ @FormatAmount(session.FinalAmountUSD.Value - session.InitialAmountUSD)
+                                        <RadzenText class="@GetDifferenceColorClass(session.FinalAmountUSD.Value - calculatedBalanceUSD)">
+                                            $ @FormatAmount(session.FinalAmountUSD.Value - calculatedBalanceUSD)
+                                            @GetDifferenceLabel(session.FinalAmountUSD.Value - calculatedBalanceUSD)
                                         </RadzenText>
                                     </RadzenListItem>
                                 }
@@ -184,10 +195,10 @@
             </RadzenRow>
             
             <RadzenText TextStyle="TextStyle.H5" class="rz-mt-4">Movimientos de la sesión</RadzenText>
-            
-            <RadzenDataGrid Data="@transactions" TItem="CashRegisterTransactionDTO" AllowSorting="true" 
-                           AllowFiltering="true" AllowPaging="true" PageSize="10" 
-                           IsLoading="@loadingTransactions" EmptyText="No hay movimientos registrados">
+
+            <RadzenDataGrid Data="@transactions" TItem="CashRegisterTransactionDTO" AllowSorting="true"
+                            AllowFiltering="true" AllowPaging="true" PageSize="10"
+                            IsLoading="@loadingTransactions" EmptyText="No hay movimientos registrados">
                 <Columns>
                     <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="TransactionDate" Title="Fecha" FormatString="{0:dd/MM/yyyy HH:mm}" />
                     <RadzenDataGridColumn TItem="CashRegisterTransactionDTO" Property="TransactionType" Title="Tipo">
@@ -223,6 +234,10 @@
     private CashRegisterSessionDTO? session;
     private List<CashRegisterTransactionDTO> transactions = new();
 
+    // Balances calculados basados en transacciones
+    private decimal calculatedBalanceCRC = 0;
+    private decimal calculatedBalanceUSD = 0;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
@@ -233,6 +248,7 @@
         loading = true;
         await LoadSession();
         await LoadTransactions();
+        CalculateBalances();
         loading = false;
     }
 
@@ -275,6 +291,22 @@
         loadingTransactions = false;
     }
 
+    private void CalculateBalances()
+    {
+        if (session == null || transactions == null)
+            return;
+
+        // Calcular balance en colones
+        calculatedBalanceCRC = session.InitialAmountCRC +
+            transactions.Where(t => t.PaymentMethod?.ToLower() == "cash" && t.TransactionType == "Income").Sum(t => t.AmountCRC) -
+            transactions.Where(t => t.PaymentMethod?.ToLower() == "cash" && t.TransactionType == "Expense").Sum(t => t.AmountCRC);
+
+        // Calcular balance en dólares
+        calculatedBalanceUSD = session.InitialAmountUSD +
+            transactions.Where(t => t.PaymentMethod?.ToLower() == "cash" && t.TransactionType == "Income").Sum(t => t.AmountUSD) -
+            transactions.Where(t => t.PaymentMethod?.ToLower() == "cash" && t.TransactionType == "Expense").Sum(t => t.AmountUSD);
+    }
+
     private string FormatAmount(decimal amount)
     {
         return amount.ToString("N2");
@@ -284,6 +316,22 @@
     {
         if (difference > 0) return "rz-color-success";
         if (difference < 0) return "rz-color-danger";
+        return "";
+    }
+
+    private string GetDifferenceColorClass(decimal difference)
+    {
+        if (Math.Abs(difference) < 0.01m) return "rz-color-info";
+        if (difference > 0) return "rz-color-success";
+        if (difference < 0) return "rz-color-danger";
+        return "";
+    }
+
+    private string GetDifferenceLabel(decimal difference)
+    {
+        if (Math.Abs(difference) < 0.01m) return " (Cuadrado)";
+        if (difference > 0) return " (Sobrante)";
+        if (difference < 0) return " (Faltante)";
         return "";
     }
 }

@@ -1,5 +1,6 @@
 ﻿using KaruRestauranteWebApp.Models.Entities.Restaurant;
 using KaruRestauranteWebApp.Models.Models;
+using KaruRestauranteWebApp.Models.Models.Restaurant;
 using Microsoft.AspNetCore.Components;
 using Newtonsoft.Json;
 using Radzen;
@@ -20,11 +21,13 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
         [Inject]
         public required DialogService DialogService { get; set; }
 
-        private IEnumerable<FastFoodItemModel>? products;
+        private IEnumerable<FastFoodItemDTO>? products;
+
         private List<ProductTypeModel> productTypes = new();
 
         protected override async Task OnInitializedAsync()
         {
+            await LoadCategories();
             await LoadProductTypes();
             await LoadProducts();
         }
@@ -46,7 +49,29 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
                     "Error", $"Error al cargar tipos de productos: {ex.Message}", 4000);
             }
         }
-
+        private List<CategoryModel> categories = new();
+        private string GetCategoryName(int categoryId)
+        {
+            var category = categories.FirstOrDefault(c => c.ID == categoryId);
+            return category?.Name ?? "Desconocida";
+        }
+        private async Task LoadCategories()
+        {
+            try
+            {
+                var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/Category");
+                if (response?.Success == true)
+                {
+                    categories = JsonConvert.DeserializeObject<List<CategoryModel>>(
+                        response.Data.ToString()) ?? new();
+                }
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error,
+                    "Error", $"Error al cargar categorías: {ex.Message}", 4000);
+            }
+        }
         private async Task LoadProducts()
         {
             try
@@ -54,7 +79,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
                 var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/FastFood");
                 if (response?.Success == true)
                 {
-                    var productsList = JsonConvert.DeserializeObject<List<FastFoodItemModel>>(
+                    var productsList = JsonConvert.DeserializeObject<List<FastFoodItemDTO>>(
                         response.Data.ToString());
                     products = productsList?.AsEnumerable();
                 }
@@ -83,7 +108,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
             return productTypeId == 1 ? BadgeStyle.Info : BadgeStyle.Secondary;
         }
 
-        private async Task ShowDeleteConfirmation(FastFoodItemModel product)
+        private async Task ShowDeleteConfirmation(FastFoodItemDTO product)
         {
             var result = await DialogService.Confirm(
                 $"¿Está seguro que desea eliminar el producto {product.Name}?",
@@ -100,7 +125,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Product
             }
         }
 
-        private async Task DeleteProduct(FastFoodItemModel product)
+        private async Task DeleteProduct(FastFoodItemDTO product)
         {
             try
             {

@@ -47,7 +47,8 @@ namespace KaruRestauranteWebApp.ApiService.Controllers
         {
             try
             {
-                var product = await _fastFoodService.GetProductByIdAsync(id);
+                _logger.LogInformation("Buscando producto con ID: {ProductId}", id);
+                var product = await _fastFoodService.GetProductDetailByIdAsync(id); // Nuevo método que devolverá DTO
                 if (product == null)
                 {
                     return NotFound(new BaseResponseModel
@@ -60,7 +61,7 @@ namespace KaruRestauranteWebApp.ApiService.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al obtener el producto {ProductId}", id);
+                _logger.LogError(ex, "Error al obtener el producto con ID: {ProductId}", id);
                 return StatusCode(500, new BaseResponseModel
                 {
                     Success = false,
