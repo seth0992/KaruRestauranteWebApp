@@ -129,7 +129,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             if (isShowingTodayOnly)
             {
                 fromDate = DateTime.Today;
-                toDate = DateTime.Today.AddDays(1).AddTicks(-1);
+                toDate = DateTime.Today.AddDays(1);
             }
             else
             {
