@@ -300,7 +300,6 @@
             StateHasChanged();
         }
     }
-
     private void AddDigit(int digit)
     {
         if (AmountReceivedDisplay == "0")
@@ -312,14 +311,16 @@
             AmountReceivedDisplay += digit.ToString();
         }
 
-        if (decimal.TryParse(AmountReceivedDisplay, out decimal amount))
+        // Usar invariant culture para asegurar que el punto se interpreta como decimal
+        if (decimal.TryParse(AmountReceivedDisplay, System.Globalization.NumberStyles.Any,
+                             System.Globalization.CultureInfo.InvariantCulture, out decimal amount))
         {
             AmountReceived = amount;
             CalculateChange();
         }
     }
 
-    private void AddDecimalPoint()
+   private void AddDecimalPoint()
     {
         if (!AmountReceivedDisplay.Contains("."))
         {
@@ -372,12 +373,20 @@
             };
         }
     }
-
     private void CalculateChange()
     {
         if (PaymentMethod == "Cash")
         {
-            decimal totalInSelectedCurrency = Currency == "CRC" ? TotalAmount : Math.Round(TotalAmount / ExchangeRate, 2);
+            decimal totalInSelectedCurrency = Currency == "CRC" ? TotalAmount :
+                Math.Round(TotalAmount / ExchangeRate, 2);
+
+            // Asegurarse que AmountReceived tiene el valor correcto
+            if (decimal.TryParse(AmountReceivedDisplay, System.Globalization.NumberStyles.Any,
+                                 System.Globalization.CultureInfo.InvariantCulture, out decimal receivedAmount))
+            {
+                AmountReceived = receivedAmount;
+            }
+
             Change = Math.Max(0, AmountReceived - totalInSelectedCurrency);
         }
         else
