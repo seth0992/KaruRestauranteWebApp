@@ -122,14 +122,39 @@
             // Si estamos en desarrollo, mostrar en consola
             if (window.location.hostname === 'localhost') {
                 console.log("TICKET DE COCINA:\n" + content);
-                return await this.printFallback(content);
+                return await this.printFallback(content, true); // Pasar true para indicar que es ticket de cocina
             }
 
-            // Imprimir usando el mismo método que el ticket de pago
-            return await this.printPaymentReceipt({
-                ...orderData,
-                isKitchenTicket: true
-            });
+            // Imprimir usando una ventana emergente con estilo específico para cocina
+            try {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`<html><head><title>Ticket de Cocina</title>
+                <style>
+                    body { 
+                        font-family: monospace; 
+                        font-size: 18px; /* Tamaño aumentado para cocina */
+                        font-weight: bold; /* Letra más gruesa para mejor legibilidad */
+                    }
+                    pre { 
+                        white-space: pre-wrap; 
+                        line-height: 1.3; /* Mayor espaciado entre líneas */
+                    }
+                </style>
+            </head><body><pre>${content}</pre></body></html>`);
+                printWindow.document.close();
+
+                // Especificar la impresora por su nombre
+                const printOptions = {
+                    printer: this.printerConfig.name
+                };
+
+                printWindow.print();
+                setTimeout(() => printWindow.close(), 500);
+                return true;
+            } catch (printError) {
+                console.error("Error en la impresión:", printError);
+                return this.printFallback(content, true);
+            }
         } catch (error) {
             console.error("Error al imprimir ticket de cocina:", error);
             return false;
@@ -137,15 +162,28 @@
     },
 
     // Método alternativo de impresión (fallback)
-    printFallback: async function (content) {
+    printFallback: async function (content, isKitchenTicket = false) {
         try {
             const printWindow = window.open('', '_blank');
+
+            // Aplicamos diferentes estilos según el tipo de ticket
+            const fontSize = isKitchenTicket ? "18px" : "12px";
+            const fontWeight = isKitchenTicket ? "bold" : "normal";
+            const lineHeight = isKitchenTicket ? "1.3" : "1.2";
+
             printWindow.document.write(`<html><head><title>Ticket</title>
-                <style>
-                    body { font-family: monospace; font-size: 12px; }
-                    pre { white-space: pre-wrap; }
-                </style>
-            </head><body><pre>${content}</pre></body></html>`);
+            <style>
+                body { 
+                    font-family: monospace; 
+                    font-size: ${fontSize}; 
+                    font-weight: ${fontWeight};
+                }
+                pre { 
+                    white-space: pre-wrap; 
+                    line-height: ${lineHeight};
+                }
+            </style>
+        </head><body><pre>${content}</pre></body></html>`);
             printWindow.document.close();
             printWindow.print();
             setTimeout(() => printWindow.close(), 500);
@@ -398,11 +436,18 @@
             try {
                 const printWindow = window.open('', '_blank');
                 printWindow.document.write(`<html><head><title>Ticket de Cocina</title>
-                    <style>
-                        body { font-family: monospace; font-size: 12px; }
-                        pre { white-space: pre-wrap; }
-                    </style>
-                </head><body><pre>${content}</pre></body></html>`);
+                <style>
+                    body { 
+                        font-family: monospace; 
+                        font-size: 18px; /* Tamaño aumentado para cocina */
+                        font-weight: bold; /* Letra más gruesa para mejor legibilidad */
+                    }
+                    pre { 
+                        white-space: pre-wrap; 
+                        line-height: 1.3; /* Mayor espaciado entre líneas */
+                    }
+                </style>
+            </head><body><pre>${content}</pre></body></html>`);
                 printWindow.document.close();
 
                 // Especificar la impresora por su nombre
@@ -415,14 +460,13 @@
                 return true;
             } catch (printError) {
                 console.error("Error en la impresión del ticket de cocina:", printError);
-                return this.printFallback(content);
+                return this.printFallback(content, true);
             }
         } catch (error) {
             console.error("Error al imprimir ticket de cocina:", error);
             return false;
         }
     },
-
     // Generar contenido del ticket de cocina sin información de pago
     generateKitchenTicketOnlyContent: function (orderData) {
         const width = this.printerConfig.width;
