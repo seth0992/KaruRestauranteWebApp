@@ -382,6 +382,9 @@
                 content += `      Notas: ${item.notes}\n`;
             }
 
+            if (item.discountPercentage > 0) {
+                ticketContent += `Descuento: ${item.discountPercentage}% (-${formatCurrency(item.discountAmount)})\n`;
+            }
             content += "\n";
         });
 

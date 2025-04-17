@@ -33,6 +33,11 @@ namespace KaruRestauranteWebApp.Models.Entities.Orders
         [StringLength(20, ErrorMessage = "El estado no puede exceder los 20 caracteres")]
         public string Status { get; set; } = "Pending"; // Pending, InPreparation, Ready, Delivered, Cancelled
 
+        [Required(ErrorMessage = "El porcentaje de descuento es requerido")]
+        public decimal DiscountPercentage { get; set; } = 0;
+
+        public decimal DiscountAmount { get; set; } = 0;
+
         // Navegación
         public virtual OrderModel Order { get; set; } = null!;
 

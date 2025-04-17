@@ -95,6 +95,16 @@
                                 </RadzenText>
                             </div>
 
+                            @* Mostrar descuento por producto si existe *@
+                            @if (detail.DiscountPercentage > 0)
+                            {
+                                <div class="d-flex justify-content-end align-items-center mb-1">
+                                    <RadzenText TextStyle="TextStyle.Caption" class="text-danger">
+                                        Descuento @detail.DiscountPercentage.ToString("0.##")%: -@detail.DiscountAmount.ToString("₡#,##0.00")
+                                    </RadzenText>
+                                </div>
+                            }
+
                             @if (detail.Customizations.Any())
                             {
                                 <div class="customizations-container">
@@ -130,10 +140,20 @@
                     @if (order.DiscountAmount > 0)
                     {
                         <div class="d-flex justify-content-between mb-2">
-                            <RadzenText TextStyle="TextStyle.Body1">Descuento:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">Descuento General:</RadzenText>
                             <RadzenText TextStyle="TextStyle.Body1">-@order.DiscountAmount.ToString("₡#,##0.00")</RadzenText>
                         </div>
                     }
+
+                    @* Mostrar el total de descuentos por productos si hay *@
+                    @if (TotalProductDiscounts > 0)
+                    {
+                        <div class="d-flex justify-content-between mb-2">
+                            <RadzenText TextStyle="TextStyle.Body1">Descuentos por Productos:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">-@TotalProductDiscounts.ToString("₡#,##0.00")</RadzenText>
+                        </div>
+                    }
+
                     <hr />
                     <div class="d-flex justify-content-between">
                         <RadzenText TextStyle="TextStyle.H6">Total:</RadzenText>
@@ -157,7 +177,11 @@
                 {
                     <RadzenDataGrid Data="@order.Payments" TItem="PaymentModel" AllowPaging="false" AllowSorting="true">
                         <Columns>
-                            <RadzenDataGridColumn TItem="PaymentModel" Property="PaymentMethod" Title="Método" Width="100px" />
+                            <RadzenDataGridColumn TItem="PaymentModel" Property="PaymentMethod" Title="Método" Width="100px">
+                                <Template Context="payment">
+                                    @GetPaymentMethodName(payment.PaymentMethod)
+                                </Template>
+                            </RadzenDataGridColumn>
                             <RadzenDataGridColumn TItem="PaymentModel" Property="Amount" Title="Monto" Width="120px">
                                 <Template Context="payment">
                                     @payment.Amount.ToString("₡#,##0.00")
@@ -276,6 +300,16 @@
                                 </RadzenText>
                             </div>
 
+                            @* Mostrar descuento por producto si existe *@
+                            @if (detail.DiscountPercentage > 0)
+                            {
+                                <div class="d-flex justify-content-end align-items-center mb-1">
+                                    <RadzenText TextStyle="TextStyle.Caption" class="text-danger">
+                                        Descuento @detail.DiscountPercentage.ToString("0.##")%: -@detail.DiscountAmount.ToString("₡#,##0.00")
+                                    </RadzenText>
+                                </div>
+                            }
+
                             @if (detail.Customizations.Any())
                             {
                                 <div class="customizations-container">
@@ -311,10 +345,20 @@
                     @if (order.DiscountAmount > 0)
                     {
                         <div class="d-flex justify-content-between mb-2">
-                            <RadzenText TextStyle="TextStyle.Body1">Descuento:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">Descuento General:</RadzenText>
                             <RadzenText TextStyle="TextStyle.Body1">-@order.DiscountAmount.ToString("₡#,##0.00")</RadzenText>
                         </div>
                     }
+
+                    @* Mostrar el total de descuentos por productos si hay *@
+                    @if (TotalProductDiscounts > 0)
+                    {
+                        <div class="d-flex justify-content-between mb-2">
+                            <RadzenText TextStyle="TextStyle.Body1">Descuentos por Productos:</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1">-@TotalProductDiscounts.ToString("₡#,##0.00")</RadzenText>
+                        </div>
+                    }
+
                     <hr />
                     <div class="d-flex justify-content-between">
                         <RadzenText TextStyle="TextStyle.H6">Total:</RadzenText>
@@ -340,7 +384,11 @@
                 {
                     <RadzenDataGrid Data="@order.Payments" TItem="PaymentModel" AllowPaging="false" AllowSorting="true">
                         <Columns>
-                            <RadzenDataGridColumn TItem="PaymentModel" Property="PaymentMethod" Title="Método" Width="100px" />
+                            <RadzenDataGridColumn TItem="PaymentModel" Property="PaymentMethod" Title="Método" Width="100px">
+                                <Template Context="payment">
+                                    @GetPaymentMethodName(payment.PaymentMethod)
+                                </Template>
+                            </RadzenDataGridColumn>
                             <RadzenDataGridColumn TItem="PaymentModel" Property="Amount" Title="Monto" Width="120px">
                                 <Template Context="payment">
                                     @payment.Amount.ToString("₡#,##0.00")

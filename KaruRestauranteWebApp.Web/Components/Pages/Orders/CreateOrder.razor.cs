@@ -38,16 +38,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         private List<FastFoodItemModel> filteredProducts = new();
         private List<ComboModel> filteredCombos = new();
 
-        //// Mapeos de traducción
-        //private Dictionary<string, string> orderStatusMap = new Dictionary<string, string>
-        //{
-        //    { "Pending", "Pendiente" },
-        //    { "InProgress", "En preparación" },
-        //    { "Ready", "Listo" },
-        //    { "Delivered", "Entregado" },
-        //    { "Cancelled", "Cancelado" }
-        //};
-
         private Dictionary<string, string> customizationTypeMap = new Dictionary<string, string>
         {
             { "Add", "Agregar" },
@@ -79,11 +69,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             return customizationTypeMap.TryGetValue(type, out var translation) ? translation : type;
         }
 
-        // Método para traducir el estado del pedido
-        //private string TranslateOrderStatus(string status)
-        //{
-        //    return orderStatusMap.TryGetValue(status, out var translation) ? translation : status;
-        //}
+
 
         protected override async Task OnInitializedAsync()
         {
@@ -440,7 +426,13 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 
         private void CalculateDetailSubtotal(OrderDetailDTO detail)
         {
-            detail.SubTotal = detail.UnitPrice * detail.Quantity;
+            // Calcular el descuento por producto
+            detail.DiscountAmount = detail.UnitPrice * detail.Quantity * (detail.DiscountPercentage / 100);
+
+            // Calcular subtotal con descuento
+            detail.SubTotal = (detail.UnitPrice * detail.Quantity) - detail.DiscountAmount;
+
+            // Recalcular el total de la orden
             CalculateTotal();
         }
 
@@ -459,8 +451,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         {
             decimal subtotal = CalculateSubtotal();
             decimal tax = CalculateTax();
-            decimal discountAmount = CalculateDiscountAmount();
-            return subtotal + tax - discountAmount;
+            decimal generalDiscountAmount = CalculateDiscountAmount();
+            return subtotal + tax - generalDiscountAmount;
         }
 
         private BadgeStyle GetCustomizationBadgeStyle(string type)
@@ -604,6 +596,10 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                             }
                         }
                     }
+
+                    // Recalcular descuento por producto
+                    detail.DiscountAmount = detail.UnitPrice * detail.Quantity * (detail.DiscountPercentage / 100);
+
                 }
 
 
@@ -683,8 +679,9 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         }
         private decimal CalculateDiscountAmount()
         {
+            // Calcular el descuento general (aplica sobre el subtotal después de descuentos por producto)
             decimal subtotal = CalculateSubtotal();
-            return Math.Round(subtotal * (model.DiscountPercentage / 100), 2); // Calcular monto del descuento
+            return Math.Round(subtotal * (model.DiscountPercentage / 100), 2);
         }
 
         private async Task PrintKitchenTicket(OrderModel order)
@@ -701,6 +698,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     name = d.ItemName,
                     quantity = d.Quantity,
                     price = d.UnitPrice,
+                    discountPercentage = d.DiscountPercentage,
+                    discountAmount = d.DiscountAmount,
                     notes = d.Notes,
                     isCombo = d.ItemType == "Combo",
                     comboItems = (d.ComboItems ?? new List<ComboItemDetail>()).Select(ci => new
@@ -716,6 +715,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                         quantity = c.Quantity
                     }).ToList()
                 }).ToList(),
+                generalDiscountPercentage = model.DiscountPercentage,
+                generalDiscountAmount = CalculateDiscountAmount(),
                 notes = model.Notes
             };
 

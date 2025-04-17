@@ -208,6 +208,23 @@
                                         </div>
                                     </div>
 
+                                    <!-- Agregar campo de descuento por producto -->
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center">
+                                            <RadzenLabel Text="Descuento (%):" class="me-2" />
+                                            <RadzenNumeric @bind-Value=@detail.DiscountPercentage Min="0" Max="100" TValue="decimal"
+                                                           Format="0.##" Style="width: 80px;"
+                                                           Change="@(() => CalculateDetailSubtotal(detail))" />
+                                        </div>
+
+                                        @if (detail.DiscountAmount > 0)
+                                        {
+                                            <RadzenText TextStyle="TextStyle.Body2" class="text-danger">
+                                                Descuento: @detail.DiscountAmount.ToString("₡#,##0.00")
+                                            </RadzenText>
+                                        }
+                                    </div>
+
                                     <div class="d-flex justify-content-between align-items-center mb-1">
                                         @if (detail.ItemType == "Product" && CanCustomize(detail))
                                         {
@@ -255,12 +272,12 @@
                                 <RadzenText TextStyle="TextStyle.Body1">@CalculateTax().ToString("₡#,##0.00")</RadzenText>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
-                                <RadzenLabel Component="DiscountPercentage" Text="Descuento (%):" />
+                                <RadzenLabel Component="DiscountPercentage" Text="Descuento General (%):" />
                                 <RadzenNumeric @bind-Value=@model.DiscountPercentage Min="0" Max="100" TValue="decimal" Format="0.##"
                                                Change="@(() => CalculateTotal())" />
                             </div>
                             <div class="d-flex justify-content-between mb-2">
-                                <RadzenText TextStyle="TextStyle.Body1">Monto de Descuento:</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1">Monto de Descuento General:</RadzenText>
                                 <RadzenText TextStyle="TextStyle.Body1">@CalculateDiscountAmount().ToString("₡#,##0.00")</RadzenText>
                             </div>
                             <hr />
@@ -346,4 +363,4 @@
         margin-bottom: 4px;
         font-size: 13px;
     }
-</style>    
+</style>

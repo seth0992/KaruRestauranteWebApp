@@ -305,6 +305,9 @@ namespace KaruRestauranteWebApp.BL.Services
                             // Agregar detalle a la orden
                             var orderDetail = await AddOrderDetailWithoutTotal(order.ID, detailDto);
 
+                            orderDetail.DiscountPercentage = detailDto.DiscountPercentage;
+                            orderDetail.DiscountAmount = detailDto.DiscountAmount;
+
                             // Funcionalidad de trigger: Actualizar inventario según tipo de ítem
                             await UpdateInventoryForOrderDetail(orderDetail);
                         }
