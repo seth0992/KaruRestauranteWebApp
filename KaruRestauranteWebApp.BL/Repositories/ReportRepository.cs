@@ -28,19 +28,30 @@ namespace KaruRestauranteWebApp.BL.Repositories
 
         public async Task<List<SalesReportDTO>> GetDailySalesAsync(DateTime startDate, DateTime endDate)
         {
-            var result = await _context.Orders
+            // Primero obtenemos los datos básicos
+            var ordersData = await _context.Orders
                 .Where(o => o.CreatedAt >= startDate && o.CreatedAt <= endDate && o.OrderStatus != "Cancelled")
-                .GroupBy(o => o.CreatedAt.Date)
+                .Select(o => new
+                {
+                    Date = o.CreatedAt.Date,
+                    o.TotalAmount,
+                    o.TaxAmount
+                })
+                .ToListAsync();
+
+            // Luego agrupamos y calculamos en memoria
+            var result = ordersData
+                .GroupBy(o => o.Date)
                 .Select(g => new SalesReportDTO
                 {
                     Date = g.Key,
                     TotalSales = g.Sum(o => o.TotalAmount),
                     OrderCount = g.Count(),
-                    AverageTicket = g.Sum(o => o.TotalAmount) / g.Count(),
+                    AverageTicket = g.Sum(o => o.TotalAmount) / (decimal)g.Count(),
                     TaxAmount = g.Sum(o => o.TaxAmount)
                 })
                 .OrderBy(r => r.Date)
-                .ToListAsync();
+                .ToList();
 
             return result;
         }
@@ -50,19 +61,31 @@ namespace KaruRestauranteWebApp.BL.Repositories
             var startDate = new DateTime(year, 1, 1);
             var endDate = new DateTime(year, 12, 31);
 
-            var result = await _context.Orders
+            // Primero obtenemos los datos básicos
+            var ordersData = await _context.Orders
                 .Where(o => o.CreatedAt >= startDate && o.CreatedAt <= endDate && o.OrderStatus != "Cancelled")
-                .GroupBy(o => new { o.CreatedAt.Year, o.CreatedAt.Month })
+                .Select(o => new
+                {
+                    Year = o.CreatedAt.Year,
+                    Month = o.CreatedAt.Month,
+                    o.TotalAmount,
+                    o.TaxAmount
+                })
+                .ToListAsync();
+
+            // Luego agrupamos y calculamos en memoria
+            var result = ordersData
+                .GroupBy(o => new { o.Year, o.Month })
                 .Select(g => new SalesReportDTO
                 {
                     Date = new DateTime(g.Key.Year, g.Key.Month, 1),
                     TotalSales = g.Sum(o => o.TotalAmount),
                     OrderCount = g.Count(),
-                    AverageTicket = g.Sum(o => o.TotalAmount) / g.Count(),
+                    AverageTicket = g.Sum(o => o.TotalAmount) / (decimal)g.Count(),
                     TaxAmount = g.Sum(o => o.TaxAmount)
                 })
                 .OrderBy(r => r.Date)
-                .ToListAsync();
+                .ToList();
 
             return result;
         }
@@ -72,33 +95,57 @@ namespace KaruRestauranteWebApp.BL.Repositories
             var startDate = new DateTime(startYear, 1, 1);
             var endDate = new DateTime(endYear, 12, 31);
 
-            var result = await _context.Orders
+            // Primero obtenemos los datos básicos
+            var ordersData = await _context.Orders
                 .Where(o => o.CreatedAt >= startDate && o.CreatedAt <= endDate && o.OrderStatus != "Cancelled")
-                .GroupBy(o => o.CreatedAt.Year)
+                .Select(o => new
+                {
+                    Year = o.CreatedAt.Year,
+                    o.TotalAmount,
+                    o.TaxAmount
+                })
+                .ToListAsync();
+
+            // Luego agrupamos y calculamos en memoria
+            var result = ordersData
+                .GroupBy(o => o.Year)
                 .Select(g => new SalesReportDTO
                 {
                     Date = new DateTime(g.Key, 1, 1),
                     TotalSales = g.Sum(o => o.TotalAmount),
                     OrderCount = g.Count(),
-                    AverageTicket = g.Sum(o => o.TotalAmount) / g.Count(),
+                    AverageTicket = g.Sum(o => o.TotalAmount) / (decimal)g.Count(),
                     TaxAmount = g.Sum(o => o.TaxAmount)
                 })
                 .OrderBy(r => r.Date)
-                .ToListAsync();
+                .ToList();
 
             return result;
         }
 
         public async Task<List<ProductSalesReportDTO>> GetTopSellingProductsAsync(DateTime startDate, DateTime endDate, int limit = 10)
         {
+            // Calculamos el total de ventas para el período
             var totalSales = await _context.OrderDetails
                 .Where(od => od.Order.CreatedAt >= startDate && od.Order.CreatedAt <= endDate
-                         && od.Order.OrderStatus != "Cancelled")
+                          && od.Order.OrderStatus != "Cancelled")
                 .SumAsync(od => od.SubTotal);
 
-            var result = await _context.OrderDetails
+            // Obtenemos los datos de productos vendidos
+            var orderDetailsData = await _context.OrderDetails
                 .Where(od => od.Order.CreatedAt >= startDate && od.Order.CreatedAt <= endDate
-                         && od.Order.OrderStatus != "Cancelled")
+                          && od.Order.OrderStatus != "Cancelled")
+                .Select(od => new
+                {
+                    od.ItemID,
+                    od.ItemType,
+                    od.Quantity,
+                    od.SubTotal
+                })
+                .ToListAsync();
+
+            // Agrupamos y calculamos en memoria
+            var topProducts = orderDetailsData
                 .GroupBy(od => new { od.ItemID, od.ItemType })
                 .Select(g => new
                 {
@@ -109,40 +156,52 @@ namespace KaruRestauranteWebApp.BL.Repositories
                 })
                 .OrderByDescending(x => x.TotalSales)
                 .Take(limit)
-                .ToListAsync();
+                .ToList();
 
-            var products = new List<ProductSalesReportDTO>();
+            // Obtenemos los IDs de productos y combos que necesitamos
+            var productIds = topProducts.Where(p => p.ItemType == "Product").Select(p => p.ItemID).ToList();
+            var comboIds = topProducts.Where(p => p.ItemType == "Combo").Select(p => p.ItemID).ToList();
 
-            foreach (var item in result)
+            // Obtenemos los datos de productos
+            var products = await _context.FastFoodItems
+                .Where(p => productIds.Contains(p.ID))
+                .Select(p => new
+                {
+                    p.ID,
+                    p.Name,
+                    CategoryName = p.Category.Name
+                })
+                .ToDictionaryAsync(p => p.ID, p => new { p.Name, p.CategoryName });
+
+            // Obtenemos los datos de combos
+            var combos = await _context.Combos
+                .Where(c => comboIds.Contains(c.ID))
+                .Select(c => new
+                {
+                    c.ID,
+                    c.Name
+                })
+                .ToDictionaryAsync(c => c.ID, c => c.Name);
+
+            // Componemos el resultado final
+            var result = new List<ProductSalesReportDTO>();
+            foreach (var item in topProducts)
             {
                 string productName = "";
                 string categoryName = "";
 
-                if (item.ItemType == "Product")
+                if (item.ItemType == "Product" && products.TryGetValue(item.ItemID, out var product))
                 {
-                    var product = await _context.FastFoodItems
-                        .Include(f => f.Category)
-                        .FirstOrDefaultAsync(f => f.ID == item.ItemID);
-
-                    if (product != null)
-                    {
-                        productName = product.Name;
-                        categoryName = product.Category?.Name ?? "Sin categoría";
-                    }
+                    productName = product.Name;
+                    categoryName = product.CategoryName;
                 }
-                else if (item.ItemType == "Combo")
+                else if (item.ItemType == "Combo" && combos.TryGetValue(item.ItemID, out var comboName))
                 {
-                    var combo = await _context.Combos
-                        .FirstOrDefaultAsync(c => c.ID == item.ItemID);
-
-                    if (combo != null)
-                    {
-                        productName = combo.Name;
-                        categoryName = "Combo";
-                    }
+                    productName = comboName;
+                    categoryName = "Combo";
                 }
 
-                products.Add(new ProductSalesReportDTO
+                result.Add(new ProductSalesReportDTO
                 {
                     ProductID = item.ItemID,
                     ProductName = productName,
@@ -153,7 +212,7 @@ namespace KaruRestauranteWebApp.BL.Repositories
                 });
             }
 
-            return products;
+            return result;
         }
 
         public async Task<List<InventoryStatusReportDTO>> GetInventoryStatusReportAsync()
@@ -196,9 +255,11 @@ namespace KaruRestauranteWebApp.BL.Repositories
             result.AddRange(ingredients);
             result.AddRange(products);
 
-            return result.OrderBy(r => r.Status == "Out" ? 0 : r.Status == "Low" ? 1 : 2)
-                         .ThenBy(r => r.ItemName)
-                         .ToList();
+            // Ordenar en memoria
+            return result
+                .OrderBy(r => r.Status == "Out" ? 0 : r.Status == "Low" ? 1 : 2)
+                .ThenBy(r => r.ItemName)
+                .ToList();
         }
     }
 }

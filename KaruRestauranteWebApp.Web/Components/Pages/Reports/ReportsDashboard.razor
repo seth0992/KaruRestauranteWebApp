@@ -1,0 +1,67 @@
+﻿// KaruRestauranteWebApp.Web/Components/Pages/Reports/ReportsDashboard.razor
+@page "/reports/dashboard"
+@using KaruRestauranteWebApp.Common.Resources
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Extensions.Localization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Resource> L
+
+<div class="container-fluid">
+    <h1 class="mt-4">@L["ReportsDashboard"]</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="">@L["Home"]</a></li>
+        <li class="breadcrumb-item active">@L["Reports"]</li>
+    </ol>
+
+    <div class="row">
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white mb-4">
+                <div class="card-body">
+                    <h5>@L["DailySales"]</h5>
+                    <p>@L["ViewDailySalesReport"]</p>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a class="small text-white stretched-link" href="/reports/daily-sales">@L["ViewDetails"]</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-success text-white mb-4">
+                <div class="card-body">
+                    <h5>@L["MonthlySales"]</h5>
+                    <p>@L["ViewMonthlySalesReport"]</p>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a class="small text-white stretched-link" href="/reports/monthly-sales">@L["ViewDetails"]</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-warning text-white mb-4">
+                <div class="card-body">
+                    <h5>@L["TopSellingProducts"]</h5>
+                    <p>@L["ViewTopSellingProductsReport"]</p>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a class="small text-white stretched-link" href="/reports/top-products">@L["ViewDetails"]</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-danger text-white mb-4">
+                <div class="card-body">
+                    <h5>@L["InventoryStatus"]</h5>
+                    <p>@L["ViewInventoryStatusReport"]</p>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a class="small text-white stretched-link" href="/reports/inventory-status">@L["ViewDetails"]</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
