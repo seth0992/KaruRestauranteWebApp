@@ -80,25 +80,25 @@ namespace KaruRestauranteWebApp.ApiService.Controllers
             }
         }
 
-        [HttpGet("products/top-selling")]
-        public async Task<ActionResult<BaseResponseModel>> GetTopSellingProducts(
-            [FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] int limit = 10)
-        {
-            try
-            {
-                var products = await _reportService.GetTopSellingProductsAsync(startDate, endDate, limit);
-                return Ok(new BaseResponseModel { Success = true, Data = products });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener productos más vendidos");
-                return StatusCode(500, new BaseResponseModel
-                {
-                    Success = false,
-                    ErrorMessage = "Error interno del servidor al obtener reporte de productos más vendidos"
-                });
-            }
-        }
+        //[HttpGet("products/top-selling")]
+        //public async Task<ActionResult<BaseResponseModel>> GetTopSellingProducts(
+        //    [FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] int limit = 10)
+        //{
+        //    try
+        //    {
+        //        var products = await _reportService.GetTopSellingProductsAsync(startDate, endDate, limit);
+        //        return Ok(new BaseResponseModel { Success = true, Data = products });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error al obtener productos más vendidos");
+        //        return StatusCode(500, new BaseResponseModel
+        //        {
+        //            Success = false,
+        //            ErrorMessage = "Error interno del servidor al obtener reporte de productos más vendidos"
+        //        });
+        //    }
+        //}
 
         [HttpGet("inventory/status")]
         public async Task<ActionResult<BaseResponseModel>> GetInventoryStatus()
@@ -115,6 +115,29 @@ namespace KaruRestauranteWebApp.ApiService.Controllers
                 {
                     Success = false,
                     ErrorMessage = "Error interno del servidor al obtener reporte de estado del inventario"
+                });
+            }
+        }
+
+        [HttpGet("products/top-selling")]
+        public async Task<ActionResult<BaseResponseModel>> GetTopSellingProducts(
+    [FromQuery] DateTime startDate,
+    [FromQuery] DateTime endDate,
+    [FromQuery] int limit = 10,
+    [FromQuery] int? categoryId = null)
+        {
+            try
+            {
+                var products = await _reportService.GetTopSellingProductsAsync(startDate, endDate, limit, categoryId);
+                return Ok(new BaseResponseModel { Success = true, Data = products });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener productos más vendidos");
+                return StatusCode(500, new BaseResponseModel
+                {
+                    Success = false,
+                    ErrorMessage = "Error interno del servidor al obtener reporte de productos más vendidos"
                 });
             }
         }

@@ -16,6 +16,11 @@ namespace KaruRestauranteWebApp.BL.Services
         Task<List<SalesReportDTO>> GetYearlySalesAsync(int startYear, int endYear);
         Task<List<ProductSalesReportDTO>> GetTopSellingProductsAsync(DateTime startDate, DateTime endDate, int limit = 10);
         Task<List<InventoryStatusReportDTO>> GetInventoryStatusReportAsync();
+        Task<List<ProductSalesReportDTO>> GetTopSellingProductsAsync(
+    DateTime startDate,
+    DateTime endDate,
+    int limit = 10,
+    int? categoryId = null);
     }
     public class ReportService : IReportService
     {
@@ -29,7 +34,23 @@ namespace KaruRestauranteWebApp.BL.Services
             _reportRepository = reportRepository;
             _logger = logger;
         }
-
+        public async Task<List<ProductSalesReportDTO>> GetTopSellingProductsAsync(
+    DateTime startDate,
+    DateTime endDate,
+    int limit = 10,
+    int? categoryId = null)
+        {
+            try
+            {
+                // Pasamos el nuevo parámetro al repositorio
+                return await _reportRepository.GetTopSellingProductsAsync(startDate, endDate, limit, categoryId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener reporte de productos más vendidos");
+                throw;
+            }
+        }
         public async Task<List<SalesReportDTO>> GetDailySalesAsync(DateTime startDate, DateTime endDate)
         {
             try

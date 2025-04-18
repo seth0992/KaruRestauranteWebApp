@@ -27,6 +27,7 @@
                           ButtonStyle="ButtonStyle.Secondary"
                           Style="width: auto;"
                           class="rz-m-1" />
+           
         </RadzenColumn>
     </RadzenRow>
 
@@ -70,12 +71,12 @@
                                       Change="@ClearData" TValue="int"/>
                     </RadzenStack>
                 </RadzenColumn>
-                <RadzenColumn Size="12" SizeMD="6" SizeLG="3" class="rz-p-2 rz-d-flex rz-align-items-end">
+                <RadzenColumn Size="12" class="rz-p-2 rz-d-flex rz-justify-content-end">
                     <RadzenButton Click="@LoadTopProductsReport"
                                   Text="Generar Reporte"
                                   ButtonStyle="ButtonStyle.Primary"
                                   Icon="search"
-                                  Class="w-100"
+                                  Class="w-auto"
                                   Disabled="@isLoading" />
                 </RadzenColumn>
             </RadzenRow>
@@ -148,85 +149,110 @@
             </RadzenColumn>
         </RadzenRow>
 
-        <RadzenRow class="rz-mt-4">
-            <RadzenColumn Size="12">
-                <RadzenCard class="rz-shadow-3 rz-p-4 rz-mb-4 rz-border-radius-6">
-                    <RadzenStack>
-                        <RadzenText TextStyle="TextStyle.H5">Gráfico de Productos Más Vendidos</RadzenText>
+        <RadzenTabs class="rz-mt-4">
+            <Tabs>
+                <RadzenTabsItem Text="Gráfico">
+                    <RadzenCard class="rz-shadow-3 rz-p-4 rz-my-4 rz-border-radius-6">
+                        <RadzenStack>
+                            <RadzenText TextStyle="TextStyle.H5">Gráfico de Productos Más Vendidos</RadzenText>
 
-                        <div class="chart-container" style="height: 350px;">
-                            <RadzenChart>
-                                <RadzenBarSeries Data="@topProducts.Take(10).ToList()" CategoryProperty="ProductName" Title="Ventas Totales" ValueProperty="TotalSales">
-                                    <RadzenSeriesDataLabels Visible="true" Position="DataLabelsPosition.Outside" />
-                                </RadzenBarSeries>
-                                <RadzenValueAxis>
-                                    <RadzenGridLines Visible="true" />
-                                    <RadzenAxisTitle Text="Ventas (₡)" />
-                                </RadzenValueAxis>
-                                <RadzenCategoryAxis>
-                                    <RadzenGridLines Visible="false" />
-                                    <RadzenAxisTitle Text="Producto" />
-                                </RadzenCategoryAxis>
-                                <RadzenLegend Position="LegendPosition.Bottom" />
-                            </RadzenChart>
-                        </div>
-                    </RadzenStack>
-                </RadzenCard>
-            </RadzenColumn>
-        </RadzenRow>
+                            <div class="chart-container" style="height: 400px;">
+                                <RadzenChart>
+                                    <RadzenBarSeries Data="@topProducts.Take(10).ToList()" 
+                                                     CategoryProperty="ProductName" 
+                                                     Title="Ventas Totales" 
+                                                     LineType="LineType.Solid" 
+                                                     ValueProperty="TotalSales">
+                                        <RadzenSeriesDataLabels Visible="true" />
+                                        <RadzenMarkers MarkerType="MarkerType.Circle" />
+                                    </RadzenBarSeries>
+                                    <RadzenValueAxis>
+                                        <RadzenGridLines Visible="true" />
+                                        <RadzenAxisTitle Text="Ventas (₡)" />
+                                        <RadzenAxisTicks Visible="true" />
+                                    </RadzenValueAxis>
+                                    <RadzenCategoryAxis>
+                                        <RadzenGridLines Visible="false" />
+                                        <RadzenAxisTitle Text="Producto" />
+                                        <RadzenTicks />
+                                    </RadzenCategoryAxis>
+                                    <RadzenLegend Position="LegendPosition.Bottom" />
+                                </RadzenChart>
+                            </div>
+                        </RadzenStack>
+                    </RadzenCard>
+                    
+                    <RadzenCard class="rz-shadow-3 rz-p-4 rz-border-radius-6">
+                        <RadzenStack>
+                            <RadzenText TextStyle="TextStyle.H5">Participación por Categoría</RadzenText>
+                            <div style="height: 400px;">
+                                <RadzenChart>
+                                    <RadzenPieSeries Data="@GetCategorySummary()" 
+                                                    Title="Categorías" 
+                                                    ValueProperty="TotalSales" 
+                                                    CategoryProperty="CategoryName"
+                                                    TotalAngle="360">
+                                        <RadzenSeriesDataLabels Visible="true" />
+                                    </RadzenPieSeries>
+                                    <RadzenLegend Position="LegendPosition.Right" />
+                                </RadzenChart>
+                            </div>
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenTabsItem>
+                <RadzenTabsItem Text="Datos">
+                    <RadzenCard class="rz-shadow-3 rz-p-4 rz-my-4 rz-border-radius-6">
+                        <RadzenStack>
+                            <RadzenText TextStyle="TextStyle.H5" class="rz-mb-3">Listado de Productos Más Vendidos</RadzenText>
 
-        <RadzenRow class="rz-mt-4">
-            <RadzenColumn Size="12">
-                <RadzenCard class="rz-shadow-3 rz-p-4 rz-border-radius-6">
-                    <RadzenStack>
-                        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-3">Listado de Productos Más Vendidos</RadzenText>
-
-                        <RadzenDataGrid @ref="dataGrid"
-                                        Data="@topProducts"
-                                        TItem="ProductSalesReportDTO"
-                                        AllowSorting="true"
-                                        AllowPaging="true"
-                                        PageSize="10"
-                                        AllowFiltering="true"
-                                        FilterMode="FilterMode.Advanced"
-                                        AllowColumnResize="true"
-                                        Style="height: 400px;"
-                                        RowRender="@OnRowRender"
-                                        EmptyText="No hay datos disponibles para mostrar">
-                            <Columns>
-                                <RadzenDataGridColumn TItem="ProductSalesReportDTO" Property="ProductID" Title="ID" Width="80px" TextAlign="TextAlign.Center" />
-                                <RadzenDataGridColumn TItem="ProductSalesReportDTO" Property="ProductName" Title="Producto" Width="200px">
-                                    <FooterTemplate>
-                                        <RadzenText TextStyle="TextStyle.Subtitle2">Total:</RadzenText>
-                                    </FooterTemplate>
-                                </RadzenDataGridColumn>
-                                <RadzenDataGridColumn TItem="ProductSalesReportDTO" Property="CategoryName" Title="Categoría" Width="150px" />
-                                <RadzenDataGridColumn TItem="ProductSalesReportDTO" Property="QuantitySold" Title="Unidades Vendidas" Width="150px" TextAlign="TextAlign.Right">
-                                    <FooterTemplate>
-                                        <RadzenText TextStyle="TextStyle.Subtitle2">@topProducts.Sum(x => x.QuantitySold)</RadzenText>
-                                    </FooterTemplate>
-                                </RadzenDataGridColumn>
-                                <RadzenDataGridColumn TItem="ProductSalesReportDTO" Property="TotalSales" Title="Ventas Totales" FormatString="₡{0:N0}" TextAlign="TextAlign.Right" Width="150px">
-                                    <FooterTemplate>
-                                        <RadzenText TextStyle="TextStyle.Subtitle2">@String.Format("₡{0:N0}", topProducts.Sum(x => x.TotalSales))</RadzenText>
-                                    </FooterTemplate>
-                                </RadzenDataGridColumn>
-                                <RadzenDataGridColumn TItem="ProductSalesReportDTO" Property="Percentage" Title="% del Total" FormatString="{0:N2}%" TextAlign="TextAlign.Right" Width="120px" />
-                                <RadzenDataGridColumn TItem="ProductSalesReportDTO" Width="150px" Title="Participación" TextAlign="TextAlign.Right">
-                                    <Template Context="data">
-                                        <RadzenProgressBar Value="@((double)data.Percentage)" Style="width: 90%;">
-                                            <ChildContent>
-                                                @($"{data.Percentage:N2}%")
-                                            </ChildContent>
-                                        </RadzenProgressBar>
-                                    </Template>
-                                </RadzenDataGridColumn>
-                            </Columns>
-                        </RadzenDataGrid>
-                    </RadzenStack>
-                </RadzenCard>
-            </RadzenColumn>
-        </RadzenRow>
+                            <RadzenDataGrid @ref="dataGrid"
+                                            Data="@topProducts"
+                                            TItem="ProductSalesReportDTO"
+                                            AllowSorting="true"
+                                            AllowPaging="true"
+                                            AllowFiltering="true"
+                                            PageSizeOptions="@(new int[] {10, 20, 50})"
+                                            FilterMode="FilterMode.Advanced"
+                                            AllowColumnResize="true"
+                                            Style="height: 500px;"
+                                            RowRender="@OnRowRender"
+                                            EmptyText="No hay datos disponibles para mostrar"
+                                            ShowPagingSummary="true">
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="ProductSalesReportDTO" Property="ProductID" Title="ID" Width="70px" TextAlign="TextAlign.Center" />
+                                    <RadzenDataGridColumn TItem="ProductSalesReportDTO" Property="ProductName" Title="Producto" Width="200px">
+                                        <FooterTemplate>
+                                            <RadzenText TextStyle="TextStyle.Subtitle2">Total:</RadzenText>
+                                        </FooterTemplate>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="ProductSalesReportDTO" Property="CategoryName" Title="Categoría" Width="150px" />
+                                    <RadzenDataGridColumn TItem="ProductSalesReportDTO" Property="QuantitySold" Title="Unidades Vendidas" Width="150px" TextAlign="TextAlign.Right">
+                                        <FooterTemplate>
+                                            <RadzenText TextStyle="TextStyle.Subtitle2">@topProducts.Sum(x => x.QuantitySold)</RadzenText>
+                                        </FooterTemplate>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="ProductSalesReportDTO" Property="TotalSales" Title="Ventas Totales" FormatString="₡{0:N0}" TextAlign="TextAlign.Right" Width="150px">
+                                        <FooterTemplate>
+                                            <RadzenText TextStyle="TextStyle.Subtitle2">@String.Format("₡{0:N0}", topProducts.Sum(x => x.TotalSales))</RadzenText>
+                                        </FooterTemplate>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="ProductSalesReportDTO" Property="Percentage" Title="% del Total" FormatString="{0:N2}%" TextAlign="TextAlign.Right" Width="120px" />
+                                    <RadzenDataGridColumn TItem="ProductSalesReportDTO" Width="180px" Title="Participación" TextAlign="TextAlign.Center">
+                                        <Template Context="data">
+                                            <RadzenProgressBar Value="@((double)data.Percentage)" Style="width: 100%;" Mode="ProgressBarMode.Determinate">
+                                                <ChildContent>
+                                                    @($"{data.Percentage:N2}%")
+                                                </ChildContent>
+                                            </RadzenProgressBar>
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                </Columns>
+                            </RadzenDataGrid>
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenTabsItem>
+            </Tabs>
+        </RadzenTabs>
     }
     else if (!string.IsNullOrEmpty(errorMessage))
     {
@@ -273,9 +299,26 @@
         // Configurar fechas para mostrar último mes por defecto
         startDate = DateTime.Now.Date.AddDays(-30);
         endDate = DateTime.Now.Date;
-
+        
         // Cargar los datos inicialmente
         await LoadTopProductsReport();
+    }
+
+    private List<CategorySummary> GetCategorySummary()
+    {
+        if (topProducts == null || !topProducts.Any())
+            return new List<CategorySummary>();
+            
+        return topProducts
+            .GroupBy(p => p.CategoryName)
+            .Select(g => new CategorySummary
+            {
+                CategoryName = g.Key,
+                TotalSales = g.Sum(p => p.TotalSales),
+                Percentage = g.Sum(p => p.TotalSales) / topProducts.Sum(p => p.TotalSales) * 100
+            })
+            .OrderByDescending(g => g.TotalSales)
+            .ToList();
     }
 
     private void OnRowRender(RowRenderEventArgs<ProductSalesReportDTO> args)
@@ -302,6 +345,24 @@
         errorMessage = string.Empty;
     }
 
+    private async Task ExportToExcel()
+    {
+        if (topProducts == null || !topProducts.Any())
+            return;
+            
+        // await dataGrid.ExportExcelAsync("TopProductosVendidos.xlsx", new ExcelExportOptions
+        // {
+        //     AutoFitColumns = true,
+        //     IncludeHeaders = true,
+        //     ShowCaptionHeader = true,
+        //     CaptionHeader = $"Reporte de Productos Más Vendidos - {startDate:dd/MM/yyyy} al {endDate:dd/MM/yyyy}",
+        //     SubCaptionHeader = $"Fecha de generación: {DateTime.Now:dd/MM/yyyy HH:mm}"
+        // });
+        
+        NotificationService.Notify(NotificationSeverity.Success, "Éxito", 
+            "Reporte exportado exitosamente", duration: 3000);
+    }
+
     private async Task LoadTopProductsReport()
     {
         try
@@ -322,8 +383,10 @@
             string formattedStartDate = startDate.ToString("yyyy-MM-dd");
             string formattedEndDate = endDate.ToString("yyyy-MM-dd");
 
-            var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>(
-                $"api/Report/products/top-selling?startDate={formattedStartDate}&endDate={formattedEndDate}&limit={limit}");
+            // Construir la URL con todos los parámetros
+            string url = $"api/Report/products/top-selling?startDate={formattedStartDate}&endDate={formattedEndDate}&limit={limit}";
+
+            var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>(url);
 
             if (response != null && response.Success && response.Data != null)
             {
@@ -398,5 +461,12 @@
         {
             isLoading = false;
         }
+    }
+    
+    public class CategorySummary
+    {
+        public string CategoryName { get; set; } = string.Empty;
+        public decimal TotalSales { get; set; }
+        public decimal Percentage { get; set; }
     }
 }
