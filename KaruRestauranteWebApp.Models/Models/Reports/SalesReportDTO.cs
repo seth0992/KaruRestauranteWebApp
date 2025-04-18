@@ -8,6 +8,8 @@ namespace KaruRestauranteWebApp.Models.Models.Reports
 {
     public class SalesReportDTO
     {
+        public string MonthName { get; set; } = string.Empty;
+        public string Year { get; set; } = string.Empty;
         public DateTime Date { get; set; }
         public decimal TotalSales { get; set; }
         public int OrderCount { get; set; }

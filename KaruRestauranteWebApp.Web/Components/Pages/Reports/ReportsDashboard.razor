@@ -1,67 +1,82 @@
-﻿// KaruRestauranteWebApp.Web/Components/Pages/Reports/ReportsDashboard.razor
-@page "/reports/dashboard"
+﻿@page "/reports/dashboard"
 @using KaruRestauranteWebApp.Common.Resources
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.Extensions.Localization
+@using KaruRestauranteWebApp.Models.Models
+@using KaruRestauranteWebApp.Models.Models.Reports
 @attribute [Authorize(Roles = "SuperAdmin,Admin")]
 @inject NavigationManager NavigationManager
 @inject IStringLocalizer<Resource> L
+@inject ApiClient ApiClient
+@inject NotificationService NotificationService
 
-<div class="container-fluid">
-    <h1 class="mt-4">@L["ReportsDashboard"]</h1>
-    <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item"><a href="">@L["Home"]</a></li>
-        <li class="breadcrumb-item active">@L["Reports"]</li>
-    </ol>
+<RadzenStack>
+    <RadzenRow>
+        <RadzenColumn Size="12" class="rz-mb-4">
+            <RadzenText TextStyle="TextStyle.H3">Panel de Reportes</RadzenText>
+            <RadzenBreadCrumb>
+                <RadzenBreadCrumbItem Path="/" Text="Inicio" />
+                <RadzenBreadCrumbItem Text="Reportes" />
+            </RadzenBreadCrumb>
+        </RadzenColumn>
+    </RadzenRow>
 
-    <div class="row">
-        <div class="col-xl-3 col-md-6">
-            <div class="card bg-primary text-white mb-4">
-                <div class="card-body">
-                    <h5>@L["DailySales"]</h5>
-                    <p>@L["ViewDailySalesReport"]</p>
-                </div>
-                <div class="card-footer d-flex align-items-center justify-content-between">
-                    <a class="small text-white stretched-link" href="/reports/daily-sales">@L["ViewDetails"]</a>
-                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card bg-success text-white mb-4">
-                <div class="card-body">
-                    <h5>@L["MonthlySales"]</h5>
-                    <p>@L["ViewMonthlySalesReport"]</p>
-                </div>
-                <div class="card-footer d-flex align-items-center justify-content-between">
-                    <a class="small text-white stretched-link" href="/reports/monthly-sales">@L["ViewDetails"]</a>
-                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card bg-warning text-white mb-4">
-                <div class="card-body">
-                    <h5>@L["TopSellingProducts"]</h5>
-                    <p>@L["ViewTopSellingProductsReport"]</p>
-                </div>
-                <div class="card-footer d-flex align-items-center justify-content-between">
-                    <a class="small text-white stretched-link" href="/reports/top-products">@L["ViewDetails"]</a>
-                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card bg-danger text-white mb-4">
-                <div class="card-body">
-                    <h5>@L["InventoryStatus"]</h5>
-                    <p>@L["ViewInventoryStatusReport"]</p>
-                </div>
-                <div class="card-footer d-flex align-items-center justify-content-between">
-                    <a class="small text-white stretched-link" href="/reports/inventory-status">@L["ViewDetails"]</a>
-                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+    <RadzenRow>
+        <RadzenColumn Size="12" SizeLG="3" SizeMD="6" class="rz-p-2">
+            <RadzenCard Variant="Variant.Filled" class="rz-background-color-primary rz-shadow-3 rz-p-4 rz-my-3">
+                <RadzenStack>
+                    <RadzenIcon Icon="bar_chart" Style="font-size: 2rem;" class="rz-color-white" />
+                    <RadzenText TextStyle="TextStyle.H5" class="rz-color-white">Ventas Diarias</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-white">Ver reporte de ventas diarias</RadzenText>
+                    <RadzenButton Click="@(() => NavigationManager.NavigateTo("/reports/daily-sales"))" Text="Ver Detalles" ButtonStyle="ButtonStyle.Light" class="rz-mt-4" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeLG="3" SizeMD="6" class="rz-p-2">
+            <RadzenCard Variant="Variant.Filled" class="rz-background-color-success rz-shadow-3 rz-p-4 rz-my-3">
+                <RadzenStack>
+                    <RadzenIcon Icon="calendar_month" Style="font-size: 2rem;" class="rz-color-white" />
+                    <RadzenText TextStyle="TextStyle.H5" class="rz-color-white">Ventas Mensuales</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-white">Ver reporte de ventas mensuales</RadzenText>
+                    <RadzenButton Click="@(() => NavigationManager.NavigateTo("/reports/monthly-sales"))" Text="Ver Detalles" ButtonStyle="ButtonStyle.Light" class="rz-mt-4" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeLG="3" SizeMD="6" class="rz-p-2">
+            <RadzenCard Variant="Variant.Filled" class="rz-background-color-warning rz-shadow-3 rz-p-4 rz-my-3">
+                <RadzenStack>
+                    <RadzenIcon Icon="trending_up" Style="font-size: 2rem;" class="rz-color-white" />
+                    <RadzenText TextStyle="TextStyle.H5" class="rz-color-white">Ventas Anuales</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-white">Ver reporte de ventas anuales</RadzenText>
+                    <RadzenButton Click="@(() => NavigationManager.NavigateTo("/reports/yearly-sales"))" Text="Ver Detalles" ButtonStyle="ButtonStyle.Light" class="rz-mt-4" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeLG="3" SizeMD="6" class="rz-p-2">
+            <RadzenCard Variant="Variant.Filled" class="rz-background-color-danger rz-shadow-3 rz-p-4 rz-my-3">
+                <RadzenStack>
+                    <RadzenIcon Icon="leaderboard" Style="font-size: 2rem;" class="rz-color-white" />
+                    <RadzenText TextStyle="TextStyle.H5" class="rz-color-white">Productos Más Vendidos</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-white">Ver reporte de productos más vendidos</RadzenText>
+                    <RadzenButton Click="@(() => NavigationManager.NavigateTo("/reports/top-products"))" Text="Ver Detalles" ButtonStyle="ButtonStyle.Light" class="rz-mt-4" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+  
+</RadzenStack>
+
+@code {
+ 
+    protected override async Task OnInitializedAsync()
+    {
+      
+    }
+
+
+
+}
