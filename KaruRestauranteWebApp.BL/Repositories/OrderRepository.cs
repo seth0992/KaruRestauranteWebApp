@@ -161,8 +161,14 @@ namespace KaruRestauranteWebApp.BL.Repositories
             _context.Entry(order).Property(x => x.CreatedAt).IsModified = false;
             _context.Entry(order).Property(x => x.OrderNumber).IsModified = false;
 
+            // Asegurar que se actualicen los campos de descuento
+            _context.Entry(order).Property(x => x.DiscountAmount).IsModified = true;
+
             await _context.SaveChangesAsync();
         }
+
+
+
 
         public async Task<bool> UpdateStatusAsync(int id, string status)
         {

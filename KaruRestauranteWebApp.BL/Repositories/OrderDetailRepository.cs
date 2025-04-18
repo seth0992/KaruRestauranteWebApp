@@ -136,6 +136,11 @@ namespace KaruRestauranteWebApp.BL.Repositories
             }
 
             _context.Entry(orderDetail).State = EntityState.Modified;
+
+            // Asegurar que los campos de descuento se actualizan correctamente
+            _context.Entry(orderDetail).Property(x => x.DiscountPercentage).IsModified = true;
+            _context.Entry(orderDetail).Property(x => x.DiscountAmount).IsModified = true;
+
             await _context.SaveChangesAsync();
         }
 
