@@ -336,7 +336,7 @@
                 <div class="order-summary">
                     <div class="d-flex justify-content-between mb-2">
                         <RadzenText TextStyle="TextStyle.Body1">Subtotal:</RadzenText>
-                        <RadzenText TextStyle="TextStyle.Body1">@((order.TotalAmount - order.TaxAmount + order.DiscountAmount).ToString("₡#,##0.00"))</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">@(((order.TotalAmount - order.TaxAmount) + order.DiscountAmount).ToString("₡#,##0.00"))</RadzenText>
                     </div>
                     <div class="d-flex justify-content-between mb-2">
                         <RadzenText TextStyle="TextStyle.Body1">IVA (13%):</RadzenText>

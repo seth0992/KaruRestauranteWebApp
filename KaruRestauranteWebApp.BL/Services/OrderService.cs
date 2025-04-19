@@ -489,7 +489,7 @@ namespace KaruRestauranteWebApp.BL.Services
                             // Actualizar datos
                             existingDetail.Quantity = detailDto.Quantity;
                             existingDetail.Notes = detailDto.Notes;
-                            existingDetail.SubTotal = detailDto.SubTotal;
+                            existingDetail.SubTotal = detailDto.Quantity * detailDto.UnitPrice;
                             
                             // IMPORTANTE: Actualizar descuentos por producto
                             existingDetail.DiscountPercentage = detailDto.DiscountPercentage;
@@ -867,7 +867,9 @@ namespace KaruRestauranteWebApp.BL.Services
                 UnitPrice = unitPrice,
                 SubTotal = subtotal,
                 Notes = detailDto.Notes,
-                Status = "Pending"
+                Status = "Pending",
+                DiscountPercentage = detailDto.DiscountPercentage,
+                DiscountAmount = detailDto.DiscountAmount
             };
 
             // Guardar el detalle
@@ -938,7 +940,9 @@ namespace KaruRestauranteWebApp.BL.Services
                 var details = await _orderDetailRepository.GetByOrderIdAsync(orderId);
 
                 // Calcular subtotal de todos los detalles
-                decimal subtotal = details.Sum(d => d.SubTotal);
+                decimal subtotal = details.Sum(d =>
+         d.SubTotal - (d.DiscountAmount > 0 ? d.DiscountAmount :
+                       d.SubTotal * (d.DiscountPercentage / 100)));
 
                 // Calcular cargos extras por personalizaciones
                 decimal extraCharges = details

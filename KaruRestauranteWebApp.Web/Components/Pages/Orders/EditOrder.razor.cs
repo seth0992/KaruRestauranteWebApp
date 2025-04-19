@@ -128,125 +128,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             }
         }
 
-        //private async Task LoadOrder()
-        //{
-        //    try
-        //    {
-        //        var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Order/{OrderId}");
-        //        if (response?.Success == true)
-        //        {
-        //            order = JsonConvert.DeserializeObject<OrderModel>(response.Data.ToString());
-
-        //            // Verificar si la orden puede ser editada
-        //            if (order != null && (order.OrderStatus == "Delivered" || order.OrderStatus == "Cancelled"))
-        //            {
-        //                NotificationService.Notify(NotificationSeverity.Warning,
-        //                    "Advertencia", $"No se puede editar una orden en estado {order.OrderStatus}", 4000);
-        //                order = null;
-        //                return;
-        //            }
-
-        //            // Mapear los datos de la orden al modelo de edición
-        //            if (order != null)
-        //            {
-        //                // Calcular el porcentaje de descuento si existe
-        //                decimal discountPercentage = 0;
-        //                if (order.DiscountAmount > 0)
-        //                {
-        //                    decimal subtotal = order.TotalAmount - order.TaxAmount;
-        //                    if (subtotal > 0)
-        //                    {
-        //                        discountPercentage = Math.Round((order.DiscountAmount / subtotal) * 100, 2);
-        //                    }
-        //                }
-
-        //                model = new OrderFormModel
-        //                {
-        //                    ID = order.ID,
-        //                    OrderNumber = order.OrderNumber,
-        //                    CustomerID = order.CustomerID,
-        //                    TableID = order.TableID,
-        //                    OrderType = order.OrderType,
-        //                    Notes = order.Notes,
-        //                    DiscountAmount = order.DiscountAmount,
-        //                    DiscountPercentage = discountPercentage,
-        //                    OrderDetails = new List<OrderDetailDTO>()
-        //                };
-
-        //                // Mapear detalles de la orden
-        //                foreach (var detail in order.OrderDetails)
-        //                {
-        //                    string itemName = "";
-        //                    if (detail.ItemType == "Product")
-        //                    {
-        //                        var product = products.FirstOrDefault(p => p.ID == detail.ItemID);
-        //                        itemName = product?.Name ?? $"Producto #{detail.ItemID}";
-        //                    }
-        //                    else if (detail.ItemType == "Combo")
-        //                    {
-        //                        var combo = combos.FirstOrDefault(c => c.ID == detail.ItemID);
-        //                        itemName = combo?.Name ?? $"Combo #{detail.ItemID}";
-        //                    }
-
-        //                    // Calcular descuento por producto si existe
-        //                    decimal detailDiscountPercentage = 0;
-        //                    decimal detailDiscountAmount = 0;
-        //                    if (detail.DiscountAmount > 0 && detail.SubTotal > 0)
-        //                    {
-        //                        detailDiscountPercentage = Math.Round((detail.DiscountAmount / detail.SubTotal) * 100, 2);
-        //                        detailDiscountAmount = detail.DiscountAmount;
-        //                    }
-
-        //                    var detailDto = new OrderDetailDTO
-        //                    {
-        //                        ID = detail.ID,
-        //                        OrderID = detail.OrderID,
-        //                        ItemType = detail.ItemType,
-        //                        ItemID = detail.ItemID,
-        //                        ItemName = itemName,
-        //                        Quantity = detail.Quantity,
-        //                        UnitPrice = detail.UnitPrice,
-        //                        SubTotal = detail.SubTotal,
-        //                        Notes = detail.Notes,
-        //                        Status = detail.Status,
-        //                        DiscountPercentage = detailDiscountPercentage,
-        //                        DiscountAmount = detailDiscountAmount,
-        //                        Customizations = new List<OrderItemCustomizationDTO>()
-        //                    };
-
-        //                    // Mapear personalizaciones
-        //                    foreach (var customization in detail.Customizations)
-        //                    {
-        //                        detailDto.Customizations.Add(new OrderItemCustomizationDTO
-        //                        {
-        //                            ID = customization.ID,
-        //                            OrderDetailID = customization.OrderDetailID,
-        //                            IngredientID = customization.IngredientID,
-        //                            IngredientName = customization.Ingredient?.Name ?? "",
-        //                            CustomizationType = customization.CustomizationType,
-        //                            Quantity = customization.Quantity,
-        //                            ExtraCharge = customization.ExtraCharge
-        //                        });
-        //                    }
-
-        //                    model.OrderDetails.Add(detailDto);
-        //                }
-        //            }
-        //        }
-        //        else
-        //        {
-        //            NotificationService.Notify(NotificationSeverity.Error,
-        //                "Error", response?.ErrorMessage ?? "Error al cargar la orden", 4000);
-        //            order = null;
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        NotificationService.Notify(NotificationSeverity.Error,
-        //            "Error", $"Error al cargar la orden: {ex.Message}", 4000);
-        //        order = null;
-        //    }
-        //}
         private async Task LoadOrder()
         {
             try
@@ -273,7 +154,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                         if (order.DiscountAmount > 0)
                         {
                             // Cálculo correcto del subtotal sin impuestos
-                            decimal subtotal = order.TotalAmount - order.TaxAmount + order.DiscountAmount; // Sumar el descuento para obtener el subtotal original
+                            decimal subtotal = (order.TotalAmount - order.TaxAmount) + order.DiscountAmount; // Sumar el descuento para obtener el subtotal original
                             if (subtotal > 0)
                             {
                                 discountPercentage = Math.Round((order.DiscountAmount / subtotal) * 100, 2);
@@ -310,11 +191,10 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 
                             // Corregido el cálculo del porcentaje de descuento por producto
                             decimal detailDiscountPercentage = 0;
-                            decimal detailDiscountAmount = detail.DiscountAmount; // Usar el valor de la DB directamente
                             if (detail.DiscountAmount > 0)
                             {
-                                // Base para el cálculo del porcentaje debe ser el subtotal original antes del descuento
-                                decimal originalSubtotal = detail.SubTotal + detail.DiscountAmount;
+                                // La base correcta es UnitPrice * Quantity, no el subtotal que podría ya tener el descuento aplicado
+                                decimal originalSubtotal = detail.UnitPrice * detail.Quantity;
                                 if (originalSubtotal > 0)
                                 {
                                     detailDiscountPercentage = Math.Round((detail.DiscountAmount / originalSubtotal) * 100, 2);
@@ -330,11 +210,11 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                                 ItemName = itemName,
                                 Quantity = detail.Quantity,
                                 UnitPrice = detail.UnitPrice,
-                                SubTotal = detail.SubTotal,
+                                SubTotal = detail.UnitPrice * detail.Quantity, // Subtotal bruto, recalcularemos después
                                 Notes = detail.Notes,
                                 Status = detail.Status,
-                                DiscountPercentage = detailDiscountPercentage,
-                                DiscountAmount = detailDiscountAmount,
+                                DiscountPercentage = detail.DiscountPercentage,
+                                DiscountAmount = detail.DiscountAmount,
                                 Customizations = new List<OrderItemCustomizationDTO>()
                             };
 
@@ -354,8 +234,15 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                             }
 
                             model.OrderDetails.Add(detailDto);
+                         
+                        }
+
+                        foreach (var detail in model.OrderDetails)
+                        {
+                            CalculateDetailSubtotal(detail);
                         }
                     }
+                
                 }
                 else
                 {
@@ -578,51 +465,34 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             }
         }
 
-        //private void CalculateDetailSubtotal(OrderDetailDTO detail)
-        //{
-        //    decimal baseSubtotal = detail.UnitPrice * detail.Quantity;
-
-        //    // Calcular descuento para este detalle
-        //    if (detail.DiscountPercentage > 0)
-        //    {
-        //        detail.DiscountAmount = Math.Round(baseSubtotal * (detail.DiscountPercentage / 100), 2);
-        //        detail.SubTotal = baseSubtotal - detail.DiscountAmount;
-        //    }
-        //    else
-        //    {
-        //        detail.DiscountAmount = 0;
-        //        detail.SubTotal = baseSubtotal;
-        //    }
-
-        //    CalculateTotal();
-        //}
         private void CalculateDetailSubtotal(OrderDetailDTO detail)
         {
+            // Calcular el subtotal base (precio unitario * cantidad)
             decimal baseSubtotal = detail.UnitPrice * detail.Quantity;
 
-            // Calcular descuento para este detalle (corregido)
+            // Calcular descuento para este detalle
             if (detail.DiscountPercentage > 0)
             {
                 detail.DiscountAmount = Math.Round(baseSubtotal * (detail.DiscountPercentage / 100), 2);
-                detail.SubTotal = baseSubtotal - detail.DiscountAmount;
             }
+            // Si no hay porcentaje pero sí hay un monto, recalcular el porcentaje
             else if (detail.DiscountAmount > 0)
             {
-                // Si hay un monto de descuento pero no porcentaje, recalcular el porcentaje
                 detail.DiscountPercentage = Math.Round((detail.DiscountAmount / baseSubtotal) * 100, 2);
-                detail.SubTotal = baseSubtotal - detail.DiscountAmount;
             }
             else
             {
+                // Si no hay descuento, asegurar que ambos valores sean cero
                 detail.DiscountAmount = 0;
                 detail.DiscountPercentage = 0;
-                detail.SubTotal = baseSubtotal;
             }
+
+            // Calcular el subtotal final después del descuento
+            detail.SubTotal = baseSubtotal - detail.DiscountAmount;
 
             // Recalcular el total general de la orden
             CalculateTotal();
         }
-
         private decimal CalculateSubtotal()
         {
             // Usar el subtotal ya calculado en cada detalle (que ya incluye los descuentos por producto)

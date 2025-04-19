@@ -596,13 +596,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                             }
                         }
                     }
-
-                    // Recalcular descuento por producto
-                    detail.DiscountAmount = detail.UnitPrice * detail.Quantity * (detail.DiscountPercentage / 100);
-
                 }
-
-
 
                 if (!inventoryOk)
                 {
@@ -611,6 +605,34 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                         $"No hay suficiente inventario para: {string.Join(", ", unavailableItems)}",
                         6000);
                     return;
+                }
+
+                // IMPORTANTE: Asegurarse de recalcular TODOS los descuentos por producto antes de enviar
+                foreach (var detail in model.OrderDetails)
+                {
+                    // Asegurarse de que el cálculo utilice valores válidos sin redondeo prematuro
+                    // Recalcular descuento por producto
+                    detail.DiscountAmount = Math.Round(detail.UnitPrice * detail.Quantity * (detail.DiscountPercentage / 100), 2);
+
+                    // Asegurar que el subtotal esté actualizado con el descuento
+                    detail.SubTotal = Math.Round((detail.UnitPrice * detail.Quantity) - detail.DiscountAmount, 2);
+
+                    // Verificación adicional - si hay descuento, asegurarse de que se registre
+                    if (detail.DiscountPercentage > 0 && detail.DiscountAmount <= 0)
+                    {
+                        // Forzar el cálculo si por alguna razón no se aplicó
+                        detail.DiscountAmount = Math.Round(detail.UnitPrice * detail.Quantity * (detail.DiscountPercentage / 100), 2);
+                        detail.SubTotal = Math.Round((detail.UnitPrice * detail.Quantity) - detail.DiscountAmount, 2);
+                    }
+                }
+
+                // Verificación adicional - mostrar información de diagnóstico sobre los descuentos
+                var totalDiscounts = model.OrderDetails.Sum(d => d.DiscountAmount);
+                Console.WriteLine($"Total de descuentos por productos: {totalDiscounts}");
+                foreach (var detail in model.OrderDetails)
+                {
+                    Console.WriteLine($"Producto: {detail.ItemName}, Precio: {detail.UnitPrice}, Cantidad: {detail.Quantity}, " +
+                                    $"Descuento %: {detail.DiscountPercentage}, Monto descuento: {detail.DiscountAmount}, Subtotal: {detail.SubTotal}");
                 }
 
                 // Mapear a DTO para enviar a la API (valores en inglés para la BD)
@@ -624,6 +646,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     OrderDetails = model.OrderDetails,
                     // Por defecto, el estado de pago es Pendiente pero guardamos "Pending"
                     PaymentStatus = "Pending"
+                    // Nota: Las propiedades DiscountPercentage y PaymentMethod no existen en OrderDTO
                 };
 
                 // Calcular el total
@@ -677,6 +700,436 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     "Error", $"Error al crear pedido: {ex.Message}", 4000);
             }
         }
+        /*
+                private async Task HandleSubmit()
+                {
+                    try
+                    {
+                        if (!model.OrderDetails.Any())
+                        {
+                            NotificationService.Notify(NotificationSeverity.Warning,
+                                "Validación", "Debe agregar al menos un producto al pedido", 4000);
+                            return;
+                        }
+
+                        if (model.OrderType == "DineIn" && !model.TableID.HasValue)
+                        {
+                            NotificationService.Notify(NotificationSeverity.Warning,
+                                "Validación", "Debe seleccionar una mesa para pedidos en sitio", 4000);
+                            return;
+                        }
+
+                        // Verificar disponibilidad de inventario usando el servicio API
+                        bool inventoryOk = true;
+                        List<string> unavailableItems = new List<string>();
+
+                        foreach (var detail in model.OrderDetails)
+                        {
+                            if (detail.ItemType == "Product")
+                            {
+                                var product = products.FirstOrDefault(p => p.ID == detail.ItemID);
+                                if (product == null) continue;
+
+                                if (product.ProductTypeID == 2) // Producto de inventario
+                                {
+                                    // Verificar stock de producto
+                                    var productResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/ProductInventory/product/{detail.ItemID}");
+
+                                    if (productResponse?.Success == true)
+                                    {
+                                        var inventory = JsonConvert.DeserializeObject<ProductInventoryModel>(productResponse.Data.ToString());
+                                        if (inventory == null || inventory.CurrentStock < detail.Quantity)
+                                        {
+                                            inventoryOk = false;
+                                            unavailableItems.Add(detail.ItemName);
+                                        }
+                                    }
+                                }
+                                else if (product.ProductTypeID == 1) // Producto preparado
+                                {
+                                    // Verificar stock de ingredientes
+                                    if (product.Ingredients != null && product.Ingredients.Any())
+                                    {
+                                        foreach (var ingredient in product.Ingredients)
+                                        {
+                                            // Obtener el estado actual del ingrediente
+                                            var ingredientResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Inventory/ingredients/{ingredient.IngredientID}");
+                                            if (ingredientResponse?.Success == true)
+                                            {
+                                                var ingredientInfo = JsonConvert.DeserializeObject<IngredientModel>(ingredientResponse.Data.ToString());
+                                                decimal requiredQuantity = ingredient.Quantity * detail.Quantity;
+
+                                                if (ingredientInfo == null || ingredientInfo.StockQuantity < requiredQuantity)
+                                                {
+                                                    inventoryOk = false;
+                                                    unavailableItems.Add($"{detail.ItemName} (falta: {ingredientInfo?.Name ?? "ingrediente"})");
+                                                    break; // Basta con un ingrediente faltante para marcar el producto como no disponible
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            else if (detail.ItemType == "Combo")
+                            {
+                                // Para combos, obtener sus componentes
+                                var comboResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Combo/{detail.ItemID}");
+                                if (comboResponse?.Success == true)
+                                {
+                                    var combo = JsonConvert.DeserializeObject<ComboModel>(comboResponse.Data.ToString());
+                                    if (combo?.Items != null)
+                                    {
+                                        foreach (var comboItem in combo.Items)
+                                        {
+                                            var product = products.FirstOrDefault(p => p.ID == comboItem.FastFoodItemID);
+                                            if (product == null) continue;
+
+                                            if (product.ProductTypeID == 2) // Producto de inventario
+                                            {
+                                                // Verificar stock de cada producto en el combo
+                                                var productResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/ProductInventory/product/{comboItem.FastFoodItemID}");
+
+                                                if (productResponse?.Success == true)
+                                                {
+                                                    var inventory = JsonConvert.DeserializeObject<ProductInventoryModel>(productResponse.Data.ToString());
+                                                    int requiredQuantity = comboItem.Quantity * detail.Quantity;
+
+                                                    if (inventory == null || inventory.CurrentStock < requiredQuantity)
+                                                    {
+                                                        inventoryOk = false;
+                                                        var productName = product.Name ?? $"Producto #{comboItem.FastFoodItemID}";
+                                                        unavailableItems.Add($"{productName} (en combo {combo.Name})");
+                                                    }
+                                                }
+                                            }
+                                            else if (product.ProductTypeID == 1) // Producto preparado
+                                            {
+                                                // Verificar stock de ingredientes para productos preparados
+                                                if (product.Ingredients != null && product.Ingredients.Any())
+                                                {
+                                                    foreach (var ingredient in product.Ingredients)
+                                                    {
+                                                        // Obtener el estado actual del ingrediente
+                                                        var ingredientResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Inventory/ingredients/{ingredient.IngredientID}");
+                                                        if (ingredientResponse?.Success == true)
+                                                        {
+                                                            var ingredientInfo = JsonConvert.DeserializeObject<IngredientModel>(ingredientResponse.Data.ToString());
+                                                            decimal requiredQuantity = ingredient.Quantity * comboItem.Quantity * detail.Quantity;
+
+                                                            if (ingredientInfo == null || ingredientInfo.StockQuantity < requiredQuantity)
+                                                            {
+                                                                inventoryOk = false;
+                                                                var productName = product.Name ?? $"Producto #{comboItem.FastFoodItemID}";
+                                                                unavailableItems.Add($"{productName} (en combo {combo.Name}) - falta: {ingredientInfo?.Name ?? "ingrediente"}");
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!inventoryOk)
+                        {
+                            NotificationService.Notify(NotificationSeverity.Warning,
+                                "Inventario insuficiente",
+                                $"No hay suficiente inventario para: {string.Join(", ", unavailableItems)}",
+                                6000);
+                            return;
+                        }
+
+                        // IMPORTANTE: Asegurarse de recalcular TODOS los descuentos por producto antes de enviar
+                        foreach (var detail in model.OrderDetails)
+                        {
+                            // Recalcular descuento por producto
+                            detail.DiscountAmount = detail.UnitPrice * detail.Quantity * (detail.DiscountPercentage / 100);
+
+                            // Asegurar que el subtotal esté actualizado con el descuento
+                            detail.SubTotal = (detail.UnitPrice * detail.Quantity) - detail.DiscountAmount;
+                        }
+
+                        // Mapear a DTO para enviar a la API (valores en inglés para la BD)
+                        var orderDto = new OrderDTO
+                        {
+                            OrderType = model.OrderType, // Ya tiene el valor en inglés
+                            CustomerID = model.CustomerID,
+                            TableID = model.TableID,
+                            Notes = model.Notes,
+                            DiscountAmount = CalculateDiscountAmount(), // Enviamos el monto calculado, no el porcentaje
+                            OrderDetails = model.OrderDetails,
+                            // Por defecto, el estado de pago es Pendiente pero guardamos "Pending"
+                            PaymentStatus = "Pending"
+                            // Nota: Las propiedades DiscountPercentage y PaymentMethod no existen en OrderDTO
+                        };
+
+                        // Calcular el total
+                        decimal total = CalculateTotal();
+
+                        // Preguntar si desea procesar pago inmediatamente
+                        var processPaymentNow = await DialogService.Confirm(
+                            "¿Desea procesar el pago ahora?",
+                            "Procesar Pago",
+                            new ConfirmOptions() { OkButtonText = "Sí", CancelButtonText = "No, guardar sin pago" });
+
+                        // Crear la orden
+                        var response = await ApiClient.PostAsync<BaseResponseModel, OrderDTO>(
+                            "api/Order", orderDto);
+
+                        if (response?.Success == true)
+                        {
+                            var createdOrder = JsonConvert.DeserializeObject<OrderModel>(response.Data.ToString());
+
+                            if (createdOrder != null)
+                            {
+                                // Actualizar inventario
+                                await UpdateInventoryAfterOrder(createdOrder.ID);
+
+                                // Imprimir ticket de cocina independientemente de si se procesa el pago o no
+                                await PrintKitchenTicket(createdOrder);
+
+                                if (processPaymentNow == true)
+                                {
+                                    // Redirigir a la página de pago específica para esta orden
+                                    NavigationManager.NavigateTo($"/orders/payment/{createdOrder.ID}");
+                                }
+                                else
+                                {
+                                    // La orden se creó sin pago
+                                    NotificationService.Notify(NotificationSeverity.Success,
+                                        "Éxito", "Pedido creado exitosamente (pendiente de pago)", 4000);
+                                    NavigationManager.NavigateTo("/orders");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            NotificationService.Notify(NotificationSeverity.Error,
+                                "Error", response?.ErrorMessage ?? "Error al crear pedido", 4000);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        NotificationService.Notify(NotificationSeverity.Error,
+                            "Error", $"Error al crear pedido: {ex.Message}", 4000);
+                    }
+                }
+
+                */
+        //private async Task HandleSubmit()
+        //{
+        //    try
+        //    {
+        //        if (!model.OrderDetails.Any())
+        //        {
+        //            NotificationService.Notify(NotificationSeverity.Warning,
+        //                "Validación", "Debe agregar al menos un producto al pedido", 4000);
+        //            return;
+        //        }
+
+        //        if (model.OrderType == "DineIn" && !model.TableID.HasValue)
+        //        {
+        //            NotificationService.Notify(NotificationSeverity.Warning,
+        //                "Validación", "Debe seleccionar una mesa para pedidos en sitio", 4000);
+        //            return;
+        //        }
+
+        //        // Verificar disponibilidad de inventario usando el servicio API
+        //        bool inventoryOk = true;
+        //        List<string> unavailableItems = new List<string>();
+
+        //        foreach (var detail in model.OrderDetails)
+        //        {
+        //            if (detail.ItemType == "Product")
+        //            {
+        //                var product = products.FirstOrDefault(p => p.ID == detail.ItemID);
+        //                if (product == null) continue;
+
+        //                if (product.ProductTypeID == 2) // Producto de inventario
+        //                {
+        //                    // Verificar stock de producto
+        //                    var productResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/ProductInventory/product/{detail.ItemID}");
+
+        //                    if (productResponse?.Success == true)
+        //                    {
+        //                        var inventory = JsonConvert.DeserializeObject<ProductInventoryModel>(productResponse.Data.ToString());
+        //                        if (inventory == null || inventory.CurrentStock < detail.Quantity)
+        //                        {
+        //                            inventoryOk = false;
+        //                            unavailableItems.Add(detail.ItemName);
+        //                        }
+        //                    }
+        //                }
+        //                else if (product.ProductTypeID == 1) // Producto preparado
+        //                {
+        //                    // Verificar stock de ingredientes
+        //                    if (product.Ingredients != null && product.Ingredients.Any())
+        //                    {
+        //                        foreach (var ingredient in product.Ingredients)
+        //                        {
+        //                            // Obtener el estado actual del ingrediente
+        //                            var ingredientResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Inventory/ingredients/{ingredient.IngredientID}");
+        //                            if (ingredientResponse?.Success == true)
+        //                            {
+        //                                var ingredientInfo = JsonConvert.DeserializeObject<IngredientModel>(ingredientResponse.Data.ToString());
+        //                                decimal requiredQuantity = ingredient.Quantity * detail.Quantity;
+
+        //                                if (ingredientInfo == null || ingredientInfo.StockQuantity < requiredQuantity)
+        //                                {
+        //                                    inventoryOk = false;
+        //                                    unavailableItems.Add($"{detail.ItemName} (falta: {ingredientInfo?.Name ?? "ingrediente"})");
+        //                                    break; // Basta con un ingrediente faltante para marcar el producto como no disponible
+        //                                }
+        //                            }
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //            else if (detail.ItemType == "Combo")
+        //            {
+        //                // Para combos, obtener sus componentes
+        //                var comboResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Combo/{detail.ItemID}");
+        //                if (comboResponse?.Success == true)
+        //                {
+        //                    var combo = JsonConvert.DeserializeObject<ComboModel>(comboResponse.Data.ToString());
+        //                    if (combo?.Items != null)
+        //                    {
+        //                        foreach (var comboItem in combo.Items)
+        //                        {
+        //                            var product = products.FirstOrDefault(p => p.ID == comboItem.FastFoodItemID);
+        //                            if (product == null) continue;
+
+        //                            if (product.ProductTypeID == 2) // Producto de inventario
+        //                            {
+        //                                // Verificar stock de cada producto en el combo
+        //                                var productResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/ProductInventory/product/{comboItem.FastFoodItemID}");
+
+        //                                if (productResponse?.Success == true)
+        //                                {
+        //                                    var inventory = JsonConvert.DeserializeObject<ProductInventoryModel>(productResponse.Data.ToString());
+        //                                    int requiredQuantity = comboItem.Quantity * detail.Quantity;
+
+        //                                    if (inventory == null || inventory.CurrentStock < requiredQuantity)
+        //                                    {
+        //                                        inventoryOk = false;
+        //                                        var productName = product.Name ?? $"Producto #{comboItem.FastFoodItemID}";
+        //                                        unavailableItems.Add($"{productName} (en combo {combo.Name})");
+        //                                    }
+        //                                }
+        //                            }
+        //                            else if (product.ProductTypeID == 1) // Producto preparado
+        //                            {
+        //                                // Verificar stock de ingredientes para productos preparados
+        //                                if (product.Ingredients != null && product.Ingredients.Any())
+        //                                {
+        //                                    foreach (var ingredient in product.Ingredients)
+        //                                    {
+        //                                        // Obtener el estado actual del ingrediente
+        //                                        var ingredientResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Inventory/ingredients/{ingredient.IngredientID}");
+        //                                        if (ingredientResponse?.Success == true)
+        //                                        {
+        //                                            var ingredientInfo = JsonConvert.DeserializeObject<IngredientModel>(ingredientResponse.Data.ToString());
+        //                                            decimal requiredQuantity = ingredient.Quantity * comboItem.Quantity * detail.Quantity;
+
+        //                                            if (ingredientInfo == null || ingredientInfo.StockQuantity < requiredQuantity)
+        //                                            {
+        //                                                inventoryOk = false;
+        //                                                var productName = product.Name ?? $"Producto #{comboItem.FastFoodItemID}";
+        //                                                unavailableItems.Add($"{productName} (en combo {combo.Name}) - falta: {ingredientInfo?.Name ?? "ingrediente"}");
+        //                                                break;
+        //                                            }
+        //                                        }
+        //                                    }
+        //                                }
+        //                            }
+        //                        }
+        //                    }
+        //                }
+        //            }
+
+        //            // Recalcular descuento por producto
+        //            detail.DiscountAmount = detail.UnitPrice * detail.Quantity * (detail.DiscountPercentage / 100);
+
+        //        }
+
+
+
+        //        if (!inventoryOk)
+        //        {
+        //            NotificationService.Notify(NotificationSeverity.Warning,
+        //                "Inventario insuficiente",
+        //                $"No hay suficiente inventario para: {string.Join(", ", unavailableItems)}",
+        //                6000);
+        //            return;
+        //        }
+
+        //        // Mapear a DTO para enviar a la API (valores en inglés para la BD)
+        //        var orderDto = new OrderDTO
+        //        {
+        //            OrderType = model.OrderType, // Ya tiene el valor en inglés
+        //            CustomerID = model.CustomerID,
+        //            TableID = model.TableID,
+        //            Notes = model.Notes,
+        //            DiscountAmount = CalculateDiscountAmount(), // Enviamos el monto calculado, no el porcentaje
+        //            OrderDetails = model.OrderDetails,
+        //            // Por defecto, el estado de pago es Pendiente pero guardamos "Pending"
+        //            PaymentStatus = "Pending"
+        //        };
+
+        //        // Calcular el total
+        //        decimal total = CalculateTotal();
+
+        //        // Preguntar si desea procesar pago inmediatamente
+        //        var processPaymentNow = await DialogService.Confirm(
+        //            "¿Desea procesar el pago ahora?",
+        //            "Procesar Pago",
+        //            new ConfirmOptions() { OkButtonText = "Sí", CancelButtonText = "No, guardar sin pago" });
+
+        //        // Crear la orden
+        //        var response = await ApiClient.PostAsync<BaseResponseModel, OrderDTO>(
+        //            "api/Order", orderDto);
+
+        //        if (response?.Success == true)
+        //        {
+        //            var createdOrder = JsonConvert.DeserializeObject<OrderModel>(response.Data.ToString());
+
+        //            if (createdOrder != null)
+        //            {
+        //                // Actualizar inventario
+        //                await UpdateInventoryAfterOrder(createdOrder.ID);
+
+        //                // Imprimir ticket de cocina independientemente de si se procesa el pago o no
+        //                await PrintKitchenTicket(createdOrder);
+
+        //                if (processPaymentNow == true)
+        //                {
+        //                    // Redirigir a la página de pago específica para esta orden
+        //                    NavigationManager.NavigateTo($"/orders/payment/{createdOrder.ID}");
+        //                }
+        //                else
+        //                {
+        //                    // La orden se creó sin pago
+        //                    NotificationService.Notify(NotificationSeverity.Success,
+        //                        "Éxito", "Pedido creado exitosamente (pendiente de pago)", 4000);
+        //                    NavigationManager.NavigateTo("/orders");
+        //                }
+        //            }
+        //        }
+        //        else
+        //        {
+        //            NotificationService.Notify(NotificationSeverity.Error,
+        //                "Error", response?.ErrorMessage ?? "Error al crear pedido", 4000);
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        NotificationService.Notify(NotificationSeverity.Error,
+        //            "Error", $"Error al crear pedido: {ex.Message}", 4000);
+        //    }
+        //}
         private decimal CalculateDiscountAmount()
         {
             // Calcular el descuento general (aplica sobre el subtotal después de descuentos por producto)
