@@ -345,23 +345,6 @@
         errorMessage = string.Empty;
     }
 
-    private async Task ExportToExcel()
-    {
-        if (topProducts == null || !topProducts.Any())
-            return;
-            
-        // await dataGrid.ExportExcelAsync("TopProductosVendidos.xlsx", new ExcelExportOptions
-        // {
-        //     AutoFitColumns = true,
-        //     IncludeHeaders = true,
-        //     ShowCaptionHeader = true,
-        //     CaptionHeader = $"Reporte de Productos Más Vendidos - {startDate:dd/MM/yyyy} al {endDate:dd/MM/yyyy}",
-        //     SubCaptionHeader = $"Fecha de generación: {DateTime.Now:dd/MM/yyyy HH:mm}"
-        // });
-        
-        NotificationService.Notify(NotificationSeverity.Success, "Éxito", 
-            "Reporte exportado exitosamente", duration: 3000);
-    }
 
     private async Task LoadTopProductsReport()
     {

@@ -1,6 +1,7 @@
 ﻿using KaruRestauranteWebApp.BL.Repositories;
 using KaruRestauranteWebApp.Models.Entities.Orders;
 using KaruRestauranteWebApp.Models.Entities.Restaurant;
+using KaruRestauranteWebApp.Models.Models.CashRegister;
 using KaruRestauranteWebApp.Models.Models.Orders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -25,7 +26,7 @@ namespace KaruRestauranteWebApp.BL.Services
         Task<bool> UpdateOrderDetailStatusAsync(int orderDetailId, string status);
         Task<bool> RemoveOrderDetailAsync(int orderDetailId);
         Task<decimal> CalculateOrderTotalAsync(int orderId);
-
+        Task RegisterCancellationInCashRegister(int orderId, int userId);
         Task<bool> DeleteOrderAsync(int orderId);
     }
 
@@ -41,6 +42,8 @@ namespace KaruRestauranteWebApp.BL.Services
         private readonly IProductInventoryRepository _productInventoryRepository;
         private readonly IInventoryRepository _inventoryRepository;
         private readonly ILogger<OrderService> _logger;
+        private readonly ICashRegisterTransactionService _cashRegisterTransactionService;
+        private readonly ICashRegisterSessionRepository _cashRegisterSessionRepository;
 
         public OrderService(
             IOrderRepository orderRepository,
@@ -52,7 +55,9 @@ namespace KaruRestauranteWebApp.BL.Services
             IComboRepository comboRepository,
             IProductInventoryRepository productInventoryRepository,
             IInventoryRepository inventoryRepository,
-            ILogger<OrderService> logger)
+            ILogger<OrderService> logger,
+            ICashRegisterTransactionService cashRegisterTransactionService,
+            ICashRegisterSessionRepository cashRegisterSessionRepository)
         {
             _orderRepository = orderRepository;
             _orderDetailRepository = orderDetailRepository;
@@ -64,6 +69,8 @@ namespace KaruRestauranteWebApp.BL.Services
             _productInventoryRepository = productInventoryRepository;
             _inventoryRepository = inventoryRepository;
             _logger = logger;
+            _cashRegisterTransactionService = cashRegisterTransactionService;
+            _cashRegisterSessionRepository = cashRegisterSessionRepository;
         }
 
         public async Task<bool> DeleteOrderAsync(int orderId)
@@ -211,7 +218,86 @@ namespace KaruRestauranteWebApp.BL.Services
                 throw;
             }
         }
+        public async Task RegisterCancellationInCashRegister(int orderId, int userId)
+        {
+            var order = await _orderRepository.GetByIdAsync(orderId);
+            if (order == null || order.OrderStatus != "Cancelled")
+            {
+                return; // No hacemos nada si la orden no está cancelada
+            }
 
+            var payments = await _paymentRepository.GetByOrderIdAsync(orderId);
+            if (!payments.Any())
+            {
+                return; // No hay pagos que devolver
+            }
+
+            // Obtener la sesión actual de caja
+            var currentSession = await _cashRegisterSessionRepository.GetCurrentSessionAsync();
+            if (currentSession == null)
+            {
+                _logger.LogWarning("No hay sesión de caja abierta para registrar devolución de orden {OrderId}", orderId);
+                throw new ValidationException("No hay una sesión de caja abierta para registrar la devolución");
+            }
+
+            // Procesar cada tipo de pago por separado
+            var paymentsByMethod = payments.GroupBy(p => p.PaymentMethod);
+
+            foreach (var group in paymentsByMethod)
+            {
+                string paymentMethod = group.Key;
+                decimal totalAmount = group.Sum(p => p.Amount);
+
+                // Registrar en caja - todos los métodos generan un registro
+                var cashTransaction = new CashRegisterTransactionDTO
+                {
+                    SessionID = currentSession.ID,
+                    TransactionType = "Expense", // Este tipo hace que se reste del balance
+                    Description = $"Devolución por cancelación - {GetPaymentMethodName(paymentMethod)} - Orden #{order.OrderNumber}",
+                    AmountCRC = totalAmount,
+                    AmountUSD = 0,
+                    PaymentMethod = paymentMethod,
+                    ReferenceNumber = $"CANCEL-{order.OrderNumber}-{paymentMethod}",
+                    RelatedOrderID = orderId
+                };
+
+                try
+                {
+                    await _cashRegisterTransactionService.CreateTransactionAsync(cashTransaction, userId);
+                    _logger.LogInformation(
+                        "Creada transacción de devolución en caja para orden cancelada {OrderId}, método {Method}, monto {Amount}",
+                        orderId, paymentMethod, totalAmount);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "Error al registrar devolución en caja para orden cancelada {OrderId}, método {Method}",
+                        orderId, paymentMethod);
+                    throw; // Re-lanzar para manejar en el controlador
+                }
+            }
+
+            // Actualizar la orden para indicar que se registró la devolución
+            order.Notes = string.IsNullOrEmpty(order.Notes)
+                ? "Devolución registrada en caja."
+                : order.Notes + " | Devolución registrada en caja.";
+
+            await _orderRepository.UpdateAsync(order);
+        }
+
+        private string GetPaymentMethodName(string method)
+        {
+            return method switch
+            {
+                "Cash" => "Efectivo",
+                "CreditCard" => "Tarjeta de Crédito",
+                "DebitCard" => "Tarjeta de Débito",
+                "Transfer" => "Transferencia",
+                "SINPE" => "SINPE Móvil",
+                "Other" => "Otro método",
+                _ => method
+            };
+        }
         public async Task<OrderModel> CreateOrderAsync(OrderDTO orderDto, int userId)
         {
             var strategy = _orderRepository.CreateExecutionStrategy();

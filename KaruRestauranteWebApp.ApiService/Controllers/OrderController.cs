@@ -809,6 +809,50 @@ namespace KaruRestauranteWebApp.ApiService.Controllers
             }
         }
 
+        [HttpPost("{id}/cancel-register-in-cash")]
+        [Authorize(Roles = "SuperAdmin,Admin,User")]
+        public async Task<ActionResult<BaseResponseModel>> RegisterCancellationInCash(int id)
+        {
+            try
+            {
+                // Obtener ID del usuario del token
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+                if (userId == 0)
+                {
+                    return Unauthorized(new BaseResponseModel
+                    {
+                        Success = false,
+                        ErrorMessage = "Usuario no autorizado"
+                    });
+                }
+
+                await _orderService.RegisterCancellationInCashRegister(id, userId);
+
+                return Ok(new BaseResponseModel
+                {
+                    Success = true,
+                    ErrorMessage = "Cancelación registrada en caja exitosamente"
+                });
+            }
+            catch (ValidationException vex)
+            {
+                return BadRequest(new BaseResponseModel
+                {
+                    Success = false,
+                    ErrorMessage = vex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al registrar cancelación en caja para la orden {OrderId}", id);
+                return StatusCode(500, new BaseResponseModel
+                {
+                    Success = false,
+                    ErrorMessage = "Error interno del servidor"
+                });
+            }
+        }
+
         // Método auxiliar para obtener nombres amigables de métodos de pago
         private string GetPaymentMethodName(string method)
         {
