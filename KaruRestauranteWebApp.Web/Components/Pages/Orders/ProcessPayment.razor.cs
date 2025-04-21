@@ -311,6 +311,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         }).ToList(),
         subtotal = order.TotalAmount - order.TaxAmount + order.DiscountAmount,
         tax = order.TaxAmount,
+        discountPercentage = order.DiscountPercentage,
         discount = order.DiscountAmount,
         total = order.TotalAmount,
         paymentMethod = paymentInfo != null ?

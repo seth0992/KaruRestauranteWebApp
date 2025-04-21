@@ -711,6 +711,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     OrderType = model.OrderType,
                     Notes = model.Notes,
                     DiscountAmount = model.DiscountAmount,
+                    DiscountPercentage = model.DiscountPercentage,
                     OrderDetails = model.OrderDetails, // Incluye todos los detalles con sus descuentos
                     OrderStatus = order?.OrderStatus ?? "Pending",
                     PaymentStatus = order?.PaymentStatus ?? "Pending",

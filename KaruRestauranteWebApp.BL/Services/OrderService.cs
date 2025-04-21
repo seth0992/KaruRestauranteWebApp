@@ -369,6 +369,7 @@ namespace KaruRestauranteWebApp.BL.Services
                         TotalAmount = 0, // Se calculará al agregar detalles
                         TaxAmount = 0,   // Se calculará al agregar detalles
                         DiscountAmount = orderDto.DiscountAmount,
+                        DiscountPercentage = orderDto.DiscountPercentage,
                         Notes = orderDto.Notes,
                         CreatedAt = DateTime.UtcNow
                     };
@@ -447,8 +448,9 @@ namespace KaruRestauranteWebApp.BL.Services
             order.TableID = orderDto.TableID;
             order.OrderType = orderDto.OrderType;
             order.Notes = orderDto.Notes;
-            
+
             // IMPORTANTE: Actualizar el monto de descuento general
+            order.DiscountPercentage = orderDto.DiscountPercentage;
             order.DiscountAmount = orderDto.DiscountAmount;
             
             order.UpdatedAt = DateTime.UtcNow;

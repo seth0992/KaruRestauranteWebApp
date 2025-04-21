@@ -643,6 +643,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     TableID = model.TableID,
                     Notes = model.Notes,
                     DiscountAmount = CalculateDiscountAmount(), // Enviamos el monto calculado, no el porcentaje
+                    DiscountPercentage = model.DiscountPercentage,
                     OrderDetails = model.OrderDetails,
                     // Por defecto, el estado de pago es Pendiente pero guardamos "Pending"
                     PaymentStatus = "Pending"

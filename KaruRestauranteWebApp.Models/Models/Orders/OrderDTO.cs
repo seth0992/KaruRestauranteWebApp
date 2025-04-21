@@ -29,6 +29,8 @@ namespace KaruRestauranteWebApp.Models.Models.Orders
 
         public decimal DiscountAmount { get; set; }
 
+        public decimal DiscountPercentage { get; set; }
+
         public string Notes { get; set; } = string.Empty;
 
         public List<OrderDetailDTO> OrderDetails { get; set; } = new();
