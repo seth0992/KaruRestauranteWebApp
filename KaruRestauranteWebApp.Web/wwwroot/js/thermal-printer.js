@@ -122,14 +122,39 @@
             // Si estamos en desarrollo, mostrar en consola
             if (window.location.hostname === 'localhost') {
                 console.log("TICKET DE COCINA:\n" + content);
-                return await this.printFallback(content);
+                return await this.printFallback(content, true); // Pasar true para indicar que es ticket de cocina
             }
 
-            // Imprimir usando el mismo método que el ticket de pago
-            return await this.printPaymentReceipt({
-                ...orderData,
-                isKitchenTicket: true
-            });
+            // Imprimir usando una ventana emergente con estilo específico para cocina
+            try {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`<html><head><title>Ticket de Cocina</title>
+                <style>
+                    body { 
+                        font-family: monospace; 
+                        font-size: 18px; /* Tamaño aumentado para cocina */
+                        font-weight: bold; /* Letra más gruesa para mejor legibilidad */
+                    }
+                    pre { 
+                        white-space: pre-wrap; 
+                        line-height: 1.3; /* Mayor espaciado entre líneas */
+                    }
+                </style>
+            </head><body><pre>${content}</pre></body></html>`);
+                printWindow.document.close();
+
+                // Especificar la impresora por su nombre
+                const printOptions = {
+                    printer: this.printerConfig.name
+                };
+
+                printWindow.print();
+                setTimeout(() => printWindow.close(), 500);
+                return true;
+            } catch (printError) {
+                console.error("Error en la impresión:", printError);
+                return this.printFallback(content, true);
+            }
         } catch (error) {
             console.error("Error al imprimir ticket de cocina:", error);
             return false;
@@ -137,15 +162,28 @@
     },
 
     // Método alternativo de impresión (fallback)
-    printFallback: async function (content) {
+    printFallback: async function (content, isKitchenTicket = false) {
         try {
             const printWindow = window.open('', '_blank');
+
+            // Aplicamos diferentes estilos según el tipo de ticket
+            const fontSize = isKitchenTicket ? "18px" : "12px";
+            const fontWeight = isKitchenTicket ? "bold" : "normal";
+            const lineHeight = isKitchenTicket ? "1.3" : "1.2";
+
             printWindow.document.write(`<html><head><title>Ticket</title>
-                <style>
-                    body { font-family: monospace; font-size: 12px; }
-                    pre { white-space: pre-wrap; }
-                </style>
-            </head><body><pre>${content}</pre></body></html>`);
+            <style>
+                body { 
+                    font-family: monospace; 
+                    font-size: ${fontSize}; 
+                    font-weight: ${fontWeight};
+                }
+                pre { 
+                    white-space: pre-wrap; 
+                    line-height: ${lineHeight};
+                }
+            </style>
+        </head><body><pre>${content}</pre></body></html>`);
             printWindow.document.close();
             printWindow.print();
             setTimeout(() => printWindow.close(), 500);
@@ -205,7 +243,12 @@
             let priceStr = `${item.price.toFixed(2)}`;
 
             content += `${quantityStr}  ${productName.padEnd(25, ' ')} ${priceStr}\n`;
-            //content += `      ${this.rightAlign(`${(item.quantity * item.price).toFixed(2)}`, width - 6)}\n`;
+
+            // Agregar información de descuento por producto si existe
+            if (item.discountPercentage && item.discountPercentage > 0) {
+                const discountText = `      Desc: ${item.discountPercentage.toFixed(2)}% (-₡${item.discountAmount.toFixed(2)})`;
+                content += this.rightAlign(discountText, width) + "\n";
+            }
 
             // Añadir elementos del combo si es un combo
             if (item.isCombo && item.comboItems && item.comboItems.length > 0) {
@@ -248,8 +291,21 @@
         content += this.justifyText("Subtotal:", `₡${orderData.subtotal.toFixed(2)}`, width) + "\n";
         content += this.justifyText("IVA (13%):", `₡${orderData.tax.toFixed(2)}`, width) + "\n";
 
+        // Mostrar descuento general con porcentaje si está disponible
         if (orderData.discount > 0) {
-            content += this.justifyText("Descuento:", `-₡${orderData.discount.toFixed(2)}`, width) + "\n";
+            let discountText = "Descuento:";
+
+            // Si tenemos el porcentaje de descuento general, lo mostramos
+            if (orderData.discountPercentage && orderData.discountPercentage > 0) {
+                discountText = `Descuento (${orderData.discountPercentage.toFixed(2)}%):`;
+            }
+
+            content += this.justifyText(discountText, `-₡${orderData.discount.toFixed(2)}`, width) + "\n";
+        }
+
+        // Mostrar el total de descuentos de productos si está disponible
+        if (orderData.productDiscounts && orderData.productDiscounts > 0) {
+            content += this.justifyText("Desc. Productos:", `-₡${orderData.productDiscounts.toFixed(2)}`, width) + "\n";
         }
 
         content += this.horizontalLine(width) + "\n";
@@ -344,6 +400,11 @@
                 content += `      Notas: ${item.notes}\n`;
             }
 
+            //// Mostrar descuento del producto si existe
+            //if (item.discountPercentage > 0) {
+            //    content += `      Descuento: ${item.discountPercentage}% (-₡${item.discountAmount.toFixed(2)})\n`;
+            //}
+
             content += "\n";
         });
 
@@ -398,11 +459,18 @@
             try {
                 const printWindow = window.open('', '_blank');
                 printWindow.document.write(`<html><head><title>Ticket de Cocina</title>
-                    <style>
-                        body { font-family: monospace; font-size: 12px; }
-                        pre { white-space: pre-wrap; }
-                    </style>
-                </head><body><pre>${content}</pre></body></html>`);
+                <style>
+                    body { 
+                        font-family: monospace; 
+                        font-size: 18px; /* Tamaño aumentado para cocina */
+                        font-weight: bold; /* Letra más gruesa para mejor legibilidad */
+                    }
+                    pre { 
+                        white-space: pre-wrap; 
+                        line-height: 1.3; /* Mayor espaciado entre líneas */
+                    }
+                </style>
+            </head><body><pre>${content}</pre></body></html>`);
                 printWindow.document.close();
 
                 // Especificar la impresora por su nombre
@@ -415,14 +483,13 @@
                 return true;
             } catch (printError) {
                 console.error("Error en la impresión del ticket de cocina:", printError);
-                return this.printFallback(content);
+                return this.printFallback(content, true);
             }
         } catch (error) {
             console.error("Error al imprimir ticket de cocina:", error);
             return false;
         }
     },
-
     // Generar contenido del ticket de cocina sin información de pago
     generateKitchenTicketOnlyContent: function (orderData) {
         const width = this.printerConfig.width;
@@ -465,6 +532,11 @@
             // Añadir notas si existen
             if (item.notes) {
                 content += `      Notas: ${item.notes}\n`;
+            }
+
+            // Mostrar descuento de producto si existe
+            if (item.discountPercentage && item.discountPercentage > 0) {
+                content += `      Descuento: ${item.discountPercentage}% (-₡${item.discountAmount.toFixed(2)})\n`;
             }
 
             content += "\n";

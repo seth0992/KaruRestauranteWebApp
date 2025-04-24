@@ -131,6 +131,10 @@ builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IProductInventoryRepository, ProductInventoryRepository>();
 builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
 
+// Añadir Reportes Services y repository
+builder.Services.AddScoped<IReportRepository, ReportRepository>();
+builder.Services.AddScoped<IReportService, ReportService>();
+
 //Add authentication services
 var secret = builder.Configuration.GetValue<string>("Jwt:Secret");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {

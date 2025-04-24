@@ -129,7 +129,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             if (isShowingTodayOnly)
             {
                 fromDate = DateTime.Today;
-                toDate = DateTime.Today.AddDays(1).AddTicks(-1);
+                toDate = DateTime.Today.AddDays(1);
             }
             else
             {
@@ -238,15 +238,48 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             };
         }
 
+        //private async Task ShowDeleteConfirmation(OrderModel order)
+        //{
+        //    var result = await DialogService.Confirm(
+        //        $"¿Está seguro que desea cancelar el pedido {order.OrderNumber}?",
+        //        "Confirmar Cancelación",
+        //        new ConfirmOptions()
+        //        {
+        //            OkButtonText = "Sí",
+        //            CancelButtonText = "No"
+        //        });
+
+        //    if (result == true)
+        //    {
+        //        await CancelOrder(order);
+        //    }
+        //}
         private async Task ShowDeleteConfirmation(OrderModel order)
         {
+            string title = "Confirmar Cancelación";
+            string message = $"¿Está seguro que desea cancelar el pedido {order.OrderNumber}?";
+
+            // Agregar mensaje adicional si la orden ya tiene pagos
+            if (order.PaymentStatus == "Paid" || order.PaymentStatus == "Partially Paid")
+            {
+                message += "\n\nEsta orden ya ha recibido pagos. Al cancelarla:";
+
+                // Si hay pagos en efectivo, indicar que se registrará una devolución
+                if (order.Payments != null && order.Payments.Any(p => p.PaymentMethod == "Cash"))
+                {
+                    message += "\n• Se registrará una devolución en caja para los pagos en efectivo.";
+                }
+
+                message += "\n• Recuerde procesar manualmente las devoluciones para pagos con tarjeta u otros métodos.";
+            }
+
             var result = await DialogService.Confirm(
-                $"¿Está seguro que desea cancelar el pedido {order.OrderNumber}?",
-                "Confirmar Cancelación",
+                message,
+                title,
                 new ConfirmOptions()
                 {
-                    OkButtonText = "Sí",
-                    CancelButtonText = "No"
+                    OkButtonText = "Sí, Cancelar Pedido",
+                    CancelButtonText = "No, Mantener Pedido"
                 });
 
             if (result == true)
@@ -255,22 +288,64 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             }
         }
 
+        //private async Task CancelOrder(OrderModel order)
+        //{
+        //    try
+        //    {
+        //        var response = await ApiClient.PatchAsync<BaseResponseModel>($"api/Order/{order.ID}/status/Cancelled");
+        //        if (response?.Success == true)
+        //        {
+        //            NotificationService.Notify(NotificationSeverity.Success,
+        //                "Éxito", "Pedido cancelado exitosamente", 4000);
+        //            await LoadOrders();
+        //        }
+        //        else
+        //        {
+        //            NotificationService.Notify(NotificationSeverity.Error,
+        //                "Error", response?.ErrorMessage ?? "Error al cancelar pedido", 4000);
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        NotificationService.Notify(NotificationSeverity.Error,
+        //            "Error", $"Error al cancelar pedido: {ex.Message}", 4000);
+        //    }
+        //}
         private async Task CancelOrder(OrderModel order)
         {
             try
             {
-                var response = await ApiClient.PatchAsync<BaseResponseModel>($"api/Order/{order.ID}/status/Cancelled");
-                if (response?.Success == true)
+                // Paso 1: Cancelar la orden
+                var cancelResponse = await ApiClient.PatchAsync<BaseResponseModel>($"api/Order/{order.ID}/status/Cancelled");
+                if (cancelResponse?.Success != true)
                 {
-                    NotificationService.Notify(NotificationSeverity.Success,
-                        "Éxito", "Pedido cancelado exitosamente", 4000);
-                    await LoadOrders();
+                    NotificationService.Notify(NotificationSeverity.Error,
+                        "Error", cancelResponse?.ErrorMessage ?? "Error al cancelar pedido", 4000);
+                    return;
+                }
+
+                // Paso 2: Registrar la cancelación en caja (solo si tiene pagos)
+                if (order.PaymentStatus == "Paid" || order.PaymentStatus == "Partially Paid")
+                {
+                    var cashRegisterResponse = await ApiClient.PostAsync<BaseResponseModel, object>($"api/Order/{order.ID}/cancel-register-in-cash", null);
+                    if (cashRegisterResponse?.Success == true)
+                    {
+                        NotificationService.Notify(NotificationSeverity.Success,
+                            "Éxito", "Pedido cancelado y registrado en caja exitosamente", 4000);
+                    }
+                    else
+                    {
+                        NotificationService.Notify(NotificationSeverity.Warning,
+                            "Advertencia", "Pedido cancelado pero hubo un problema al registrar en caja", 4000);
+                    }
                 }
                 else
                 {
-                    NotificationService.Notify(NotificationSeverity.Error,
-                        "Error", response?.ErrorMessage ?? "Error al cancelar pedido", 4000);
+                    NotificationService.Notify(NotificationSeverity.Success,
+                        "Éxito", "Pedido cancelado exitosamente", 4000);
                 }
+
+                await LoadOrders();
             }
             catch (Exception ex)
             {
@@ -278,7 +353,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     "Error", $"Error al cancelar pedido: {ex.Message}", 4000);
             }
         }
-
         private void NavigateToOrderDetails(int orderId)
         {
             NavigationManager.NavigateTo($"/orders/details/{orderId}");

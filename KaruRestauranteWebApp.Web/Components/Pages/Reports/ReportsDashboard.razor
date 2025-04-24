@@ -1,0 +1,82 @@
+﻿@page "/reports/dashboard"
+@using KaruRestauranteWebApp.Common.Resources
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Extensions.Localization
+@using KaruRestauranteWebApp.Models.Models
+@using KaruRestauranteWebApp.Models.Models.Reports
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Resource> L
+@inject ApiClient ApiClient
+@inject NotificationService NotificationService
+
+<RadzenStack>
+    <RadzenRow>
+        <RadzenColumn Size="12" class="rz-mb-4">
+            <RadzenText TextStyle="TextStyle.H3">Panel de Reportes</RadzenText>
+            <RadzenBreadCrumb>
+                <RadzenBreadCrumbItem Path="/" Text="Inicio" />
+                <RadzenBreadCrumbItem Text="Reportes" />
+            </RadzenBreadCrumb>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenRow>
+        <RadzenColumn Size="12" SizeLG="3" SizeMD="6" class="rz-p-2">
+            <RadzenCard Variant="Variant.Filled" class="rz-background-color-primary rz-shadow-3 rz-p-4 rz-my-3">
+                <RadzenStack>
+                    <RadzenIcon Icon="bar_chart" Style="font-size: 2rem;" class="rz-color-white" />
+                    <RadzenText TextStyle="TextStyle.H5" class="rz-color-white">Ventas Diarias</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-white">Ver reporte de ventas diarias</RadzenText>
+                    <RadzenButton Click="@(() => NavigationManager.NavigateTo("/reports/daily-sales"))" Text="Ver Detalles" ButtonStyle="ButtonStyle.Light" class="rz-mt-4" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeLG="3" SizeMD="6" class="rz-p-2">
+            <RadzenCard Variant="Variant.Filled" class="rz-background-color-success rz-shadow-3 rz-p-4 rz-my-3">
+                <RadzenStack>
+                    <RadzenIcon Icon="calendar_month" Style="font-size: 2rem;" class="rz-color-white" />
+                    <RadzenText TextStyle="TextStyle.H5" class="rz-color-white">Ventas Mensuales</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-white">Ver reporte de ventas mensuales</RadzenText>
+                    <RadzenButton Click="@(() => NavigationManager.NavigateTo("/reports/monthly-sales"))" Text="Ver Detalles" ButtonStyle="ButtonStyle.Light" class="rz-mt-4" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeLG="3" SizeMD="6" class="rz-p-2">
+            <RadzenCard Variant="Variant.Filled" class="rz-background-color-warning rz-shadow-3 rz-p-4 rz-my-3">
+                <RadzenStack>
+                    <RadzenIcon Icon="trending_up" Style="font-size: 2rem;" class="rz-color-white" />
+                    <RadzenText TextStyle="TextStyle.H5" class="rz-color-white">Ventas Anuales</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-white">Ver reporte de ventas anuales</RadzenText>
+                    <RadzenButton Click="@(() => NavigationManager.NavigateTo("/reports/yearly-sales"))" Text="Ver Detalles" ButtonStyle="ButtonStyle.Light" class="rz-mt-4" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeLG="3" SizeMD="6" class="rz-p-2">
+            <RadzenCard Variant="Variant.Filled" class="rz-background-color-danger rz-shadow-3 rz-p-4 rz-my-3">
+                <RadzenStack>
+                    <RadzenIcon Icon="leaderboard" Style="font-size: 2rem;" class="rz-color-white" />
+                    <RadzenText TextStyle="TextStyle.H5" class="rz-color-white">Productos Más Vendidos</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-white">Ver reporte de productos más vendidos</RadzenText>
+                    <RadzenButton Click="@(() => NavigationManager.NavigateTo("/reports/top-products"))" Text="Ver Detalles" ButtonStyle="ButtonStyle.Light" class="rz-mt-4" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+  
+</RadzenStack>
+
+@code {
+ 
+    protected override async Task OnInitializedAsync()
+    {
+      
+    }
+
+
+
+}

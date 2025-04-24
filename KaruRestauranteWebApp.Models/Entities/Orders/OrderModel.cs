@@ -39,6 +39,8 @@ namespace KaruRestauranteWebApp.Models.Entities.Orders
         [Required(ErrorMessage = "El monto de descuento es requerido")]
         public decimal DiscountAmount { get; set; } = 0;
 
+        public decimal DiscountPercentage { get; set; } = 0;
+
         [StringLength(500, ErrorMessage = "Las notas no pueden exceder los 500 caracteres")]
         public string Notes { get; set; } = string.Empty;
 

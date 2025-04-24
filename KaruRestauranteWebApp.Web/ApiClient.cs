@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using System.Net.Http.Headers;
 using System.Net;
 using KaruRestauranteWebApp.Web.Authentication;
+using KaruRestauranteWebApp.Models.Models.Reports;
 
 namespace KaruRestauranteWebApp.Web;
 
@@ -48,50 +49,6 @@ public class ApiClient
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
     }
-
-    //private async Task<bool> RefreshTokenAsync()
-    //{
-    //    try
-    //    {
-    //        await _semaphore.WaitAsync();
-    //        if (_isRefreshing) return true;
-
-    //        _isRefreshing = true;
-    //        var sessionState = (await _localStorage.GetAsync<LoginResponseModel>("sessionState")).Value;
-
-    //        if (sessionState == null || string.IsNullOrEmpty(sessionState.RefreshToken))
-    //        {
-    //            return false;
-    //        }
-
-    //        // Quitar el header de autorización para la llamada de refresh
-    //        _httpClient.DefaultRequestHeaders.Authorization = null;
-
-    //        var response = await _httpClient.GetAsync($"api/Auth/loginByRefreshToken?refreshToken={sessionState.RefreshToken}");
-
-    //        if (response.IsSuccessStatusCode)
-    //        {
-    //            var newSession = await response.Content.ReadFromJsonAsync<LoginResponseModel>();
-    //            if (newSession != null)
-    //            {
-    //                await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(newSession);
-    //                return true;
-    //            }
-    //        }
-
-    //        return false;
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        _toastService.ShowError($"Error al refrescar el token: {ex.Message}");
-    //        return false;
-    //    }
-    //    finally
-    //    {
-    //        _isRefreshing = false;
-    //        _semaphore.Release();
-    //    }
-    //}
 
     private async Task<bool> RefreshTokenAsync()
     {
@@ -479,5 +436,6 @@ public class ApiClient
     {
         _toastService.ShowError($"Error en la solicitud: {ex.Message}");
     }
+
 }
 

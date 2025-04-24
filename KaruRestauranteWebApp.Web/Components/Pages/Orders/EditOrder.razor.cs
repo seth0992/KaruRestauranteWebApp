@@ -9,7 +9,18 @@ using Microsoft.JSInterop;
 
 namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 {
-
+    public class OrderFormModel
+    {
+        public int ID { get; set; }
+        public string OrderNumber { get; set; } = string.Empty;
+        public int? CustomerID { get; set; }
+        public int? TableID { get; set; }
+        public string OrderType { get; set; } = "DineIn";
+        public string Notes { get; set; } = string.Empty;
+        public decimal DiscountPercentage { get; set; } = 0;
+        public decimal DiscountAmount { get; set; } = 0;
+        public List<OrderDetailDTO> OrderDetails { get; set; } = new();
+    }
     public partial class EditOrder
     {
         [Parameter]
@@ -32,7 +43,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
 
         private bool isLoaded;
         private OrderModel? order;
-        private OrderDTO model = new();
+        private OrderFormModel model = new();
         private List<CustomerModel> customers = new();
         private List<TableModel> availableTables = new();
         private List<FastFoodItemModel> products = new();
@@ -42,12 +53,21 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
         private List<FastFoodItemModel> filteredProducts = new();
         private List<ComboModel> filteredCombos = new();
         private string[] orderTypes = new[] { "DineIn", "TakeOut", "Delivery" };
+        private List<object> orderTypesDisplay = new List<object>();
         private bool showPaymentDialog = false;
 
         protected override async Task OnInitializedAsync()
         {
             try
             {
+                // Inicializar orden types display
+                orderTypesDisplay = new List<object>
+                {
+                    new { text = "En sitio", value = "DineIn" },
+                    new { text = "Para llevar", value = "TakeOut" },
+                    new { text = "Entrega a domicilio", value = "Delivery" }
+                };
+
                 await LoadData();
                 await LoadOrder();
                 isLoaded = true;
@@ -129,7 +149,19 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     // Mapear los datos de la orden al modelo de edición
                     if (order != null)
                     {
-                        model = new OrderDTO
+                        // Calcular el porcentaje de descuento si existe - CORREGIDO
+                        decimal discountPercentage = 0;
+                        if (order.DiscountAmount > 0)
+                        {
+                            // Cálculo correcto del subtotal sin impuestos
+                            decimal subtotal = (order.TotalAmount - order.TaxAmount) + order.DiscountAmount; // Sumar el descuento para obtener el subtotal original
+                            if (subtotal > 0)
+                            {
+                                discountPercentage = Math.Round((order.DiscountAmount / subtotal) * 100, 2);
+                            }
+                        }
+
+                        model = new OrderFormModel
                         {
                             ID = order.ID,
                             OrderNumber = order.OrderNumber,
@@ -138,9 +170,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                             OrderType = order.OrderType,
                             Notes = order.Notes,
                             DiscountAmount = order.DiscountAmount,
-                            OrderDetails = new List<OrderDetailDTO>(),
-                            OrderStatus = order.OrderStatus,
-                            PaymentStatus = order.PaymentStatus
+                            DiscountPercentage = discountPercentage,
+                            OrderDetails = new List<OrderDetailDTO>()
                         };
 
                         // Mapear detalles de la orden
@@ -158,6 +189,18 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                                 itemName = combo?.Name ?? $"Combo #{detail.ItemID}";
                             }
 
+                            // Corregido el cálculo del porcentaje de descuento por producto
+                            decimal detailDiscountPercentage = 0;
+                            if (detail.DiscountAmount > 0)
+                            {
+                                // La base correcta es UnitPrice * Quantity, no el subtotal que podría ya tener el descuento aplicado
+                                decimal originalSubtotal = detail.UnitPrice * detail.Quantity;
+                                if (originalSubtotal > 0)
+                                {
+                                    detailDiscountPercentage = Math.Round((detail.DiscountAmount / originalSubtotal) * 100, 2);
+                                }
+                            }
+
                             var detailDto = new OrderDetailDTO
                             {
                                 ID = detail.ID,
@@ -167,9 +210,11 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                                 ItemName = itemName,
                                 Quantity = detail.Quantity,
                                 UnitPrice = detail.UnitPrice,
-                                SubTotal = detail.SubTotal,
+                                SubTotal = detail.UnitPrice * detail.Quantity, // Subtotal bruto, recalcularemos después
                                 Notes = detail.Notes,
                                 Status = detail.Status,
+                                DiscountPercentage = detail.DiscountPercentage,
+                                DiscountAmount = detail.DiscountAmount,
                                 Customizations = new List<OrderItemCustomizationDTO>()
                             };
 
@@ -189,8 +234,15 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                             }
 
                             model.OrderDetails.Add(detailDto);
+                         
+                        }
+
+                        foreach (var detail in model.OrderDetails)
+                        {
+                            CalculateDetailSubtotal(detail);
                         }
                     }
+                
                 }
                 else
                 {
@@ -413,80 +465,40 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             }
         }
 
-        // Ya no se necesitan estos métodos ya que ahora usamos las tarjetas de productos directamente
-        // Los mantenemos comentados por si se necesitan para referencia
-        /*
-        private async Task OpenProductSelectionDialog()
-        {
-            try
-            {
-                // Usando Radzen DialogService para mostrar un diálogo de selección de productos
-                var selectedProduct = await DialogService.OpenAsync<ProductSelectionDialog>("Seleccionar Producto",
-                    new Dictionary<string, object>
-                    {
-                        { "Products", products.Where(p => p.IsAvailable).ToList() }
-                    },
-                    new DialogOptions
-                    {
-                        Width = "700px",
-                        Height = "530px",
-                        CloseDialogOnOverlayClick = false
-                    });
-
-                if (selectedProduct != null)
-                {
-                    var product = (FastFoodItemModel)selectedProduct;
-                    AddProductToOrder(product);
-                }
-            }
-            catch (Exception ex)
-            {
-                NotificationService.Notify(NotificationSeverity.Error,
-                    "Error", $"Error al seleccionar producto: {ex.Message}", 4000);
-            }
-        }
-
-        private async Task OpenComboSelectionDialog()
-        {
-            try
-            {
-                // Usando Radzen DialogService para mostrar un diálogo de selección de combos
-                var selectedCombo = await DialogService.OpenAsync<ComboSelectionDialog>("Seleccionar Combo",
-                    new Dictionary<string, object>
-                    {
-                        { "Combos", combos.Where(c => c.IsAvailable).ToList() }
-                    },
-                    new DialogOptions
-                    {
-                        Width = "700px",
-                        Height = "530px",
-                        CloseDialogOnOverlayClick = false
-                    });
-
-                if (selectedCombo != null)
-                {
-                    var combo = (ComboModel)selectedCombo;
-                    await AddComboToOrder(combo);
-                }
-            }
-            catch (Exception ex)
-            {
-                NotificationService.Notify(NotificationSeverity.Error,
-                    "Error", $"Error al seleccionar combo: {ex.Message}", 4000);
-            }
-        }
-        */
-
         private void CalculateDetailSubtotal(OrderDetailDTO detail)
         {
-            detail.SubTotal = detail.UnitPrice * detail.Quantity;
+            // Calcular el subtotal base (precio unitario * cantidad)
+            decimal baseSubtotal = detail.UnitPrice * detail.Quantity;
+
+            // Calcular descuento para este detalle
+            if (detail.DiscountPercentage > 0)
+            {
+                detail.DiscountAmount = Math.Round(baseSubtotal * (detail.DiscountPercentage / 100), 2);
+            }
+            // Si no hay porcentaje pero sí hay un monto, recalcular el porcentaje
+            else if (detail.DiscountAmount > 0)
+            {
+                detail.DiscountPercentage = Math.Round((detail.DiscountAmount / baseSubtotal) * 100, 2);
+            }
+            else
+            {
+                // Si no hay descuento, asegurar que ambos valores sean cero
+                detail.DiscountAmount = 0;
+                detail.DiscountPercentage = 0;
+            }
+
+            // Calcular el subtotal final después del descuento
+            detail.SubTotal = baseSubtotal - detail.DiscountAmount;
+
+            // Recalcular el total general de la orden
             CalculateTotal();
         }
-
         private decimal CalculateSubtotal()
         {
+            // Usar el subtotal ya calculado en cada detalle (que ya incluye los descuentos por producto)
             return model.OrderDetails.Sum(d => d.SubTotal);
         }
+
 
         private decimal CalculateTax()
         {
@@ -494,11 +506,66 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             return Math.Round(subtotal * 0.13m, 2); // IVA del 13%
         }
 
+        private decimal CalculateDiscountAmount()
+        {
+            // El subtotal es la suma de los subtotales de cada producto (que ya tienen sus descuentos aplicados)
+            decimal subtotal = CalculateSubtotal();
+            if (model.DiscountPercentage > 0)
+            {
+                model.DiscountAmount = Math.Round(subtotal * (model.DiscountPercentage / 100), 2);
+                return model.DiscountAmount;
+            }
+            return model.DiscountAmount; // Mantener el valor actual si no hay cambio en el porcentaje
+        }
+
         private decimal CalculateTotal()
         {
             decimal subtotal = CalculateSubtotal();
             decimal tax = CalculateTax();
-            return subtotal + tax - model.DiscountAmount;
+
+            // Recalcular el descuento general
+            decimal discountAmount = CalculateDiscountAmount();
+            model.DiscountAmount = discountAmount;
+
+            // Calcular el total final
+            return subtotal + tax - discountAmount;
+        }
+
+
+        private string TranslateOrderStatus(string status)
+        {
+            return status switch
+            {
+                "Pending" => "Pendiente",
+                "InProgress" => "En progreso",
+                "Ready" => "Listo",
+                "Delivered" => "Entregado",
+                "Cancelled" => "Cancelado",
+                _ => status ?? "Desconocido"
+            };
+        }
+
+        private string TranslatePaymentStatus(string status)
+        {
+            return status switch
+            {
+                "Pending" => "Pendiente de pago",
+                "Paid" => "Pagado",
+                "Partially Paid" => "Pago parcial",
+                "Cancelled" => "Cancelado",
+                _ => status ?? "Desconocido"
+            };
+        }
+
+        private string TranslateCustomizationType(string type)
+        {
+            return type switch
+            {
+                "Add" => "Agregar",
+                "Remove" => "Quitar",
+                "Extra" => "Extra",
+                _ => type ?? "Desconocido"
+            };
         }
 
         private BadgeStyle GetCustomizationBadgeStyle(string type)
@@ -609,7 +676,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     CloseDialogOnOverlayClick = true
                 });
         }
-
         private async Task HandleSubmit()
         {
             try
@@ -628,13 +694,37 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     return;
                 }
 
+                // Recalcular todos los descuentos una vez más para asegurar consistencia
+                foreach (var detail in model.OrderDetails)
+                {
+                    CalculateDetailSubtotal(detail);
+                }
+                decimal totalFinal = CalculateTotal();
+
+                // Convertir el OrderFormModel a OrderDTO para enviarlo a la API
+                var orderDto = new OrderDTO
+                {
+                    ID = model.ID,
+                    OrderNumber = model.OrderNumber,
+                    CustomerID = model.CustomerID,
+                    TableID = model.TableID,
+                    OrderType = model.OrderType,
+                    Notes = model.Notes,
+                    DiscountAmount = model.DiscountAmount,
+                    DiscountPercentage = model.DiscountPercentage,
+                    OrderDetails = model.OrderDetails, // Incluye todos los detalles con sus descuentos
+                    OrderStatus = order?.OrderStatus ?? "Pending",
+                    PaymentStatus = order?.PaymentStatus ?? "Pending",
+                    // Es importante NO enviar TotalAmount ni TaxAmount ya que éstos se calculan en el servidor
+                };
+
                 var response = await ApiClient.PutAsync<BaseResponseModel, OrderDTO>(
-                    $"api/Order/{OrderId}", model);
+                    $"api/Order/{OrderId}", orderDto);
 
                 if (response?.Success == true)
                 {
                     // Si la orden está pendiente de pago, ofrecer procesarlo ahora
-                    if (model.PaymentStatus != "Paid")
+                    if (order?.PaymentStatus != "Paid")
                     {
                         // Preguntar si desea procesar el pago
                         await ProcessPayment();
@@ -658,63 +748,112 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                     "Error", $"Error al actualizar pedido: {ex.Message}", 4000);
             }
         }
+        //private async Task HandleSubmit()
+        //{
+        //    try
+        //    {
+        //        if (!model.OrderDetails.Any())
+        //        {
+        //            NotificationService.Notify(NotificationSeverity.Warning,
+        //                "Validación", "Debe agregar al menos un producto al pedido", 4000);
+        //            return;
+        //        }
+
+        //        if (model.OrderType == "DineIn" && !model.TableID.HasValue)
+        //        {
+        //            NotificationService.Notify(NotificationSeverity.Warning,
+        //                "Validación", "Debe seleccionar una mesa para pedidos en sitio", 4000);
+        //            return;
+        //        }
+
+        //        // Convertir el OrderFormModel a OrderDTO para enviarlo a la API
+        //        var orderDto = new OrderDTO
+        //        {
+        //            ID = model.ID,
+        //            OrderNumber = model.OrderNumber,
+        //            CustomerID = model.CustomerID,
+        //            TableID = model.TableID,
+        //            OrderType = model.OrderType,
+        //            Notes = model.Notes,
+        //            DiscountAmount = model.DiscountAmount,
+        //            OrderDetails = model.OrderDetails,
+        //            OrderStatus = order?.OrderStatus ?? "Pending",
+        //            PaymentStatus = order?.PaymentStatus ?? "Pending"
+        //        };
+
+        //        var response = await ApiClient.PutAsync<BaseResponseModel, OrderDTO>(
+        //            $"api/Order/{OrderId}", orderDto);
+
+        //        if (response?.Success == true)
+        //        {
+        //            // Si la orden está pendiente de pago, ofrecer procesarlo ahora
+        //            if (order?.PaymentStatus != "Paid")
+        //            {
+        //                // Preguntar si desea procesar el pago
+        //                await ProcessPayment();
+        //            }
+        //            else
+        //            {
+        //                NotificationService.Notify(NotificationSeverity.Success,
+        //                    "Éxito", "Pedido actualizado exitosamente", 4000);
+        //                NavigationManager.NavigateTo("/orders");
+        //            }
+        //        }
+        //        else
+        //        {
+        //            NotificationService.Notify(NotificationSeverity.Error,
+        //                "Error", response?.ErrorMessage ?? "Error al actualizar pedido", 4000);
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        NotificationService.Notify(NotificationSeverity.Error,
+        //            "Error", $"Error al actualizar pedido: {ex.Message}", 4000);
+        //    }
+        //}
 
         private async Task ProcessPayment()
         {
             try
             {
-                // Calcular el total a pagar
-                decimal total = CalculateTotal();
-
-                // Abrir diálogo de procesamiento de pago
-                var result = await DialogService.OpenAsync<PaymentProcessDialog>("Procesar Pago",
-                    new Dictionary<string, object>
-                    {
-                        { "TotalAmount", total }
-                    },
-                    new DialogOptions
-                    {
-                        Width = "1200px",
-                        Height = "700px",
-                        CloseDialogOnOverlayClick = false,
-                        ShowClose = false
-                    });
-
-                if (result != null)
+                // Verificar si hay una sesión de caja abierta primero
+                var cashRegisterResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>("api/CashRegister/sessions/current");
+                if (cashRegisterResponse?.Success != true)
                 {
-                    // Procesar el pago
-                    var paymentResult = result as PaymentProcessDialog.PaymentResult;
-                    if (paymentResult != null && paymentResult.Success)
+                    NotificationService.Notify(NotificationSeverity.Warning,
+                        "Advertencia", "No hay una sesión de caja abierta. Para procesar pagos, primero debe abrir la caja.", 4000);
+
+                    // Redirigir a la página de pago específica para esta orden
+                    NavigationManager.NavigateTo($"/orders/payment/{model.ID}");
+                    return;
+                }
+
+                // Calcular monto pendiente
+                decimal totalAmount = CalculateTotal();
+                decimal paidAmount = 0;
+
+                // Obtener pagos ya realizados para esta orden
+                var orderResponse = await ApiClient.GetFromJsonAsync<BaseResponseModel>($"api/Order/{model.ID}");
+                if (orderResponse?.Success == true)
+                {
+                    var orderData = JsonConvert.DeserializeObject<OrderModel>(orderResponse.Data.ToString());
+                    if (orderData?.Payments != null && orderData.Payments.Any())
                     {
-                        // Registrar el pago
-                        var paymentResponse = await ApiClient.PostAsync<BaseResponseModel, PaymentDTO>(
-                            $"api/Order/{OrderId}/payments", paymentResult.PaymentInfo);
-
-                        if (paymentResponse?.Success == true)
-                        {
-                            NotificationService.Notify(NotificationSeverity.Success,
-                                "Éxito", "Pago procesado correctamente", 4000);
-
-                            // Imprimir ticket
-                            await PrintReceipt(paymentResult);
-
-                            // Redirigir a la lista de órdenes
-                            NavigationManager.NavigateTo("/orders");
-                        }
-                        else
-                        {
-                            NotificationService.Notify(NotificationSeverity.Error,
-                                "Error", paymentResponse?.ErrorMessage ?? "Error al registrar el pago", 4000);
-                        }
-                    }
-                    else
-                    {
-                        // Solo navegamos a la lista de órdenes ya que el pedido está actualizado
-                        NotificationService.Notify(NotificationSeverity.Success,
-                            "Éxito", "Pedido actualizado exitosamente", 4000);
-                        NavigationManager.NavigateTo("/orders");
+                        paidAmount = orderData.Payments.Sum(p => p.Amount);
                     }
                 }
+
+                decimal pendingAmount = totalAmount - paidAmount;
+
+                if (pendingAmount <= 0)
+                {
+                    NotificationService.Notify(NotificationSeverity.Info,
+                        "Información", "Esta orden ya está completamente pagada", 4000);
+                    return;
+                }
+
+                // Redirigir a la página de pago específica
+                NavigationManager.NavigateTo($"/orders/payment/{model.ID}");
             }
             catch (Exception ex)
             {
@@ -774,7 +913,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             catch (Exception ex)
             {
                 NotificationService.Notify(NotificationSeverity.Warning,
-                    "Impresión", $"Error al imprimir ticket: {ex.Message}", 4000);
+                                   "Impresión", $"Error al imprimir ticket: {ex.Message}", 4000);
             }
         }
 
@@ -785,7 +924,7 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 "Cash" => "Efectivo",
                 "CreditCard" => "Tarjeta de Crédito",
                 "DebitCard" => "Tarjeta de Débito",
-                "SIMPE" => "SIMPE Móvil",
+                "SINPE" => "SINPE Móvil",
                 "Transfer" => "Transferencia Bancaria",
                 "Other" => "Otro medio de pago",
                 _ => method
@@ -805,19 +944,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
             };
         }
 
-        private string GetOrderStatusText(string status)
-        {
-            return status switch
-            {
-                "Pending" => "Pendiente",
-                "InProgress" => "En progreso",
-                "Ready" => "Listo",
-                "Delivered" => "Entregado",
-                "Cancelled" => "Cancelado",
-                _ => status
-            };
-        }
-
         private BadgeStyle GetPaymentStatusBadgeStyle(string status)
         {
             return status switch
@@ -827,18 +953,6 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 "Partially Paid" => BadgeStyle.Info,
                 "Cancelled" => BadgeStyle.Danger,
                 _ => BadgeStyle.Light
-            };
-        }
-
-        private string GetPaymentStatusText(string status)
-        {
-            return status switch
-            {
-                "Pending" => "Pendiente de pago",
-                "Paid" => "Pagado",
-                "Partially Paid" => "Pago parcial",
-                "Cancelled" => "Cancelado",
-                _ => status
             };
         }
 
@@ -854,19 +968,8 @@ namespace KaruRestauranteWebApp.Web.Components.Pages.Orders
                 _ => BadgeStyle.Light
             };
         }
-
-        private string GetOrderDetailStatusText(string status)
-        {
-            return status switch
-            {
-                "Pending" => "Pendiente",
-                "InPreparation" => "En preparación",
-                "Ready" => "Listo",
-                "Delivered" => "Entregado",
-                "Cancelled" => "Cancelado",
-                _ => status
-            };
-        }
     }
 
+  
 }
+

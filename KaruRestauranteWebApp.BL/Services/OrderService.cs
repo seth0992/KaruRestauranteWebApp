@@ -1,6 +1,7 @@
 ﻿using KaruRestauranteWebApp.BL.Repositories;
 using KaruRestauranteWebApp.Models.Entities.Orders;
 using KaruRestauranteWebApp.Models.Entities.Restaurant;
+using KaruRestauranteWebApp.Models.Models.CashRegister;
 using KaruRestauranteWebApp.Models.Models.Orders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -25,7 +26,7 @@ namespace KaruRestauranteWebApp.BL.Services
         Task<bool> UpdateOrderDetailStatusAsync(int orderDetailId, string status);
         Task<bool> RemoveOrderDetailAsync(int orderDetailId);
         Task<decimal> CalculateOrderTotalAsync(int orderId);
-
+        Task RegisterCancellationInCashRegister(int orderId, int userId);
         Task<bool> DeleteOrderAsync(int orderId);
     }
 
@@ -41,6 +42,8 @@ namespace KaruRestauranteWebApp.BL.Services
         private readonly IProductInventoryRepository _productInventoryRepository;
         private readonly IInventoryRepository _inventoryRepository;
         private readonly ILogger<OrderService> _logger;
+        private readonly ICashRegisterTransactionService _cashRegisterTransactionService;
+        private readonly ICashRegisterSessionRepository _cashRegisterSessionRepository;
 
         public OrderService(
             IOrderRepository orderRepository,
@@ -52,7 +55,9 @@ namespace KaruRestauranteWebApp.BL.Services
             IComboRepository comboRepository,
             IProductInventoryRepository productInventoryRepository,
             IInventoryRepository inventoryRepository,
-            ILogger<OrderService> logger)
+            ILogger<OrderService> logger,
+            ICashRegisterTransactionService cashRegisterTransactionService,
+            ICashRegisterSessionRepository cashRegisterSessionRepository)
         {
             _orderRepository = orderRepository;
             _orderDetailRepository = orderDetailRepository;
@@ -64,6 +69,8 @@ namespace KaruRestauranteWebApp.BL.Services
             _productInventoryRepository = productInventoryRepository;
             _inventoryRepository = inventoryRepository;
             _logger = logger;
+            _cashRegisterTransactionService = cashRegisterTransactionService;
+            _cashRegisterSessionRepository = cashRegisterSessionRepository;
         }
 
         public async Task<bool> DeleteOrderAsync(int orderId)
@@ -211,7 +218,86 @@ namespace KaruRestauranteWebApp.BL.Services
                 throw;
             }
         }
+        public async Task RegisterCancellationInCashRegister(int orderId, int userId)
+        {
+            var order = await _orderRepository.GetByIdAsync(orderId);
+            if (order == null || order.OrderStatus != "Cancelled")
+            {
+                return; // No hacemos nada si la orden no está cancelada
+            }
 
+            var payments = await _paymentRepository.GetByOrderIdAsync(orderId);
+            if (!payments.Any())
+            {
+                return; // No hay pagos que devolver
+            }
+
+            // Obtener la sesión actual de caja
+            var currentSession = await _cashRegisterSessionRepository.GetCurrentSessionAsync();
+            if (currentSession == null)
+            {
+                _logger.LogWarning("No hay sesión de caja abierta para registrar devolución de orden {OrderId}", orderId);
+                throw new ValidationException("No hay una sesión de caja abierta para registrar la devolución");
+            }
+
+            // Procesar cada tipo de pago por separado
+            var paymentsByMethod = payments.GroupBy(p => p.PaymentMethod);
+
+            foreach (var group in paymentsByMethod)
+            {
+                string paymentMethod = group.Key;
+                decimal totalAmount = group.Sum(p => p.Amount);
+
+                // Registrar en caja - todos los métodos generan un registro
+                var cashTransaction = new CashRegisterTransactionDTO
+                {
+                    SessionID = currentSession.ID,
+                    TransactionType = "Expense", // Este tipo hace que se reste del balance
+                    Description = $"Devolución por cancelación - {GetPaymentMethodName(paymentMethod)} - Orden #{order.OrderNumber}",
+                    AmountCRC = totalAmount,
+                    AmountUSD = 0,
+                    PaymentMethod = paymentMethod,
+                    ReferenceNumber = $"CANCEL-{order.OrderNumber}-{paymentMethod}",
+                    RelatedOrderID = orderId
+                };
+
+                try
+                {
+                    await _cashRegisterTransactionService.CreateTransactionAsync(cashTransaction, userId);
+                    _logger.LogInformation(
+                        "Creada transacción de devolución en caja para orden cancelada {OrderId}, método {Method}, monto {Amount}",
+                        orderId, paymentMethod, totalAmount);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "Error al registrar devolución en caja para orden cancelada {OrderId}, método {Method}",
+                        orderId, paymentMethod);
+                    throw; // Re-lanzar para manejar en el controlador
+                }
+            }
+
+            // Actualizar la orden para indicar que se registró la devolución
+            order.Notes = string.IsNullOrEmpty(order.Notes)
+                ? "Devolución registrada en caja."
+                : order.Notes + " | Devolución registrada en caja.";
+
+            await _orderRepository.UpdateAsync(order);
+        }
+
+        private string GetPaymentMethodName(string method)
+        {
+            return method switch
+            {
+                "Cash" => "Efectivo",
+                "CreditCard" => "Tarjeta de Crédito",
+                "DebitCard" => "Tarjeta de Débito",
+                "Transfer" => "Transferencia",
+                "SINPE" => "SINPE Móvil",
+                "Other" => "Otro método",
+                _ => method
+            };
+        }
         public async Task<OrderModel> CreateOrderAsync(OrderDTO orderDto, int userId)
         {
             var strategy = _orderRepository.CreateExecutionStrategy();
@@ -283,6 +369,7 @@ namespace KaruRestauranteWebApp.BL.Services
                         TotalAmount = 0, // Se calculará al agregar detalles
                         TaxAmount = 0,   // Se calculará al agregar detalles
                         DiscountAmount = orderDto.DiscountAmount,
+                        DiscountPercentage = orderDto.DiscountPercentage,
                         Notes = orderDto.Notes,
                         CreatedAt = DateTime.UtcNow
                     };
@@ -304,6 +391,9 @@ namespace KaruRestauranteWebApp.BL.Services
                         {
                             // Agregar detalle a la orden
                             var orderDetail = await AddOrderDetailWithoutTotal(order.ID, detailDto);
+
+                            orderDetail.DiscountPercentage = detailDto.DiscountPercentage;
+                            orderDetail.DiscountAmount = detailDto.DiscountAmount;
 
                             // Funcionalidad de trigger: Actualizar inventario según tipo de ítem
                             await UpdateInventoryForOrderDetail(orderDetail);
@@ -332,156 +422,145 @@ namespace KaruRestauranteWebApp.BL.Services
             });
         }
 
-        public async Task<OrderModel> UpdateOrderAsync(OrderDTO orderDto)
+      public async Task<OrderModel> UpdateOrderAsync(OrderDTO orderDto)
+{
+    var strategy = _orderRepository.CreateExecutionStrategy();
+
+    return await strategy.ExecuteAsync(async () =>
+    {
+        using var transaction = await _orderRepository.BeginTransactionAsync();
+        try
         {
-            var strategy = _orderRepository.CreateExecutionStrategy();
+         
 
-            return await strategy.ExecuteAsync(async () =>
+            var order = await _orderRepository.GetByIdAsync(orderDto.ID);
+            if (order == null)
             {
-                using var transaction = await _orderRepository.BeginTransactionAsync();
-                try
+                throw new ValidationException($"No se encontró la orden con ID: {orderDto.ID}");
+            }
+
+            // Guardar estado y mesa anteriores para comparar
+            var previousStatus = order.OrderStatus;
+            var previousTableId = order.TableID;
+
+            // Actualizar datos básicos
+            order.CustomerID = orderDto.CustomerID;
+            order.TableID = orderDto.TableID;
+            order.OrderType = orderDto.OrderType;
+            order.Notes = orderDto.Notes;
+
+            // IMPORTANTE: Actualizar el monto de descuento general
+            order.DiscountPercentage = orderDto.DiscountPercentage;
+            order.DiscountAmount = orderDto.DiscountAmount;
+            
+            order.UpdatedAt = DateTime.UtcNow;
+
+            await _orderRepository.UpdateAsync(order);
+
+            // Actualizar detalles
+            if (orderDto.OrderDetails != null && orderDto.OrderDetails.Any())
+            {
+                // Obtener detalles actuales para comparar
+                var existingDetails = await _orderDetailRepository.GetByOrderIdAsync(order.ID);
+
+                // Identificar detalles a eliminar
+                var detailsToRemove = existingDetails
+                    .Where(ed => !orderDto.OrderDetails.Any(nd => nd.ID == ed.ID))
+                    .ToList();
+
+                // Eliminar detalles que ya no existen
+                foreach (var detail in detailsToRemove)
                 {
-                    // Verificar que la orden exista
-                    var existingOrder = await _orderRepository.GetByIdAsync(orderDto.ID);
-                    if (existingOrder == null)
+                    // Revertir ajustes de inventario
+                    await ReverseInventoryAdjustmentForDetail(detail);
+                    await _orderDetailRepository.DeleteAsync(detail.ID);
+                }
+
+                // Actualizar o agregar detalles
+                foreach (var detailDto in orderDto.OrderDetails)
+                {
+                    if (detailDto.ID > 0)
                     {
-                        throw new ValidationException($"No se encontró la orden con ID: {orderDto.ID}");
-                    }
-
-                    // No se permite cambiar pedidos que ya están entregados o cancelados
-                    if (existingOrder.OrderStatus == "Delivered" || existingOrder.OrderStatus == "Cancelled")
-                    {
-                        throw new ValidationException($"No se puede modificar una orden {existingOrder.OrderStatus}");
-                    }
-
-                    // Guardar estado y mesa anteriores para comparar
-                    var previousStatus = existingOrder.OrderStatus;
-                    var previousTableId = existingOrder.TableID;
-                    var previousCustomerId = existingOrder.CustomerID;
-
-                    // Actualizar datos básicos
-                    existingOrder.CustomerID = orderDto.CustomerID;
-                    existingOrder.TableID = orderDto.TableID;
-                    existingOrder.OrderType = orderDto.OrderType;
-                    existingOrder.Notes = orderDto.Notes;
-                    existingOrder.DiscountAmount = orderDto.DiscountAmount;
-                    existingOrder.UpdatedAt = DateTime.UtcNow;
-
-                    await _orderRepository.UpdateAsync(existingOrder);
-
-                    // Funcionalidad de trigger: Si cambió el estado, registrar el cambio
-                    if (previousStatus != existingOrder.OrderStatus)
-                    {
-                        await HandleOrderStatusChange(existingOrder, previousStatus);
-                    }
-
-                    // Funcionalidad de trigger: Si cambió la mesa, actualizar estados
-                    if (previousTableId != existingOrder.TableID)
-                    {
-                        await HandleTableChange(previousTableId, existingOrder.TableID);
-                    }
-
-                    // Actualizar detalles si se proporcionaron
-                    if (orderDto.OrderDetails != null && orderDto.OrderDetails.Any())
-                    {
-                        // Obtener detalles actuales para comparar
-                        var existingDetails = await _orderDetailRepository.GetByOrderIdAsync(existingOrder.ID);
-
-                        // Identificar detalles a eliminar (los que ya no están en la lista nueva)
-                        var detailsToRemove = existingDetails
-                            .Where(ed => !orderDto.OrderDetails.Any(nd => nd.ID == ed.ID))
-                            .ToList();
-
-                        // Eliminar detalles que ya no existen
-                        foreach (var detail in detailsToRemove)
+                        // Es un detalle existente - actualizar
+                        var existingDetail = existingDetails.FirstOrDefault(d => d.ID == detailDto.ID);
+                        if (existingDetail != null)
                         {
-                            // Revertir ajustes de inventario
-                            await ReverseInventoryAdjustmentForDetail(detail);
-                            await _orderDetailRepository.DeleteAsync(detail.ID);
-                        }
+                            // Guardar cantidad anterior para ajustar inventario
+                            int previousQuantity = existingDetail.Quantity;
 
-                        // Actualizar o agregar detalles
-                        foreach (var detailDto in orderDto.OrderDetails)
-                        {
-                            if (detailDto.ID > 0)
+                            // Actualizar datos
+                            existingDetail.Quantity = detailDto.Quantity;
+                            existingDetail.Notes = detailDto.Notes;
+                            existingDetail.SubTotal = detailDto.Quantity * detailDto.UnitPrice;
+                            
+                            // IMPORTANTE: Actualizar descuentos por producto
+                            existingDetail.DiscountPercentage = detailDto.DiscountPercentage;
+                            existingDetail.DiscountAmount = detailDto.DiscountAmount;
+
+                            await _orderDetailRepository.UpdateAsync(existingDetail);
+
+                            // Actualizar personalizaciones si hay cambios
+                            if (detailDto.Customizations != null && detailDto.Customizations.Any())
                             {
-                                // Es un detalle existente - actualizar
-                                var existingDetail = existingDetails.FirstOrDefault(d => d.ID == detailDto.ID);
-                                if (existingDetail != null)
+                                // Convertir DTO a modelos de customizaciones
+                                var customizations = detailDto.Customizations.Select(c => new OrderItemCustomizationModel
                                 {
-                                    // Guardar cantidad anterior para ajustar inventario
-                                    int previousQuantity = existingDetail.Quantity;
+                                    OrderDetailID = existingDetail.ID,
+                                    IngredientID = c.IngredientID,
+                                    CustomizationType = c.CustomizationType,
+                                    Quantity = c.Quantity,
+                                    ExtraCharge = c.ExtraCharge
+                                }).ToList();
 
-                                    // Actualizar datos
-                                    existingDetail.Quantity = detailDto.Quantity;
-                                    existingDetail.Notes = detailDto.Notes;
-                                    existingDetail.SubTotal = detailDto.UnitPrice * detailDto.Quantity;
-
-                                    await _orderDetailRepository.UpdateAsync(existingDetail);
-
-                                    // Actualizar personalizaciones si hay cambios
-                                    if (detailDto.Customizations != null && detailDto.Customizations.Any())
-                                    {
-                                        var customizations = detailDto.Customizations.Select(c => new OrderItemCustomizationModel
-                                        {
-                                            OrderDetailID = existingDetail.ID,
-                                            IngredientID = c.IngredientID,
-                                            CustomizationType = c.CustomizationType,
-                                            Quantity = c.Quantity,
-                                            ExtraCharge = c.ExtraCharge
-                                        }).ToList();
-
-                                        // Usar el método específico para guardar personalizaciones
-                                        await _orderDetailRepository.AddCustomizationsAsync(existingDetail.ID, customizations);
-                                    }
-                                    else
-                                    {
-                                        // Si no hay personalizaciones, eliminar las existentes
-                                        await _orderDetailRepository.AddCustomizationsAsync(existingDetail.ID, new List<OrderItemCustomizationModel>());
-                                    }
-
-
-                                    // Ajustar inventario si cambió la cantidad
-                                    if (previousQuantity != detailDto.Quantity)
-                                    {
-                                        // Revertir ajuste anterior
-                                        var tempDetail = new OrderDetailModel
-                                        {
-                                            ItemID = existingDetail.ItemID,
-                                            ItemType = existingDetail.ItemType,
-                                            Quantity = previousQuantity
-                                        };
-                                        await ReverseInventoryAdjustmentForDetail(tempDetail);
-
-                                        // Aplicar nuevo ajuste
-                                        await UpdateInventoryForOrderDetail(existingDetail);
-                                    }
-                                }
+                                // Usar el método específico para guardar personalizaciones
+                                await _orderDetailRepository.AddCustomizationsAsync(existingDetail.ID, customizations);
                             }
                             else
                             {
-                                // Es un nuevo detalle - agregarlo
-                                var newDetail = await AddOrderDetailWithoutTotal(existingOrder.ID, detailDto);
-                                await UpdateInventoryForOrderDetail(newDetail);
+                                // Si no hay personalizaciones, eliminar las existentes
+                                await _orderDetailRepository.AddCustomizationsAsync(existingDetail.ID, new List<OrderItemCustomizationModel>());
+                            }
+
+                            // Ajustar inventario si cambió la cantidad
+                            if (previousQuantity != detailDto.Quantity)
+                            {
+                                // Revertir ajuste anterior
+                                var tempDetail = new OrderDetailModel
+                                {
+                                    ItemID = existingDetail.ItemID,
+                                    ItemType = existingDetail.ItemType,
+                                    Quantity = previousQuantity
+                                };
+                                await ReverseInventoryAdjustmentForDetail(tempDetail);
+
+                                // Aplicar nuevo ajuste
+                                await UpdateInventoryForOrderDetail(existingDetail);
                             }
                         }
                     }
-
-                    // Recalcular el total
-                    await CalculateOrderTotalAsync(existingOrder.ID);
-
-                    await transaction.CommitAsync();
-                    return await _orderRepository.GetByIdAsync(existingOrder.ID) ?? existingOrder;
+                    else
+                    {
+                        // Es un nuevo detalle - agregarlo
+                        var newDetail = await AddOrderDetailWithoutTotal(order.ID, detailDto);
+                        await UpdateInventoryForOrderDetail(newDetail);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    await transaction.RollbackAsync();
-                    _logger.LogError(ex, "Error al actualizar la orden {OrderId}", orderDto.ID);
-                    throw;
-                }
-            });
+            }
+
+            // Recalcular el total
+            await CalculateOrderTotalAsync(order.ID);
+
+            await transaction.CommitAsync();
+            return await _orderRepository.GetByIdAsync(order.ID) ?? order;
         }
-
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error al actualizar la orden {OrderId}", orderDto.ID);
+            throw;
+        }
+    });
+}
         public async Task<bool> UpdateOrderStatusAsync(int id, string status)
         {
             var strategy = _orderRepository.CreateExecutionStrategy();
@@ -790,7 +869,9 @@ namespace KaruRestauranteWebApp.BL.Services
                 UnitPrice = unitPrice,
                 SubTotal = subtotal,
                 Notes = detailDto.Notes,
-                Status = "Pending"
+                Status = "Pending",
+                DiscountPercentage = detailDto.DiscountPercentage,
+                DiscountAmount = detailDto.DiscountAmount
             };
 
             // Guardar el detalle
@@ -861,7 +942,9 @@ namespace KaruRestauranteWebApp.BL.Services
                 var details = await _orderDetailRepository.GetByOrderIdAsync(orderId);
 
                 // Calcular subtotal de todos los detalles
-                decimal subtotal = details.Sum(d => d.SubTotal);
+                decimal subtotal = details.Sum(d =>
+         d.SubTotal - (d.DiscountAmount > 0 ? d.DiscountAmount :
+                       d.SubTotal * (d.DiscountPercentage / 100)));
 
                 // Calcular cargos extras por personalizaciones
                 decimal extraCharges = details

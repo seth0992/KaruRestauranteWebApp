@@ -27,6 +27,8 @@ namespace KaruRestauranteWebApp.Models.Models.Orders
         public string Notes { get; set; } = string.Empty;
 
         public string Status { get; set; } = "Pending";
+        public decimal DiscountPercentage { get; set; } = 0;
+        public decimal DiscountAmount { get; set; } = 0;
 
         public List<OrderItemCustomizationDTO> Customizations { get; set; } = new();
         public List<ComboItemDetail> ComboItems { get; set; } = new();

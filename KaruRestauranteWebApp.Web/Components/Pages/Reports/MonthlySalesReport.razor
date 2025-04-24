@@ -1,0 +1,502 @@
+﻿@page "/reports/monthly-sales"
+@using KaruRestauranteWebApp.Common.Resources
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Extensions.Localization
+@using KaruRestauranteWebApp.Models.Models
+@using KaruRestauranteWebApp.Models.Models.Reports
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@inject ApiClient ApiClient
+@inject IStringLocalizer<Resource> L
+@inject NavigationManager NavigationManager
+@inject NotificationService NotificationService
+
+<PageTitle>Reporte de Ventas Mensuales - Sistema Karú</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenRow AlignItems="AlignItems.Center">
+        <RadzenColumn Size="12" SizeMD="8">
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                <RadzenIcon Icon="assessment" IconStyle="IconStyle.Primary" Style="font-size: 2.2rem;" />
+                <RadzenText TextStyle="TextStyle.H4" class="rz-mb-0">Reporte de Ventas Mensuales</RadzenText>
+            </RadzenStack>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="4" class="rz-text-align-end rz-mt-2 rz-mt-md-0">
+            <RadzenButton Click="@(() => NavigationManager.NavigateTo("/reports/dashboard"))"
+                          Text="Volver al Dashboard"
+                          Icon="dashboard"
+                          ButtonStyle="ButtonStyle.Secondary"
+                          Style="width: auto;"
+                          class="rz-m-1" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenCard class="rz-my-6 rz-shadow-5 rz-p-4" style="max-width: 1400px; margin-inline: auto;">
+        <RadzenStack>
+            <RadzenText TextStyle="TextStyle.H6" class="rz-mb-3">Filtros de Búsqueda</RadzenText>
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="6" SizeLG="4" class="rz-p-2">
+                    <RadzenStack>
+                        <RadzenText TextStyle="TextStyle.Subtitle2" TagName="TagName.H3">Año</RadzenText>
+                        <RadzenNumeric @bind-Value="@selectedYear" Min="2020" Max="@DateTime.Now.Year" Step="1" Class="w-100" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6" SizeLG="4" class="rz-p-2">
+                    <RadzenStack>
+                        <RadzenText TextStyle="TextStyle.Subtitle2" TagName="TagName.H3">Tipo de Gráfico</RadzenText>
+                        <RadzenDropDown @bind-Value="@chartType"
+                                        Data="@chartTypes"
+                                        TextProperty="Name"
+                                        ValueProperty="Value"
+                                        Change="@UpdateChart"
+                                        Class="w-100" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6" SizeLG="4" class="rz-p-2 rz-d-flex rz-align-items-end">
+                    <RadzenButton Click="@LoadMonthlySalesReport"
+                                  Text="Generar Reporte"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="search"
+                                  Class="w-100"
+                                  Disabled="@isLoading" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenStack>
+    </RadzenCard>
+
+    @if (isLoading)
+    {
+        <RadzenRow class="rz-mt-4">
+            <RadzenColumn Size="12">
+                <RadzenCard class="rz-shadow-2 rz-p-6 rz-text-align-center">
+                    <RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="1rem">
+                        <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" Style="width: 50%; height: 8px;" />
+                        <RadzenText TextStyle="TextStyle.Body1">Cargando información de ventas mensuales...</RadzenText>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+    }
+    else if (salesData != null && salesData.Any())
+    {
+        <RadzenRow class="rz-mt-4">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenCard class="rz-shadow-3 rz-p-4 rz-mb-4 rz-border-radius-6" Style="background: linear-gradient(135deg, var(--rz-primary-lighter) 0%, var(--rz-primary-light) 100%); color: var(--rz-text-contrast-color);">
+                    <RadzenStack Gap="0.8rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenIcon Icon="attach_money" Style="font-size: 1.5rem;" />
+                            <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-mb-0">Ventas Totales</RadzenText>
+                        </RadzenStack>
+                        <RadzenText TextStyle="TextStyle.H4" class="rz-mb-0">
+                            @String.Format("₡{0:N0}", salesData.Sum(x => x.TotalSales))
+                        </RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption" class="rz-mb-0">
+                            Año: @selectedYear
+                        </RadzenText>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenCard class="rz-shadow-3 rz-p-4 rz-mb-4 rz-border-radius-6" Style="background: linear-gradient(135deg, var(--rz-success-lighter) 0%, var(--rz-success-light) 100%); color: var(--rz-text-contrast-color);">
+                    <RadzenStack Gap="0.8rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenIcon Icon="receipt_long" Style="font-size: 1.5rem;" />
+                            <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-mb-0">Total Órdenes</RadzenText>
+                        </RadzenStack>
+                        <RadzenText TextStyle="TextStyle.H4" class="rz-mb-0">
+                            @salesData.Sum(x => x.OrderCount)
+                        </RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption" class="rz-mb-0">
+                            Órdenes procesadas en el año
+                        </RadzenText>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenCard class="rz-shadow-3 rz-p-4 rz-mb-4 rz-border-radius-6" Style="background: linear-gradient(135deg, var(--rz-info-lighter) 0%, var(--rz-info-light) 100%); color: var(--rz-text-contrast-color);">
+                    <RadzenStack Gap="0.8rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenIcon Icon="trending_up" Style="font-size: 1.5rem;" />
+                            <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-mb-0">Ticket Promedio</RadzenText>
+                        </RadzenStack>
+                        <RadzenText TextStyle="TextStyle.H4" class="rz-mb-0">
+                            @String.Format("₡{0:N0}", salesData.Average(x => x.AverageTicket))
+                        </RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption" class="rz-mb-0">
+                            Valor promedio por orden
+                        </RadzenText>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow class="rz-mt-4">
+            <RadzenColumn Size="12">
+                <RadzenCard class="rz-shadow-3 rz-p-4 rz-mb-4 rz-border-radius-6">
+                    <RadzenStack>
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="1rem">
+                            <RadzenText TextStyle="TextStyle.H5">Gráfico de Ventas Mensuales @selectedYear</RadzenText>
+                            <RadzenButton ButtonStyle="ButtonStyle.Light"
+                                          Icon="@(chartFullscreen ? "zoom_out" : "zoom_in")"
+                                          Title="@(chartFullscreen ? "Reducir" : "Ampliar")"
+                                          Click="@(() => ToggleChartSize())"
+                                          Size="ButtonSize.Small" />
+                        </RadzenStack>
+
+                        <div class="chart-container" style="@GetChartStyle()">
+                            <RadzenChart>
+                                @if (chartType == "Columnas")
+                                {
+                                    <RadzenColumnSeries Data="@salesData" CategoryProperty="MonthName" Title="Ventas Totales" ValueProperty="TotalSales" Fill="var(--rz-primary)" />
+                                    <RadzenColumnSeries Data="@salesData" CategoryProperty="MonthName" Title="Cantidad de Órdenes" ValueProperty="OrderCount" Fill="var(--rz-success)" />
+                                }
+                                else if (chartType == "Líneas")
+                                {
+                                    <RadzenLineSeries Data="@salesData" CategoryProperty="MonthName" Title="Ventas Totales" ValueProperty="TotalSales" Smooth="true" Stroke="var(--rz-primary)" />
+                                    <RadzenLineSeries Data="@salesData" CategoryProperty="MonthName" Title="Cantidad de Órdenes" ValueProperty="OrderCount" Smooth="true" Stroke="var(--rz-success)" />
+                                }
+                                else if (chartType == "Área")
+                                {
+                                    <RadzenAreaSeries Data="@salesData" CategoryProperty="MonthName" Title="Ventas Totales" ValueProperty="TotalSales" Smooth="true" Fill="var(--rz-primary-lighter)" Stroke="var(--rz-primary)" />
+                                    <RadzenAreaSeries Data="@salesData" CategoryProperty="MonthName" Title="Cantidad de Órdenes" ValueProperty="OrderCount" Smooth="true" Fill="var(--rz-success-lighter)" Stroke="var(--rz-success)" />
+                                }
+
+                                <RadzenValueAxis>
+                                    <RadzenGridLines Visible="true" />
+                                    <RadzenAxisTitle Text="Monto / Cantidad" />
+                                </RadzenValueAxis>
+                                <RadzenCategoryAxis>
+                                    <RadzenGridLines Visible="false" />
+                                    <RadzenAxisTitle Text="Mes" />
+                                </RadzenCategoryAxis>
+                                <RadzenLegend Position="LegendPosition.Bottom" />
+                            </RadzenChart>
+                        </div>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow class="rz-mt-4">
+            <RadzenColumn Size="12">
+                <RadzenCard class="rz-shadow-3 rz-p-4 rz-border-radius-6">
+                    <RadzenStack>
+                        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-3">Detalles de Ventas Mensuales</RadzenText>
+
+                        <RadzenDataGrid @ref="dataGrid"
+                                        Data="@salesData"
+                                        TItem="MonthlySalesReportDTO"
+                                        AllowSorting="true"
+                                        AllowPaging="true"
+                                        PageSize="12"
+                                        AllowFiltering="true"
+                                        FilterMode="FilterMode.Advanced"
+                                        AllowColumnResize="true"
+                                        Style="height: 500px;"
+                                        RowRender="@OnRowRender"
+                                        EmptyText="No hay datos disponibles para mostrar">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="MonthlySalesReportDTO" Property="MonthName" Title="Mes" Width="120px">
+                                    <FooterTemplate>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">Total:</RadzenText>
+                                    </FooterTemplate>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="MonthlySalesReportDTO" Property="TotalSales" Title="Ventas Totales" FormatString="₡{0:N0}" TextAlign="TextAlign.Right" Width="150px">
+                                    <FooterTemplate>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">@String.Format("₡{0:N0}", salesData.Sum(x => x.TotalSales))</RadzenText>
+                                    </FooterTemplate>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="MonthlySalesReportDTO" Property="OrderCount" Title="Órdenes" TextAlign="TextAlign.Right" Width="120px">
+                                    <FooterTemplate>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">@salesData.Sum(x => x.OrderCount)</RadzenText>
+                                    </FooterTemplate>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="MonthlySalesReportDTO" Property="AverageTicket" Title="Ticket Promedio" FormatString="₡{0:N0}" TextAlign="TextAlign.Right" Width="150px">
+                                    <FooterTemplate>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">@String.Format("₡{0:N0}", salesData.Average(x => x.AverageTicket))</RadzenText>
+                                    </FooterTemplate>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="MonthlySalesReportDTO" Property="TaxAmount" Title="Impuestos" FormatString="₡{0:N0}" TextAlign="TextAlign.Right" Width="150px">
+                                    <FooterTemplate>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">@String.Format("₡{0:N0}", salesData.Sum(x => x.TaxAmount))</RadzenText>
+                                    </FooterTemplate>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="MonthlySalesReportDTO" Width="150px" Title="% del Total" TextAlign="TextAlign.Right">
+                                    <Template Context="data">
+                                        <RadzenProgressBar Value="@(GetPercentageOfTotal(data.TotalSales))" ShowValue="true" Style="width: 90%;" />
+                                    </Template>
+                                    <FooterTemplate>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2">100%</RadzenText>
+                                    </FooterTemplate>
+                                </RadzenDataGridColumn>
+                            </Columns>
+                        </RadzenDataGrid>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <RadzenRow class="rz-mt-4">
+            <RadzenColumn Size="12">
+                <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true" Variant="Variant.Filled" Class="rz-shadow-3">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                        <RadzenIcon Icon="error_outline" />
+                        <RadzenText>@errorMessage</RadzenText>
+                    </RadzenStack>
+                </RadzenAlert>
+            </RadzenColumn>
+        </RadzenRow>
+    }
+    else if (hasSearched)
+    {
+        <RadzenRow class="rz-mt-4">
+            <RadzenColumn Size="12">
+                <RadzenCard class="rz-shadow-3 rz-p-4 rz-text-align-center">
+                    <RadzenStack AlignItems="AlignItems.Center" Gap="1rem">
+                        <RadzenIcon Icon="search_off" Style="font-size: 3rem; color: var(--rz-text-disabled-color);" />
+                        <RadzenText TextStyle="TextStyle.H6">No se encontraron datos para el año seleccionado</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">Intente con un año diferente o verifique que existan ventas registradas en el sistema.</RadzenText>
+                        <RadzenButton Click="@LoadMonthlySalesReport" Text="Reintentar" ButtonStyle="ButtonStyle.Light" />
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+    }
+</RadzenStack>
+
+@code {
+    private int selectedYear = DateTime.Now.Year;
+    private List<MonthlySalesReportDTO> salesData = new();
+    private bool isLoading = false;
+    private bool hasSearched = false;
+    private string errorMessage = string.Empty;
+    private string chartType = "Columnas";
+    private bool chartFullscreen = false;
+    private RadzenDataGrid<MonthlySalesReportDTO> dataGrid;
+
+    private class ChartTypeOption
+    {
+        public string Name { get; set; }
+        public string Value { get; set; }
+    }
+
+    private List<ChartTypeOption> chartTypes = new List<ChartTypeOption>
+    {
+        new ChartTypeOption { Name = "Columnas", Value = "Columnas" },
+        new ChartTypeOption { Name = "Líneas", Value = "Líneas" },
+        new ChartTypeOption { Name = "Área", Value = "Área" }
+    };
+
+    // Clase para manejar los datos de ventas mensuales con el nombre del mes
+    public class MonthlySalesReportDTO : SalesReportDTO
+    {
+        public string MonthName => GetMonthName(Date.Month);
+
+        private string GetMonthName(int month)
+        {
+            return month switch
+            {
+                1 => "Enero",
+                2 => "Febrero",
+                3 => "Marzo",
+                4 => "Abril",
+                5 => "Mayo",
+                6 => "Junio",
+                7 => "Julio",
+                8 => "Agosto",
+                9 => "Septiembre",
+                10 => "Octubre",
+                11 => "Noviembre",
+                12 => "Diciembre",
+                _ => ""
+            };
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Cargar los datos inicialmente
+        await LoadMonthlySalesReport();
+    }
+
+    private void UpdateChart()
+    {
+        StateHasChanged();
+    }
+
+    private void ToggleChartSize()
+    {
+        chartFullscreen = !chartFullscreen;
+        StateHasChanged();
+    }
+
+    private string GetChartStyle()
+    {
+        return chartFullscreen
+            ? "height: 550px; transition: height 0.3s ease;"
+            : "height: 350px; transition: height 0.3s ease;";
+    }
+
+    private double GetPercentageOfTotal(decimal value)
+    {
+        decimal total = salesData.Sum(x => x.TotalSales);
+        if (total == 0) return 0;
+        return (double)((value / total) * 100);
+    }
+
+    private void OnRowRender(RowRenderEventArgs<MonthlySalesReportDTO> args)
+    {
+        // Resaltar la fila con el valor más alto
+        if (args.Data.TotalSales == salesData.Max(x => x.TotalSales))
+        {
+            args.Attributes.Add("style", "background-color: var(--rz-success-lighter);");
+        }
+        // Resaltar la fila con el valor más bajo (si hay más de una fila)
+        else if (salesData.Count > 1 && args.Data.TotalSales == salesData.Min(x => x.TotalSales))
+        {
+            args.Attributes.Add("style", "background-color: var(--rz-warning-lighter);");
+        }
+    }
+
+    private void ClearData()
+    {
+        hasSearched = false;
+        salesData.Clear();
+        errorMessage = string.Empty;
+    }
+
+    private async Task LoadMonthlySalesReport()
+    {
+        try
+        {
+            isLoading = true;
+            salesData.Clear();
+            errorMessage = string.Empty;
+            hasSearched = true;
+
+            if (selectedYear < 2020 || selectedYear > DateTime.Now.Year)
+            {
+                errorMessage = $"Por favor seleccione un año entre 2020 y {DateTime.Now.Year}";
+                isLoading = false;
+                return;
+            }
+
+            var response = await ApiClient.GetFromJsonAsync<BaseResponseModel>(
+                $"api/Report/sales/monthly?year={selectedYear}");
+
+            if (response != null && response.Success && response.Data != null)
+            {
+                try
+                {
+                    // Intento deserializar el contenido
+                    if (response.Data is System.Text.Json.JsonElement jsonElement)
+                    {
+                        var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+                        // Verificar si es un array
+                        if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            var tempData = System.Text.Json.JsonSerializer.Deserialize<List<SalesReportDTO>>(
+                                jsonElement.GetRawText(), options) ?? new List<SalesReportDTO>();
+
+                            // Convertir a MonthlySalesReportDTO
+                            salesData = tempData.Select(x => new MonthlySalesReportDTO
+                                {
+                                    Date = x.Date,
+                                    TotalSales = x.TotalSales,
+                                    OrderCount = x.OrderCount,
+                                    AverageTicket = x.AverageTicket,
+                                    TaxAmount = x.TaxAmount
+                                }).ToList();
+                        }
+                        // Si es un objeto que contiene $values
+                        else if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                                jsonElement.TryGetProperty("$values", out var valuesElement))
+                        {
+                            var tempData = System.Text.Json.JsonSerializer.Deserialize<List<SalesReportDTO>>(
+                                valuesElement.GetRawText(), options) ?? new List<SalesReportDTO>();
+
+                            // Convertir a MonthlySalesReportDTO
+                            salesData = tempData.Select(x => new MonthlySalesReportDTO
+                                {
+                                    Date = x.Date,
+                                    TotalSales = x.TotalSales,
+                                    OrderCount = x.OrderCount,
+                                    AverageTicket = x.AverageTicket,
+                                    TaxAmount = x.TaxAmount
+                                }).ToList();
+                        }
+                        // Otro tipo de objeto
+                        else
+                        {
+                            // Intentar deserializar igual
+                            try
+                            {
+                                var tempData = System.Text.Json.JsonSerializer.Deserialize<List<SalesReportDTO>>(
+                                    jsonElement.GetRawText(), options) ?? new List<SalesReportDTO>();
+
+                                // Convertir a MonthlySalesReportDTO
+                                salesData = tempData.Select(x => new MonthlySalesReportDTO
+                                    {
+                                        Date = x.Date,
+                                        TotalSales = x.TotalSales,
+                                        OrderCount = x.OrderCount,
+                                        AverageTicket = x.AverageTicket,
+                                        TaxAmount = x.TaxAmount
+                                    }).ToList();
+                            }
+                            catch
+                            {
+                                throw new Exception("El formato de los datos recibidos no es compatible");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Convertir a JSON y luego deserializar
+                        var jsonData = System.Text.Json.JsonSerializer.Serialize(response.Data);
+                        var tempData = System.Text.Json.JsonSerializer.Deserialize<List<SalesReportDTO>>(jsonData,
+                            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<SalesReportDTO>();
+
+                        // Convertir a MonthlySalesReportDTO
+                        salesData = tempData.Select(x => new MonthlySalesReportDTO
+                            {
+                                Date = x.Date,
+                                TotalSales = x.TotalSales,
+                                OrderCount = x.OrderCount,
+                                AverageTicket = x.AverageTicket,
+                                TaxAmount = x.TaxAmount
+                            }).ToList();
+                    }
+
+                    // Ordenar por fecha (mes)
+                    salesData = salesData.OrderBy(x => x.Date.Month).ToList();
+
+                    if (salesData.Any())
+                    {
+                        NotificationService.Notify(NotificationSeverity.Success, "Éxito",
+                            "Reporte generado correctamente", duration: 3000);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errorMessage = $"Error al procesar los datos: {ex.Message}";
+                }
+            }
+            else
+            {
+                errorMessage = response?.ErrorMessage ?? "Error al cargar los datos";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "Error al cargar el reporte de ventas mensuales");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
