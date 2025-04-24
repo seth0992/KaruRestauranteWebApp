@@ -11,7 +11,7 @@ services:
         - /etc/localtime:/etc/localtime:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    restart: always  # reinicio automático
+    restart: always
 
   webfrontend:
     build: 
@@ -25,4 +25,4 @@ services:
       - API_BASE_URL=http://apiservice:8080
     volumes:
       - /etc/localtime:/etc/localtime:ro
-    restart: always  # reinicio automático
+    restart: always
